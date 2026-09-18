@@ -1,185 +1,228 @@
 // smart-shopping.js
-const puppeteer = require('puppeteer-extra');
-const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-puppeteer.use(StealthPlugin());
+const axios = require('axios');
+const cheerio = require('cheerio');
 
 // ---------------------------------------------------------------
-// ۱. تعریف فروشگاه‌ها و سلکتورهای CSS مربوط به هر سایت
+// ۱. تنظیمات فروشگاه‌ها (فقط API - بدون Puppeteer)
 // ---------------------------------------------------------------
 const STORES = [
   {
     name: 'دیجی‌کالا',
-    searchUrl: (query) =>
-      `https://www.digikala.com/search/?q=${encodeURIComponent(query)}`,
-    selectors: {
-      productItem: 'article[data-product-id]',
-      title: 'h3',
-      price: 'span[data-testid="price-final"]',
-      // در صورت نیاز، سلکتور موجودی را اضافه کنید
-    },
-    baseUrl: 'https://www.digikala.com',
+    type: 'api',
+    searchUrl: 'https://api.digikala.com/v1/search/',
   },
   {
     name: 'ترب',
-    searchUrl: (query) =>
-      `https://torob.com/search/?query=${encodeURIComponent(query)}`,
-    selectors: {
-      productItem: 'div[class*="product-card"]',
-      title: 'h2',
-      price: 'div[class*="price"]',
-    },
-    baseUrl: 'https://torob.com',
+    type: 'api',
+    searchUrl: 'https://api.torob.com/v4/base-product/search/',
   },
   {
     name: 'باسلام',
-    searchUrl: (query) =>
-      `https://basalam.com/search?q=${encodeURIComponent(query)}`,
-    selectors: {
-      productItem: 'div[class*="product-card"]',
-      title: 'h3',
-      price: 'span[class*="price"]',
-    },
-    baseUrl: 'https://basalam.com',
+    type: 'api',
+    searchUrl: 'https://developers.basalam.com/api/v1/products/search',
+    accessToken: process.env.BASALAM_TOKEN || '', // توکن OAuth2 باسلام
   },
-  // می‌توانید فروشگاه‌های بیشتری مانند «ایمالز»، «اسنپ‌شاپ» و ... اضافه کنید
 ];
 
 // ---------------------------------------------------------------
-// ۲. تابع استخراج قیمت از یک فروشگاه برای یک محصول خاص
+// ۲. تابع کمکی برای استخراج قیمت عددی از متن
 // ---------------------------------------------------------------
-async function searchProductInStore(browser, store, query) {
-  const page = await browser.newPage();
-  try {
-    // تنظیم User-Agent برای شبیه‌سازی مرورگر واقعی
-    await page.setUserAgent(
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
-        '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    );
+function parsePrice(priceText) {
+  if (!priceText) return 0;
+  const cleaned = priceText.toString().replace(/[^\d]/g, '');
+  const num = parseInt(cleaned, 10);
+  return isNaN(num) ? 0 : num;
+}
 
-    await page.goto(store.searchUrl(query), {
-      waitUntil: 'networkidle2',
-      timeout: 30000,
+// ---------------------------------------------------------------
+// ۳. جستجو در دیجی‌کالا با API
+// ---------------------------------------------------------------
+async function searchDigikala(query) {
+  try {
+    const response = await axios.get('https://api.digikala.com/v1/search/', {
+      params: { q: query, page: 1 },
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        Accept: 'application/json',
+      },
+      timeout: 15000,
     });
 
-    // منتظر می‌مانیم تا عناصر محصول بارگذاری شوند
-    await page.waitForSelector(store.selectors.productItem, { timeout: 10000 });
-
-    // استخراج اطلاعات اولین محصول (یا می‌توانید همه را استخراج کنید)
-    const product = await page.evaluate((sel) => {
-      const item = document.querySelector(sel.productItem);
-      if (!item) return null;
-
-      const titleEl = item.querySelector(sel.title);
-      const priceEl = item.querySelector(sel.price);
-
-      return {
-        title: titleEl ? titleEl.innerText.trim() : '—',
-        priceText: priceEl ? priceEl.innerText.trim() : null,
-      };
-    }, store.selectors);
-
-    if (!product || !product.priceText) return null;
-
-    // تبدیل متن قیمت به عدد (حذف کاراکترهای غیرعددی)
-    const numericPrice = parseInt(
-      product.priceText.replace(/[^\d]/g, ''),
-      10
-    );
-    if (isNaN(numericPrice) || numericPrice === 0) return null;
-
-    // ساخت لینک محصول (اختیاری)
-    const productLink = `${store.baseUrl}`; // در صورت نیاز مسیر دقیق محصول را استخراج کنید
-
-    return {
-      storeName: store.name,
-      productTitle: product.title,
-      price: numericPrice,
-      link: productLink,
-    };
+    const products = response.data?.data?.products || [];
+    return products.slice(0, 5).map((p) => ({
+      storeName: 'دیجی‌کالا',
+      productTitle: p.title_fa || p.title_en || '—',
+      price: parsePrice(p.default_variant?.price?.selling_price) / 10, // ریال به تومان
+      link: `https://www.digikala.com/product/dkp-${p.id}/`,
+    }));
   } catch (error) {
-    console.warn(`⚠️ خطا در جستجوی «${query}» در ${store.name}:`, error.message);
-    return null;
-  } finally {
-    await page.close();
+    console.warn(`⚠️ خطا در جستجوی دیجی‌کالا:`, error.message);
+    return [];
   }
 }
 
 // ---------------------------------------------------------------
-// ۳. تابع اصلی مقایسه سبد خرید
+// ۴. جستجو در ترب با API
+// ---------------------------------------------------------------
+async function searchTorob(query) {
+  try {
+    const response = await axios.get(
+      'https://api.torob.com/v4/base-product/search/',
+      {
+        params: { q: query, source: 'next_desktop' },
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          Accept: 'application/json',
+        },
+        timeout: 15000,
+      }
+    );
+
+    const products = response.data?.results || [];
+    return products.slice(0, 5).map((p) => ({
+      storeName: 'ترب',
+      productTitle: p.name1 || p.name || '—',
+      price: parsePrice(p.price) / 10, // ریال به تومان (در صورت نیاز)
+      link: `https://torob.com/p/${p.random_key || p.id}/`,
+    }));
+  } catch (error) {
+    console.warn(`⚠️ خطا در جستجوی ترب:`, error.message);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------
+// ۵. جستجو در باسلام با API
+// ---------------------------------------------------------------
+async function searchBasalam(query) {
+  const token = process.env.BASALAM_TOKEN;
+  if (!token) {
+    console.warn('⚠️ توکن باسلام تنظیم نشده است. از جستجوی باسلام صرف‌نظر می‌شود.');
+    return [];
+  }
+
+  try {
+    const response = await axios.get(
+      'https://developers.basalam.com/api/v1/products/search',
+      {
+        params: { q: query, page: 1 },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'User-Agent': 'Mozilla/5.0',
+          Accept: 'application/json',
+        },
+        timeout: 15000,
+      }
+    );
+
+    const products = response.data?.data || [];
+    return products.slice(0, 5).map((p) => ({
+      storeName: 'باسلام',
+      productTitle: p.name || '—',
+      price: parsePrice(p.price) / 10, // ریال به تومان
+      link: `https://basalam.com/product/${p.id}`,
+    }));
+  } catch (error) {
+    console.warn(`⚠️ خطا در جستجوی باسلام:`, error.message);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------
+// ۶. تابع اصلی مقایسه سبد خرید
 // ---------------------------------------------------------------
 async function compareBasket(shoppingList) {
   console.log('🛒 شروع جستجوی سبد خرید...\n');
 
-  const browser = await puppeteer.launch({
-    headless: 'new', // حالت Headless جدید
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
+  // ساختار نتایج
+  const results = {
+    'دیجی‌کالا': { items: [], total: 0, missing: [] },
+    'ترب': { items: [], total: 0, missing: [] },
+    'باسلام': { items: [], total: 0, missing: [] },
+  };
 
-  // ساختار نتایج: { storeName: { items: [], total: 0, missing: [] } }
-  const results = {};
-
-  for (const store of STORES) {
-    results[store.name] = { items: [], total: 0, missing: [] };
-  }
-
-  // جستجوی موازی برای هر آیتم در تمام فروشگاه‌ها
   for (const item of shoppingList) {
     console.log(`🔍 جستجوی: «${item}»`);
 
-    const searchPromises = STORES.map((store) =>
-      searchProductInStore(browser, store, item)
-    );
-    const foundResults = await Promise.all(searchPromises);
+    // جستجوی همزمان در تمام فروشگاه‌ها
+    const [digikalaResults, torobResults, basalamResults] = await Promise.all([
+      searchDigikala(item),
+      searchTorob(item),
+      searchBasalam(item),
+    ]);
 
-    foundResults.forEach((res) => {
-      if (res) {
-        results[res.storeName].items.push({
-          query: item,
-          title: res.productTitle,
-          price: res.price,
-          link: res.link,
-        });
-        results[res.storeName].total += res.price;
-      } else {
-        // فروشگاهی که محصول را ندارد
-        const storeName = STORES.find(
-          (s) => !results[s.name].items.some((i) => i.query === item)
-        )?.name;
-        if (storeName) {
-          results[storeName].missing.push(item);
-        }
-      }
-    });
+    // پردازش نتایج دیجی‌کالا
+    if (digikalaResults.length > 0) {
+      const best = digikalaResults[0];
+      results['دیجی‌کالا'].items.push({
+        query: item,
+        title: best.productTitle,
+        price: best.price,
+        link: best.link,
+      });
+      results['دیجی‌کالا'].total += best.price;
+    } else {
+      results['دیجی‌کالا'].missing.push(item);
+    }
 
-    // کمی تأخیر برای جلوگیری از بلاک شدن
-    await new Promise((r) => setTimeout(r, 1000));
+    // پردازش نتایج ترب
+    if (torobResults.length > 0) {
+      const best = torobResults[0];
+      results['ترب'].items.push({
+        query: item,
+        title: best.productTitle,
+        price: best.price,
+        link: best.link,
+      });
+      results['ترب'].total += best.price;
+    } else {
+      results['ترب'].missing.push(item);
+    }
+
+    // پردازش نتایج باسلام
+    if (basalamResults.length > 0) {
+      const best = basalamResults[0];
+      results['باسلام'].items.push({
+        query: item,
+        title: best.productTitle,
+        price: best.price,
+        link: best.link,
+      });
+      results['باسلام'].total += best.price;
+    } else {
+      results['باسلام'].missing.push(item);
+    }
+
+    // تأخیر کوتاه بین جستجوها برای جلوگیری از بلاک شدن
+    await new Promise((r) => setTimeout(r, 800));
   }
 
-  await browser.close();
-
   // ---------------------------------------------------------------
-  // ۴. مرتب‌سازی فروشگاه‌ها بر اساس مجموع قیمت
+  // ۷. مرتب‌سازی و نمایش نتایج
   // ---------------------------------------------------------------
   const sortedStores = Object.entries(results)
-    .filter(([_, data]) => data.items.length > 0) // فقط فروشگاه‌هایی که حداقل یک کالا دارند
+    .filter(([_, data]) => data.items.length > 0)
     .sort((a, b) => a[1].total - b[1].total);
 
-  // ---------------------------------------------------------------
-  // ۵. نمایش نتایج
-  // ---------------------------------------------------------------
   console.log('\n══════════════════════════════════════════');
   console.log('          📊 نتیجه مقایسه سبد خرید');
   console.log('══════════════════════════════════════════\n');
 
   if (sortedStores.length === 0) {
     console.log('❌ هیچ محصولی در فروشگاه‌های پشتیبانی‌شده یافت نشد.');
+    console.log('💡 نکته: برای باسلام باید متغیر محیطی BASALAM_TOKEN را تنظیم کنید.');
     return;
   }
 
   sortedStores.forEach(([storeName, data], index) => {
     const rank = index + 1;
-    console.log(`🏪 ${rank}. ${storeName}`);
-    console.log(`   💰 مجموع سبد: ${data.total.toLocaleString('fa-IR')} تومان`);
+    const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '🏪';
+    console.log(`${medal} ${rank}. ${storeName}`);
+    console.log(
+      `   💰 مجموع سبد: ${data.total.toLocaleString('fa-IR')} تومان`
+    );
 
     if (data.items.length > 0) {
       console.log('   📦 اقلام موجود:');
@@ -189,6 +232,7 @@ async function compareBasket(shoppingList) {
             'fa-IR'
           )} تومان)`
         );
+        console.log(`        🔗 ${item.link}`);
       });
     }
 
@@ -198,7 +242,6 @@ async function compareBasket(shoppingList) {
     console.log('');
   });
 
-  // نمایش بهترین گزینه
   const best = sortedStores[0];
   console.log('══════════════════════════════════════════');
   console.log(
@@ -210,7 +253,9 @@ async function compareBasket(shoppingList) {
 }
 
 // ---------------------------------------------------------------
-// ۶. اجرای برنامه
+// ۸. اجرای برنامه
 // ---------------------------------------------------------------
 const myShoppingList = ['گوشی سامسونگ', 'هدفون بی‌سیم', 'ماوس لاجیتک'];
-compareBasket(myShoppingList);
+compareBasket(myShoppingList).catch((err) => {
+  console.error('❌ خطای کلی در اجرای برنامه:', err);
+});
