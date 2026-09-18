@@ -12,7 +12,7 @@ const spinner = document.getElementById('spinner');
 
 let items = [];
 
-// ---------- افزودن آیتم ----------
+// ---------- مدیریت آیتم‌ها ----------
 function addItem() {
   const value = itemInput.value.trim();
   if (!value) return;
@@ -30,13 +30,11 @@ function addItem() {
   renderItems();
 }
 
-// ---------- حذف آیتم ----------
 function removeItem(index) {
   items.splice(index, 1);
   renderItems();
 }
 
-// ---------- رندر لیست آیتم‌ها ----------
 function renderItems() {
   itemsList.innerHTML = items
     .map(
@@ -48,11 +46,9 @@ function renderItems() {
     `
     )
     .join('');
-
   searchBtn.disabled = items.length === 0;
 }
 
-// ---------- پاک کردن همه ----------
 function clearAll() {
   items = [];
   renderItems();
@@ -63,7 +59,6 @@ function clearAll() {
 // ---------- جستجو ----------
 async function search() {
   if (items.length === 0) return;
-
   hideError();
   setLoading(true);
 
@@ -73,14 +68,12 @@ async function search() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ items }),
     });
-
     const data = await response.json();
 
     if (!data.success) {
       showError(data.error || 'خطایی رخ داد.');
       return;
     }
-
     renderResults(data.data);
   } catch (error) {
     showError('ارتباط با سرور برقرار نشد. لطفاً دوباره تلاش کنید.');
@@ -92,81 +85,102 @@ async function search() {
 
 // ---------- نمایش نتایج ----------
 function renderResults(data) {
-  const { stores, shoppingList, cheapest } = data;
+  const { queries, basketComparison } = data;
 
-  if (!stores || stores.length === 0) {
-    showError('هیچ محصولی در فروشگاه‌های پشتیبانی‌شده یافت نشد.');
-    return;
-  }
-
-  // بنر ارزان‌ترین
-  if (cheapest) {
+  // بنر بهترین فروشگاه برای خرید همه
+  if (basketComparison && basketComparison.length > 0) {
+    const best = basketComparison[0];
     cheapestBanner.innerHTML = `
-      <div class="label">🎉 ارزان‌ترین سبد خرید</div>
-      <div class="store-name">${escapeHtml(cheapest.storeName)}</div>
-      <div class="total">${formatPrice(cheapest.total)} تومان</div>
+      <div class="label">🎉 ارزان‌ترین فروشگاه برای خرید همه اقلام</div>
+      <div class="store-name">${escapeHtml(best.storeName)}</div>
+      <div class="total">
+        ${formatPrice(best.total)} تومان
+        <span class="coverage">(${best.itemCount} از ${queries.length} قلم)</span>
+      </div>
     `;
   } else {
     cheapestBanner.innerHTML = '';
   }
 
-  // کارت‌های فروشگاه
-  storesContainer.innerHTML = stores
-    .map((store) => {
-      const medal = store.rank === 1 ? '🥇' : store.rank === 2 ? '🥈' : '🥉';
+  // رندر هر query
+  let html = '';
 
-      const itemsHtml = store.items
-        .map(
-          (item) => `
-        <div class="item-row">
-          <div class="item-info">
-            <div class="item-query">${escapeHtml(item.query)}</div>
-            <div class="item-title">
-              <a href="${escapeHtml(item.link)}" target="_blank" rel="noopener">
-                ${escapeHtml(item.title)}
-              </a>
-            </div>
-          </div>
-          <div class="item-price">${formatPrice(item.price)} تومان</div>
-        </div>
-      `
-        )
-        .join('');
+  for (const { query, matches } of queries) {
+    html += `
+      <div class="query-group">
+        <h3 class="query-title">🔍 ${escapeHtml(query)}</h3>
+    `;
 
-      const missingHtml =
-        store.missing.length > 0
-          ? `
-        <div class="missing-items">
-          <strong>❌ ناموجود در این فروشگاه:</strong>
-          ${store.missing.map(escapeHtml).join('، ')}
-        </div>
-      `
-          : '';
+    if (matches.length === 0) {
+      html += `<p class="no-match">هیچ محصولی یافت نشد.</p>`;
+    } else {
+      // فقط خوشه‌هایی که حداقل ۲ فروشگاه دارند (قابل مقایسه هستند)
+      const comparable = matches.filter((m) => m.storeCount >= 2);
+      const singleStore = matches.filter((m) => m.storeCount === 1);
 
-      return `
-        <div class="store-card rank-${store.rank}">
-          <div class="store-header">
-            <div class="store-info">
-              <span class="store-rank">${medal}</span>
-              <div>
-                <div class="store-name">${escapeHtml(store.storeName)}</div>
-                <div class="store-coverage">پوشش: ${store.coverage}</div>
-              </div>
+      if (comparable.length > 0) {
+        html += `<p class="match-hint">✅ ${comparable.length} محصول مشترک بین فروشگاه‌ها پیدا شد:</p>`;
+        html += '<div class="matches-list">';
+        for (const match of comparable) {
+          html += renderMatch(match);
+        }
+        html += '</div>';
+      }
+
+      if (singleStore.length > 0) {
+        html += `
+          <details class="single-store-details">
+            <summary>ℹ️ ${singleStore.length} محصول فقط در یک فروشگاه یافت شد</summary>
+            <div class="matches-list">
+              ${singleStore.map(renderMatch).join('')}
             </div>
-            <div class="store-total">
-              <span class="label">مجموع سبد</span>
-              <span class="amount">${formatPrice(store.total)} تومان</span>
-            </div>
-          </div>
-          <div class="items-table">${itemsHtml}</div>
-          ${missingHtml}
-        </div>
-      `;
-    })
-    .join('');
+          </details>
+        `;
+      }
+    }
+
+    html += `</div>`;
+  }
+
+  storesContainer.innerHTML = html;
 
   resultsSection.classList.remove('hidden');
   resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderMatch(match) {
+  const offersHtml = match.offers
+    .map(
+      (offer, i) => `
+      <div class="offer-row ${i === 0 ? 'best-offer' : ''}">
+        <div class="offer-store">
+          ${i === 0 ? '🏆 ' : ''}${escapeHtml(offer.storeName)}
+        </div>
+        <a class="offer-link" href="${escapeHtml(offer.link)}" target="_blank" rel="noopener">
+          مشاهده
+        </a>
+        <div class="offer-price">${formatPrice(offer.price)} تومان</div>
+      </div>
+    `
+    )
+    .join('');
+
+  const savingsHtml =
+    match.savings > 0
+      ? `
+    <div class="savings-badge">
+      صرفه‌جویی: ${formatPrice(match.savings)} تومان (${match.savingsPercent}٪)
+    </div>
+  `
+      : '';
+
+  return `
+    <div class="match-card">
+      <div class="match-name">${escapeHtml(match.productName)}</div>
+      ${savingsHtml}
+      <div class="offers-table">${offersHtml}</div>
+    </div>
+  `;
 }
 
 // ---------- توابع کمکی ----------
@@ -203,7 +217,7 @@ itemInput.addEventListener('keydown', (e) => {
 searchBtn.addEventListener('click', search);
 clearBtn.addEventListener('click', clearAll);
 
-// ---------- مدیریت تم روشن/تاریک ----------
+// ---------- مدیریت تم ----------
 const themeToggle = document.getElementById('theme-toggle');
 const themeIcon = themeToggle.querySelector('.theme-icon');
 
@@ -214,11 +228,9 @@ function applyTheme(theme) {
 }
 
 function initTheme() {
-  // اولویت: تنظیمات ذخیره‌شده کاربر > تنظیمات سیستم‌عامل > روشن
   const saved = localStorage.getItem('theme');
-  if (saved) {
-    applyTheme(saved);
-  } else {
+  if (saved) applyTheme(saved);
+  else {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     applyTheme(prefersDark ? 'dark' : 'light');
   }
@@ -229,5 +241,4 @@ themeToggle.addEventListener('click', () => {
   applyTheme(current === 'dark' ? 'light' : 'dark');
 });
 
-// اجرای اولیه
 initTheme();
