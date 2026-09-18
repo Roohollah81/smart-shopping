@@ -1,70 +1,141 @@
-const axios = require("axios");
+const axios = require('axios');
 
-const PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
-const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
+const PERSIAN_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
+const ARABIC_DIGITS = '٠١٢٣٤٥٦٧٨٩';
 
 const STOPWORDS = new Set([
-  "مدل",
-  "کد",
-  "عدد",
-  "بسته",
-  "بسته‌بندی",
-  "سایز",
-  "اندازه",
-  "و",
-  "با",
-  "از",
-  "به",
-  "در",
-  "برای",
-  "یک",
-  "این",
-  "آن",
-  "یا",
-  "گرم",
-  "گرمی",
-  "کیلوگرم",
-  "لیتر",
-  "میلی",
-  "سانتی",
-  "سانتیمتر",
-  "متر",
-  "شماره",
-  "سری",
-  "طرح",
-  "نوع",
-  "برند",
-  "اصلی",
-  "اورجینال",
-  "جدید",
-  "قدیمی",
-  "کیفیت",
-  "عالی",
-  "درجه",
+  'مدل', 'کد', 'عدد', 'بسته', 'بسته‌بندی', 'سایز', 'اندازه',
+  'و', 'با', 'از', 'به', 'در', 'برای', 'یک', 'این', 'آن', 'یا',
+  'گرم', 'گرمی', 'کیلوگرم', 'لیتر', 'میلی', 'سانتی', 'سانتیمتر',
+  'متر', 'شماره', 'سری', 'طرح', 'نوع', 'برند', 'اصلی', 'اورجینال',
+  'جدید', 'قدیمی', 'کیفیت', 'عالی', 'درجه',
 ]);
 
 function normalize(text) {
-  if (!text) return "";
+  if (!text) return '';
   return text
     .toString()
     .replace(/[۰-۹]/g, (d) => PERSIAN_DIGITS.indexOf(d))
     .replace(/[٠-٩]/g, (d) => ARABIC_DIGITS.indexOf(d))
-    .replace(/ي/g, "ی")
-    .replace(/ك/g, "ک")
-    .replace(/ة/g, "ه")
-    .replace(/[\u064B-\u065F\u0670]/g, "")
-    .replace(/[-_.,،;:()\[\]{}«»"'\u060C\u061B\u061F]/g, " ")
-    .replace(/\s+/g, " ")
+    .replace(/ي/g, 'ی')
+    .replace(/ك/g, 'ک')
+    .replace(/ة/g, 'ه')
+    .replace(/[\u064B-\u065F\u0670]/g, '')
+    .replace(/[-_.,،;:()\[\]{}«»"'\u060C\u061B\u061F]/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
 }
 
 function tokenize(text) {
   return normalize(text)
-    .split(" ")
-    .filter((t) => t.length >= 2 && !STOPWORDS.has(t));
+    .split(' ')
+    .filter((t) => {
+      if (STOPWORDS.has(t)) return false;
+      if (/^\d+$/.test(t)) return true;
+      return t.length >= 2;
+    });
 }
 
+function isCriticalIdentifier(token) {
+  if (/^\d+$/.test(token)) return true;
+  if (/^[a-z]{1,4}\d+[a-z]?$/i.test(token)) return true;
+  if (/^\d+[a-z]{1,4}$/i.test(token)) return true;
+  return false;
+}
+
+// ---------------------------------------------------------------
+// 🎯 تطبیق دو توکن (نسخه اصلاح‌شده)
+// ---------------------------------------------------------------
+function tokensMatch(queryToken, titleToken) {
+  // تطبیق کامل
+  if (queryToken === titleToken) return true;
+
+  // شناسه‌های حیاتی فقط تطبیق کامل
+  if (isCriticalIdentifier(queryToken)) return false;
+
+  // تعیین توکن کوتاه‌تر و بلندتر
+  const shorter =
+    queryToken.length < titleToken.length ? queryToken : titleToken;
+  const longer =
+    queryToken.length < titleToken.length ? titleToken : queryToken;
+
+  // توکن‌های ۲ حرفی فقط تطبیق کامل (جلوگیری از «مو» → «موتور»)
+  if (shorter.length < 3) return false;
+
+  // توکن کوتاه‌تر باید داخل توکن بلندتر باشد
+  // «کلد» داخل «کلدپرس» ✓ ، «آرت» داخل «آرتیست» ✓ ، «قلم» داخل «قلمو» ✓
+  return longer.includes(shorter);
+}
+
+// ---------------------------------------------------------------
+// امتیاز تطبیق با query اصلی
+// ---------------------------------------------------------------
+function queryMatchScore(query, title) {
+  const qt = tokenize(query);
+  const tt = tokenize(title);
+
+  if (qt.length === 0) {
+    return {
+      score: 1,
+      ratio: 1,
+      matchedTokens: [],
+      missedTokens: [],
+      reason: null,
+    };
+  }
+
+  // ۱. بررسی شناسه‌های حیاتی
+  const queryIdentifiers = qt.filter(isCriticalIdentifier);
+  const missedIdentifiers = [];
+
+  for (const id of queryIdentifiers) {
+    if (!tt.some((t) => t === id)) missedIdentifiers.push(id);
+  }
+
+  if (missedIdentifiers.length > 0) {
+    return {
+      score: 0,
+      ratio: 0,
+      matchedTokens: [],
+      missedTokens: missedIdentifiers,
+      reason: `شناسه حیاتی مطابقت ندارد: ${missedIdentifiers.join('، ')}`,
+    };
+  }
+
+  // ۲. محاسبه امتیاز وزن‌دار + نسبت تعداد
+  let totalWeight = 0;
+  let matchedWeight = 0;
+  let matchedCount = 0;
+  const matchedTokens = [];
+  const missedTokens = [];
+
+  for (const token of qt) {
+    const weight = isCriticalIdentifier(token)
+      ? 10
+      : Math.pow(token.length, 1.5);
+    totalWeight += weight;
+
+    const isMatched = tt.some((t) => tokensMatch(token, t));
+
+    if (isMatched) {
+      matchedWeight += weight;
+      matchedCount++;
+      matchedTokens.push(token);
+    } else {
+      missedTokens.push(token);
+    }
+  }
+
+  const score = totalWeight > 0 ? matchedWeight / totalWeight : 0;
+  const ratio = qt.length > 0 ? matchedCount / qt.length : 0;
+
+  return { score, ratio, matchedTokens, missedTokens, reason: null };
+}
+
+// ---------------------------------------------------------------
+// شباهت و خوشه‌بندی
+// ---------------------------------------------------------------
 function jaccard(a, b) {
   const setA = new Set(a);
   const setB = new Set(b);
@@ -92,36 +163,6 @@ function similarity(titleA, titleB) {
   return baseSim;
 }
 
-function queryMatchScore(query, title) {
-  const qt = tokenize(query);
-  const tt = tokenize(title);
-  if (qt.length === 0) return { score: 1, matchedTokens: [], missedTokens: [] };
-
-  let totalWeight = 0;
-  let matchedWeight = 0;
-  const matchedTokens = [];
-  const missedTokens = [];
-
-  for (const token of qt) {
-    const weight = Math.pow(token.length, 1.5);
-    totalWeight += weight;
-
-    // 🎯 مطابقت سخت‌گیرانه: توکن باید کامل در عنوان باشد
-    // (نه اینکه عنوان شامل توکن باشد یا برعکس)
-    const isMatched = tt.some((t) => t === token);
-
-    if (isMatched) {
-      matchedWeight += weight;
-      matchedTokens.push(token);
-    } else {
-      missedTokens.push(token);
-    }
-  }
-
-  const score = totalWeight > 0 ? matchedWeight / totalWeight : 0;
-  return { score, matchedTokens, missedTokens };
-}
-
 function clusterProducts(products, threshold = 0.6) {
   const clusters = [];
   for (const product of products) {
@@ -130,7 +171,7 @@ function clusterProducts(products, threshold = 0.6) {
     for (const cluster of clusters) {
       const sim = similarity(
         product.productTitle,
-        cluster.representative.productTitle,
+        cluster.representative.productTitle
       );
       if (sim > bestSim && sim >= threshold) {
         bestSim = sim;
@@ -149,28 +190,31 @@ function clusterProducts(products, threshold = 0.6) {
   return clusters;
 }
 
+// ---------------------------------------------------------------
+// جستجو در فروشگاه‌ها
+// ---------------------------------------------------------------
 async function searchDigikala(query, limit = 20) {
   try {
-    const response = await axios.get("https://api.digikala.com/v1/search/", {
+    const response = await axios.get('https://api.digikala.com/v1/search/', {
       params: { q: query, page: 1 },
       headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        Accept: "application/json",
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        Accept: 'application/json',
       },
       timeout: 15000,
     });
     const products = response.data?.data?.products || [];
     return products.slice(0, limit).map((p) => ({
-      storeName: "دیجی‌کالا",
-      productTitle: p.title_fa || "—",
+      storeName: 'دیجی‌کالا',
+      productTitle: p.title_fa || '—',
       price:
         parseInt(
-          String(p.default_variant?.price?.selling_price || "0").replace(
+          String(p.default_variant?.price?.selling_price || '0').replace(
             /[^\d]/g,
-            "",
+            ''
           ),
-          10,
+          10
         ) / 10,
       link: `https://www.digikala.com/product/dkp-${p.id}/`,
     }));
@@ -183,26 +227,26 @@ async function searchDigikala(query, limit = 20) {
 async function searchTorob(query, limit = 20) {
   try {
     const response = await axios.get(
-      "https://api.torob.com/v4/base-product/search/",
+      'https://api.torob.com/v4/base-product/search/',
       {
-        params: { q: query, source: "next_desktop", page: 0, size: limit },
+        params: { q: query, source: 'next_desktop', page: 0, size: limit },
         headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          Accept: "application/json, text/plain, */*",
-          "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
-          Referer: "https://torob.com/",
-          Origin: "https://torob.com",
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+            '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          Accept: 'application/json, text/plain, */*',
+          'Accept-Language': 'fa-IR,fa;q=0.9,en;q=0.8',
+          Referer: 'https://torob.com/',
+          Origin: 'https://torob.com',
         },
         timeout: 15000,
-      },
+      }
     );
     const products = response.data?.results || [];
     return products.slice(0, limit).map((p) => ({
-      storeName: "ترب",
-      productTitle: p.name1 || p.name || "—",
-      price: parseInt(String(p.price || "0").replace(/[^\d]/g, ""), 10),
+      storeName: 'ترب',
+      productTitle: p.name1 || p.name || '—',
+      price: parseInt(String(p.price || '0').replace(/[^\d]/g, ''), 10),
       link: `https://torob.com/p/${p.random_key || p.id}/`,
     }));
   } catch (error) {
@@ -211,13 +255,17 @@ async function searchTorob(query, limit = 20) {
   }
 }
 
+// ---------------------------------------------------------------
+// تابع اصلی
+// ---------------------------------------------------------------
 async function compareBasket(shoppingList) {
   const queries = [];
-  const MIN_QUERY_MATCH = 0.6;
 
-  // خط جداکننده برای خوانایی بهتر لاگ‌ها
-  const SEP = "─".repeat(70);
-  const THICK_SEP = "═".repeat(70);
+  const MIN_QUERY_MATCH = 0.6;
+  const MIN_TOKEN_RATIO = 0.75;
+
+  const SEP = '─'.repeat(70);
+  const THICK_SEP = '═'.repeat(70);
 
   for (const query of shoppingList) {
     const [digikalaResults, torobResults] = await Promise.all([
@@ -226,59 +274,79 @@ async function compareBasket(shoppingList) {
     ]);
 
     const allProducts = [...digikalaResults, ...torobResults];
+    const queryTokens = tokenize(query);
+    const queryIds = queryTokens.filter(isCriticalIdentifier);
 
-    console.log("\n\n");
+    console.log('\n\n');
     console.log(THICK_SEP);
     console.log(`🔍 جستجو: «${query}»`);
-    console.log(`   توکن‌ها: ${tokenize(query).join(" | ")}`);
+    console.log(`   توکن‌ها (${queryTokens.length} عدد): ${queryTokens.join(' | ')}`);
+    if (queryIds.length > 0) {
+      console.log(`   🔑 شناسه‌های حیاتی: ${queryIds.join(' | ')}`);
+    }
+    console.log(
+      `   📏 آستانه‌ها: امتیاز ≥ ${MIN_QUERY_MATCH}  │  نسبت تطبیق ≥ ${MIN_TOKEN_RATIO}`
+    );
     console.log(`   تعداد محصولات دریافتی: ${allProducts.length}`);
     console.log(THICK_SEP);
-    console.log("");
+    console.log('');
 
-    // فیلتر محصولات نامرتبط
     const relevantProducts = [];
     let acceptedCount = 0;
     let rejectedCount = 0;
 
     for (const p of allProducts) {
       const matchInfo = queryMatchScore(query, p.productTitle);
-      const isAccepted = matchInfo.score >= MIN_QUERY_MATCH;
+      const passesScore = matchInfo.score >= MIN_QUERY_MATCH;
+      const passesRatio = matchInfo.ratio >= MIN_TOKEN_RATIO;
+      const isAccepted = passesScore && passesRatio;
 
-      if (isAccepted) {
-        acceptedCount++;
-      } else {
-        rejectedCount++;
-      }
+      if (isAccepted) acceptedCount++;
+      else rejectedCount++;
 
-      const icon = isAccepted ? "✅" : "❌";
-      const scoreStr = matchInfo.score.toFixed(2).padStart(4, " ");
-      const store = p.storeName.padEnd(10, " ");
+      const icon = isAccepted ? '✅' : '❌';
+      const scoreStr = matchInfo.score.toFixed(2).padStart(4, ' ');
+      const ratioStr =
+        (matchInfo.ratio * 100).toFixed(0).padStart(3, ' ') + '%';
+      const store = p.storeName.padEnd(10, ' ');
       const title =
-        p.productTitle.length > 55
-          ? p.productTitle.substring(0, 55) + "..."
+        p.productTitle.length > 50
+          ? p.productTitle.substring(0, 50) + '...'
           : p.productTitle;
 
-      console.log(`${icon}  [${scoreStr}]  ${store}  │  ${title}`);
+      console.log(
+        `${icon}  [امتیاز ${scoreStr} │ تطبیق ${ratioStr}]  ${store}  │  ${title}`
+      );
 
-      const matched = matchInfo.matchedTokens.join(" + ") || "—";
-      const missed = matchInfo.missedTokens.join(" + ") || "—";
-      console.log(`              ✔ تطبیق: ${matched}`);
-      if (matchInfo.missedTokens.length > 0) {
-        console.log(`              ✘ جامانده: ${missed}`);
+      if (matchInfo.reason) {
+        console.log(`        ⛔ ${matchInfo.reason}`);
+      } else if (!isAccepted) {
+        const reasons = [];
+        if (!passesScore)
+          reasons.push(`امتیاز کم (${matchInfo.score.toFixed(2)})`);
+        if (!passesRatio)
+          reasons.push(`نسبت تطبیق کم (${(matchInfo.ratio * 100).toFixed(0)}%)`);
+        console.log(`        ⛔ ${reasons.join(' + ')}`);
+        if (matchInfo.missedTokens.length > 0) {
+          console.log(
+            `        ✘ جامانده: ${matchInfo.missedTokens.join(' + ')}`
+          );
+        }
+      } else {
+        const matched = matchInfo.matchedTokens.join(' + ') || '—';
+        console.log(`        ✔ تطبیق: ${matched}`);
       }
-      console.log("");
+      console.log('');
 
-      if (isAccepted) {
-        relevantProducts.push(p);
-      }
+      if (isAccepted) relevantProducts.push(p);
     }
 
     console.log(SEP);
     console.log(
-      `📊 خلاصه فیلتر: ${acceptedCount} تأیید شده  │  ${rejectedCount} رد شده  │  از ${allProducts.length} محصول`,
+      `📊 خلاصه فیلتر: ${acceptedCount} تأیید شده  │  ${rejectedCount} رد شده  │  از ${allProducts.length} محصول`
     );
     console.log(SEP);
-    console.log("");
+    console.log('');
 
     const clusters = clusterProducts(relevantProducts);
 
@@ -293,7 +361,9 @@ async function compareBasket(shoppingList) {
             byStore[offer.storeName] = offer;
           }
         }
-        const offers = Object.values(byStore).sort((a, b) => a.price - b.price);
+        const offers = Object.values(byStore).sort(
+          (a, b) => a.price - b.price
+        );
         const cheapest = offers[0];
         const mostExpensive = offers[offers.length - 1];
         const savings = mostExpensive.price - cheapest.price;
@@ -319,11 +389,11 @@ async function compareBasket(shoppingList) {
 
     console.log(`🎯 خوشه‌های نهایی برای «${query}»: ${matches.length}`);
     matches.forEach((m, i) => {
-      const storeList = m.offers.map((o) => o.storeName).join(" / ");
+      const storeList = m.offers.map((o) => o.storeName).join(' / ');
       console.log(`   ${i + 1}. [${m.storeCount} فروشگاه] ${storeList}`);
       console.log(`      عنوان: ${m.productName.substring(0, 70)}`);
     });
-    console.log("");
+    console.log('');
 
     queries.push({ query, matches });
     await new Promise((r) => setTimeout(r, 800));
@@ -376,11 +446,11 @@ async function compareBasket(shoppingList) {
       return a.total - b.total;
     });
 
-  console.log("\n\n");
+  console.log('\n\n');
   console.log(THICK_SEP);
-  console.log("🏁 پایان تحلیل");
+  console.log('🏁 پایان تحلیل');
   console.log(THICK_SEP);
-  console.log("");
+  console.log('');
 
   return { queries, basketComparison };
 }
