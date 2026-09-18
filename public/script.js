@@ -202,3 +202,32 @@ itemInput.addEventListener('keydown', (e) => {
 });
 searchBtn.addEventListener('click', search);
 clearBtn.addEventListener('click', clearAll);
+
+// ---------- مدیریت تم روشن/تاریک ----------
+const themeToggle = document.getElementById('theme-toggle');
+const themeIcon = themeToggle.querySelector('.theme-icon');
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
+  localStorage.setItem('theme', theme);
+}
+
+function initTheme() {
+  // اولویت: تنظیمات ذخیره‌شده کاربر > تنظیمات سیستم‌عامل > روشن
+  const saved = localStorage.getItem('theme');
+  if (saved) {
+    applyTheme(saved);
+  } else {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(prefersDark ? 'dark' : 'light');
+  }
+}
+
+themeToggle.addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+});
+
+// اجرای اولیه
+initTheme();
