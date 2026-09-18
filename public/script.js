@@ -11,6 +11,8 @@ const errorBox = document.getElementById("error-box");
 const spinner = document.getElementById("spinner");
 
 let items = [];
+let lastQueries = [];
+let singleStoreSortOrders = {}; // ترتیب هر بخش تک‌فروشگاهی: { [qIndex]: 'asc' | 'desc' }
 
 // ---------- مدیریت آیتم‌ها ----------
 function addItem() {
@@ -51,6 +53,8 @@ function renderItems() {
 
 function clearAll() {
   items = [];
+  lastQueries = [];
+  singleStoreSortOrders = {};
   renderItems();
   resultsSection.classList.add("hidden");
   hideError();
@@ -83,9 +87,13 @@ async function search() {
   }
 }
 
-// ---------- نمایش نتایج ----------
 function renderResults(data) {
   const { queries, basketComparison } = data;
+
+  // ذخیره برای مرتب‌سازی مجدد
+  lastQueries = queries;
+  singleStoreSortOrders = {};
+  queries.forEach((_, i) => (singleStoreSortOrders[i] = "asc"));
 
   // ========== ۱. رندر بخش تحلیل هوشمند ==========
   renderAnalysisPanel(queries, basketComparison);
@@ -106,19 +114,43 @@ function renderResults(data) {
   }
 
   // ========== ۳. رندر لیست کامل ==========
+  renderComparisonList();
+
+  resultsSection.classList.remove("hidden");
+  resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// ================================================================
+// رندر لیست کامل مقایسه
+// ================================================================
+function renderComparisonList() {
+  // ذخیره وضعیت باز/بسته details ها قبل از re-render
+  const openStates = {};
+  document.querySelectorAll(".single-store-details").forEach((el, i) => {
+    openStates[i] = el.open;
+  });
+
   let html = "";
 
-  for (const { query, matches } of queries) {
+  lastQueries.forEach(({ query, matches }, qIndex) => {
+    const singleSortOrder = singleStoreSortOrders[qIndex] || "asc";
+
     html += `
       <div class="query-group">
         <h3 class="query-title">🔍 ${escapeHtml(query)}</h3>
     `;
 
-    if (matches.length === 0) {
+    if (!matches || matches.length === 0) {
       html += `<p class="no-match">هیچ محصولی یافت نشد.</p>`;
     } else {
       const comparable = matches.filter((m) => m.storeCount >= 2);
-      const singleStore = matches.filter((m) => m.storeCount === 1);
+      const singleStore = [...matches.filter((m) => m.storeCount === 1)].sort(
+        (a, b) => {
+          const pa = a.cheapest?.price ?? Infinity;
+          const pb = b.cheapest?.price ?? Infinity;
+          return singleSortOrder === "asc" ? pa - pb : pb - pa;
+        },
+      );
 
       if (comparable.length > 0) {
         html += `<p class="match-hint">✅ ${comparable.length} محصول مشترک بین فروشگاه‌ها پیدا شد:</p>`;
@@ -131,8 +163,23 @@ function renderResults(data) {
 
       if (singleStore.length > 0) {
         html += `
-          <details class="single-store-details">
+          <details class="single-store-details" data-single-index="${qIndex}">
             <summary>ℹ️ ${singleStore.length} محصول فقط در یک فروشگاه یافت شد</summary>
+            <div class="single-store-toolbar">
+              <button
+                class="sort-toggle"
+                data-single-sort-index="${qIndex}"
+                type="button"
+                aria-label="تغییر ترتیب قیمت"
+              >
+                <span class="sort-arrow ${singleSortOrder === "desc" ? "desc" : ""}">
+                  ${singleSortOrder === "desc" ? "↓" : "↑"}
+                </span>
+                <span class="sort-text">
+                  ${singleSortOrder === "desc" ? "گران‌ترین" : "ارزان‌ترین"}
+                </span>
+              </button>
+            </div>
             <div class="matches-list">
               ${singleStore.map(renderMatch).join("")}
             </div>
@@ -142,12 +189,33 @@ function renderResults(data) {
     }
 
     html += `</div>`;
-  }
+  });
 
   storesContainer.innerHTML = html;
 
-  resultsSection.classList.remove("hidden");
-  resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  // بازگرداندن وضعیت باز/بسته details ها
+  document.querySelectorAll(".single-store-details").forEach((el, i) => {
+    if (openStates[i]) el.open = true;
+  });
+
+  // اتصال رویداد دکمه ترتیب بخش تک‌فروشگاهی
+  document
+    .querySelectorAll(".sort-toggle[data-single-sort-index]")
+    .forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const idx = parseInt(btn.dataset.singleSortIndex, 10);
+        singleStoreSortOrders[idx] =
+          singleStoreSortOrders[idx] === "asc" ? "desc" : "asc";
+        renderComparisonList();
+        // باز نگه داشتن همان details بعد از re-render
+        const details = document.querySelector(
+          `.single-store-details[data-single-index="${idx}"]`,
+        );
+        if (details) details.open = true;
+      });
+    });
 }
 
 // ---------- رندر پنل تحلیل هوشمند ----------
