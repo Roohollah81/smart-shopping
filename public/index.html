@@ -1,0 +1,74 @@
+
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>خرید هوشمند | مقایسه قیمت سبد خرید</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+</head>
+<body>
+  <div class="container">
+    <!-- هدر -->
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">🛒</span>
+        <div>
+          <h1>خرید هوشمند</h1>
+          <p class="subtitle">مقایسه قیمت سبد خرید در فروشگاه‌های آنلاین</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- فرم ورودی -->
+    <section class="input-section">
+      <div class="input-header">
+        <h2>📝 لیست خرید خود را وارد کنید</h2>
+        <p class="hint">هر آیتم را در یک خط جداگانه بنویسید یا با Enter اضافه کنید</p>
+      </div>
+
+      <div class="input-wrapper">
+        <input
+          type="text"
+          id="item-input"
+          placeholder="مثلاً: گوشی سامسونگ"
+          autocomplete="off"
+        />
+        <button id="add-btn" class="btn-add">افزودن</button>
+      </div>
+
+      <div id="items-list" class="items-list">
+        <!-- آیتم‌ها اینجا نمایش داده می‌شوند -->
+      </div>
+
+      <div class="actions">
+        <button id="search-btn" class="btn-search" disabled>
+          <span class="spinner" id="spinner"></span>
+          <span id="search-btn-text">🔍 جستجو و مقایسه</span>
+        </button>
+        <button id="clear-btn" class="btn-clear">پاک کردن همه</button>
+      </div>
+    </section>
+
+    <!-- نتایج -->
+    <section id="results-section" class="results-section hidden">
+      <h2 class="results-title">📊 نتایج مقایسه</h2>
+
+      <div id="cheapest-banner" class="cheapest-banner"></div>
+
+      <div id="stores-container" class="stores-container"></div>
+    </section>
+
+    <!-- خطا -->
+    <div id="error-box" class="error-box hidden"></div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
