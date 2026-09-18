@@ -87,7 +87,10 @@ async function search() {
 function renderResults(data) {
   const { queries, basketComparison } = data;
 
-  // بنر بهترین فروشگاه برای خرید همه
+  // ========== ۱. رندر بخش تحلیل هوشمند ==========
+  renderAnalysisPanel(queries, basketComparison);
+
+  // ========== ۲. بنر بهترین فروشگاه ==========
   if (basketComparison && basketComparison.length > 0) {
     const best = basketComparison[0];
     cheapestBanner.innerHTML = `
@@ -102,7 +105,7 @@ function renderResults(data) {
     cheapestBanner.innerHTML = '';
   }
 
-  // رندر هر query
+  // ========== ۳. رندر لیست کامل ==========
   let html = '';
 
   for (const { query, matches } of queries) {
@@ -114,7 +117,6 @@ function renderResults(data) {
     if (matches.length === 0) {
       html += `<p class="no-match">هیچ محصولی یافت نشد.</p>`;
     } else {
-      // فقط خوشه‌هایی که حداقل ۲ فروشگاه دارند (قابل مقایسه هستند)
       const comparable = matches.filter((m) => m.storeCount >= 2);
       const singleStore = matches.filter((m) => m.storeCount === 1);
 
@@ -146,6 +148,144 @@ function renderResults(data) {
 
   resultsSection.classList.remove('hidden');
   resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ---------- رندر پنل تحلیل هوشمند ----------
+function renderAnalysisPanel(queries, basketComparison) {
+  const panel = document.getElementById('analysis-content');
+
+  // اگر هیچ نتیجه‌ای نبود
+  if (!basketComparison || basketComparison.length === 0) {
+    panel.innerHTML = `
+      <div class="analysis-empty">
+        ⚠️ هیچ نتیجه‌ای برای تحلیل یافت نشد.
+      </div>
+    `;
+    return;
+  }
+
+  // ---------------------------------------------------------------
+  // محاسبه شاخص‌های تحلیلی
+  // ---------------------------------------------------------------
+  const best = basketComparison[0];
+  const totalItems = queries.length;
+
+  // ارزان‌ترین پیشنهاد هر قلم (از هر فروشگاهی)
+  const smartPickPerItem = queries.map(({ query, matches }) => {
+    if (!matches || matches.length === 0) {
+      return { query, best: null };
+    }
+    // بهترین تطبیق: بیشترین تعداد فروشگاه، سپس کمترین قیمت
+    const sorted = [...matches]
+      .filter((m) => m.cheapest && m.cheapest.price > 0)
+      .sort((a, b) => {
+        if (b.storeCount !== a.storeCount) return b.storeCount - a.storeCount;
+        return a.cheapest.price - b.cheapest.price;
+      });
+    return { query, best: sorted[0] || null };
+  });
+
+  // مجموع «خرید هوشمند» (هر قلم از ارزان‌ترین فروشگاه خودش)
+  const smartTotal = smartPickPerItem.reduce(
+    (sum, item) => sum + (item.best ? item.best.cheapest.price : 0),
+    0
+  );
+  const smartFoundCount = smartPickPerItem.filter((i) => i.best).length;
+
+  // مقایسه با بهترین سبد تک‌فروشگاهی
+  const singleStoreTotal = best.total;
+  const savingsVsSingle = singleStoreTotal - smartTotal;
+  const savingsPercent =
+    singleStoreTotal > 0
+      ? Math.round((savingsVsSingle / singleStoreTotal) * 100)
+      : 0;
+
+  // ---------------------------------------------------------------
+  // ساخت HTML
+  // ---------------------------------------------------------------
+  const smartItemsHtml = smartPickPerItem
+    .map(({ query, best }) => {
+      if (!best) {
+        return `
+        <div class="smart-item smart-item-missing">
+          <span class="smart-item-query">${escapeHtml(query)}</span>
+          <span class="smart-item-status">❌ یافت نشد</span>
+        </div>
+      `;
+      }
+      return `
+      <div class="smart-item">
+        <div class="smart-item-info">
+          <div class="smart-item-query">${escapeHtml(query)}</div>
+          <div class="smart-item-title">${escapeHtml(best.cheapest.productTitle)}</div>
+        </div>
+        <div class="smart-item-store">
+          <span class="store-tag">${escapeHtml(best.cheapest.storeName)}</span>
+        </div>
+        <div class="smart-item-price">${formatPrice(best.cheapest.price)} تومان</div>
+      </div>
+    `;
+    })
+    .join('');
+
+  const comparisonHtml =
+    savingsVsSingle > 0
+      ? `
+      <div class="analysis-comparison">
+        <div class="comparison-row">
+          <span class="comparison-label">💡 خرید همه از یک فروشگاه (${escapeHtml(best.storeName)})</span>
+          <span class="comparison-value">${formatPrice(singleStoreTotal)} تومان</span>
+        </div>
+        <div class="comparison-row highlight">
+          <span class="comparison-label">🧠 خرید هوشمند (هر قلم از بهترین فروشگاه)</span>
+          <span class="comparison-value">${formatPrice(smartTotal)} تومان</span>
+        </div>
+        <div class="comparison-savings">
+          💰 صرفه‌جویی با خرید هوشمند: 
+          <strong>${formatPrice(savingsVsSingle)} تومان (${savingsPercent}٪)</strong>
+        </div>
+      </div>
+    `
+      : `
+      <div class="analysis-comparison">
+        <div class="comparison-row highlight">
+          <span class="comparison-label">🧠 مجموع خرید هوشمند</span>
+          <span class="comparison-value">${formatPrice(smartTotal)} تومان</span>
+        </div>
+        <div class="comparison-note">
+          ℹ️ خرید همه اقلام از «${escapeHtml(best.storeName)}» در حال حاضر به‌صرفه‌تر است.
+        </div>
+      </div>
+    `;
+
+  panel.innerHTML = `
+    <div class="analysis-conclusion">
+      <div class="conclusion-icon">🏆</div>
+      <div class="conclusion-text">
+        <div class="conclusion-label">نتیجه تحلیل</div>
+        <div class="conclusion-main">
+          بهترین گزینه: <strong>${escapeHtml(best.storeName)}</strong>
+          <span class="conclusion-coverage">(${best.itemCount} از ${totalItems} قلم)</span>
+        </div>
+        <div class="conclusion-total">${formatPrice(best.total)} تومان</div>
+      </div>
+    </div>
+
+    <div class="analysis-section">
+      <h4 class="analysis-subtitle">📦 پیشنهاد بهینه برای هر قلم</h4>
+      <div class="smart-items-list">${smartItemsHtml}</div>
+    </div>
+
+    <div class="analysis-section">
+      <h4 class="analysis-subtitle">📊 مقایسه استراتژی‌های خرید</h4>
+      ${comparisonHtml}
+    </div>
+
+    <div class="analysis-disclaimer">
+      ⚙️ این نتیجه بر اساس شباهت عنوان محصولات (الگوریتم Jaccard + وزن‌دهی مدل) و قیمت‌های لحظه‌ای فروشگاه‌ها محاسبه شده است.
+      ممکن است برخی قیمت‌ها با صفحه واقعی محصول تفاوت جزئی داشته باشند.
+    </div>
+  `;
 }
 
 function renderMatch(match) {

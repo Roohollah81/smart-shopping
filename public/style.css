@@ -779,3 +779,330 @@ body,
     text-align: left;
   }
 }
+
+/* ================================================================
+   پنل تحلیل هوشمند (جدا از لیست مقایسه)
+   ================================================================ */
+.analysis-panel {
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
+  border-radius: 1.5rem;
+  padding: 1.75rem;
+  margin-bottom: 2.5rem;
+  color: white;
+  box-shadow: 0 20px 40px -10px rgb(67 56 202 / 0.4);
+  position: relative;
+  overflow: hidden;
+  animation: analysisSlideIn 0.5s ease;
+}
+
+:root[data-theme="dark"] .analysis-panel {
+  background: linear-gradient(135deg, #312e81 0%, #1e1b4b 100%);
+  box-shadow: 0 20px 40px -10px rgb(129 140 248 / 0.3);
+}
+
+.analysis-panel::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+@keyframes analysisSlideIn {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.analysis-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  position: relative;
+  z-index: 1;
+}
+
+.analysis-badge {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  padding: 0.375rem 0.875rem;
+  border-radius: 2rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.analysis-title {
+  font-size: 1rem;
+  font-weight: 500;
+  opacity: 0.9;
+  margin: 0;
+}
+
+.analysis-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ---------- نتیجه نهایی ---------- */
+.analysis-conclusion {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 1.25rem;
+  padding: 1.25rem 1.5rem;
+}
+
+.conclusion-icon {
+  font-size: 3rem;
+  flex-shrink: 0;
+  animation: trophyBounce 2s ease-in-out infinite;
+}
+
+@keyframes trophyBounce {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-4px) rotate(-3deg); }
+}
+
+.conclusion-text {
+  flex: 1;
+}
+
+.conclusion-label {
+  font-size: 0.75rem;
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 0.25rem;
+}
+
+.conclusion-main {
+  font-size: 1.125rem;
+  margin-bottom: 0.25rem;
+}
+
+.conclusion-main strong {
+  color: #fbbf24;
+  font-size: 1.25rem;
+}
+
+.conclusion-coverage {
+  font-size: 0.813rem;
+  opacity: 0.75;
+  margin-right: 0.5rem;
+}
+
+.conclusion-total {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #34d399;
+  letter-spacing: -0.5px;
+}
+
+/* ---------- بخش‌های تحلیل ---------- */
+.analysis-section {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  padding: 1.25rem;
+}
+
+.analysis-subtitle {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  opacity: 0.9;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ---------- لیست پیشنهاد هر قلم ---------- */
+.smart-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.smart-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.75rem;
+  transition: all 0.2s;
+}
+
+.smart-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.smart-item-missing {
+  opacity: 0.5;
+}
+
+.smart-item-info {
+  min-width: 0;
+}
+
+.smart-item-query {
+  font-size: 0.75rem;
+  opacity: 0.65;
+  margin-bottom: 0.125rem;
+}
+
+.smart-item-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.store-tag {
+  display: inline-block;
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+  padding: 0.25rem 0.625rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.smart-item-price {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: #34d399;
+  white-space: nowrap;
+}
+
+.smart-item-status {
+  font-size: 0.813rem;
+  opacity: 0.7;
+}
+
+/* ---------- مقایسه استراتژی‌ها ---------- */
+.analysis-comparison {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.comparison-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.comparison-row.highlight {
+  background: rgba(52, 211, 153, 0.15);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+.comparison-label {
+  opacity: 0.9;
+}
+
+.comparison-value {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.comparison-row.highlight .comparison-value {
+  color: #34d399;
+  font-size: 1rem;
+}
+
+.comparison-savings {
+  margin-top: 0.5rem;
+  padding: 0.875rem 1rem;
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.15), rgba(251, 191, 36, 0.05));
+  border-right: 3px solid #fbbf24;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.comparison-savings strong {
+  color: #fbbf24;
+  font-size: 1rem;
+}
+
+.comparison-note {
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.5rem;
+  font-size: 0.813rem;
+  opacity: 0.85;
+  text-align: center;
+}
+
+/* ---------- عدم نتیجه ---------- */
+.analysis-empty {
+  padding: 2rem;
+  text-align: center;
+  opacity: 0.7;
+  font-size: 0.938rem;
+}
+
+/* ---------- سلب مسئولیت ---------- */
+.analysis-disclaimer {
+  padding: 0.875rem 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 0.625rem;
+  font-size: 0.75rem;
+  line-height: 1.7;
+  opacity: 0.7;
+  border-right: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+/* ---------- واکنش‌گرایی پنل تحلیل ---------- */
+@media (max-width: 640px) {
+  .analysis-panel {
+    padding: 1.25rem;
+    border-radius: 1.25rem;
+  }
+  .analysis-conclusion {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.75rem;
+  }
+  .conclusion-icon {
+    font-size: 2.5rem;
+  }
+  .conclusion-total {
+    font-size: 1.25rem;
+  }
+  .smart-item {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    text-align: right;
+  }
+  .smart-item-price {
+    text-align: left;
+  }
+  .comparison-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+}
