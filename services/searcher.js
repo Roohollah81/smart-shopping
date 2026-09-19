@@ -44,6 +44,22 @@ const STOPWORDS = new Set([
   "درجه",
 ]);
 
+// ---------------------------------------------------------------
+// 🚫 کلمات تغییردهنده‌ی معنا (اگر در عنوان باشند ولی در query نباشند، رد می‌شوند)
+// ---------------------------------------------------------------
+const NEGATIVE_MODIFIERS = new Set([
+  // قطعات و یدکی
+  'یدک', 'یدکی', 'قطعه', 'قطعات', 'لوازم', 'جانبی', 'متعلقات', 'متعلق',
+  'جایگزین', 'بدل', 'مشابه', 'نمونه',
+  // لوازم جانبی رایج
+  'شارژر', 'باتری', 'کابل', 'آداپتور', 'محافظ', 'قاب', 'کیف', 'جعبه',
+  'سیم', 'مبدل', 'برچسب', 'فیلتر', 'نوک', 'تیغ', 'سوزن', 'کارتریج',
+  // خدمات
+  'تعمیر', 'سرویس', 'نصب', 'آموزش', 'راهنما', 'کتاب', 'دفترچه',
+  // برای/مخصوص (اگر بخواهیم دقیق باشیم)
+  'بجای', 'بجای',
+]);
+
 function normalize(text) {
   if (!text) return "";
   return text
@@ -88,18 +104,42 @@ function tokensMatch(queryToken, titleToken) {
   return longer.includes(shorter);
 }
 
-function queryMatchScore(query, title) {
-  const qt = tokenize(query),
-    tt = tokenize(title);
-  if (qt.length === 0)
-    return {
-      score: 1,
-      ratio: 1,
-      matchedTokens: [],
-      missedTokens: [],
-      reason: null,
-    };
+// ---------------------------------------------------------------
+// 🚫 بررسی کلمات ناخواسته در عنوان
+// ---------------------------------------------------------------
+function findUnwantedModifier(query, title) {
+  const qTokens = new Set(tokenize(query));
+  const tTokens = tokenize(title);
 
+  for (const token of tTokens) {
+    if (NEGATIVE_MODIFIERS.has(token) && !qTokens.has(token)) {
+      return token;
+    }
+  }
+  return null;
+}
+
+function queryMatchScore(query, title) {
+  const qt = tokenize(query);
+  const tt = tokenize(title);
+
+  if (qt.length === 0) {
+    return { score: 1, ratio: 1, matchedTokens: [], missedTokens: [], reason: null };
+  }
+
+  // ⭐ چک کلمات ناخواسته (قبل از هر چیز)
+  const unwanted = findUnwantedModifier(query, title);
+  if (unwanted) {
+    return {
+      score: 0,
+      ratio: 0,
+      matchedTokens: [],
+      missedTokens: [unwanted],
+      reason: `کلمه ناخواسته در عنوان: «${unwanted}» (در query نیست)`,
+    };
+  }
+
+  // ... بقیه کد قبلی بدون تغییر
   const queryIdentifiers = qt.filter(isCriticalIdentifier);
   const missedIdentifiers = [];
   for (const id of queryIdentifiers) {
@@ -107,30 +147,19 @@ function queryMatchScore(query, title) {
   }
   if (missedIdentifiers.length > 0) {
     return {
-      score: 0,
-      ratio: 0,
-      matchedTokens: [],
-      missedTokens: missedIdentifiers,
-      reason: `شناسه حیاتی مطابقت ندارد: ${missedIdentifiers.join("، ")}`,
+      score: 0, ratio: 0, matchedTokens: [], missedTokens: missedIdentifiers,
+      reason: `شناسه حیاتی مطابقت ندارد: ${missedIdentifiers.join('، ')}`,
     };
   }
 
-  let totalWeight = 0,
-    matchedWeight = 0,
-    matchedCount = 0;
-  const matchedTokens = [],
-    missedTokens = [];
+  let totalWeight = 0, matchedWeight = 0, matchedCount = 0;
+  const matchedTokens = [], missedTokens = [];
   for (const token of qt) {
-    const weight = isCriticalIdentifier(token)
-      ? 10
-      : Math.pow(token.length, 1.5);
+    const weight = isCriticalIdentifier(token) ? 10 : Math.pow(token.length, 1.5);
     totalWeight += weight;
     const isMatched = tt.some((t) => tokensMatch(token, t));
-    if (isMatched) {
-      matchedWeight += weight;
-      matchedCount++;
-      matchedTokens.push(token);
-    } else missedTokens.push(token);
+    if (isMatched) { matchedWeight += weight; matchedCount++; matchedTokens.push(token); }
+    else missedTokens.push(token);
   }
   const score = totalWeight > 0 ? matchedWeight / totalWeight : 0;
   const ratio = qt.length > 0 ? matchedCount / qt.length : 0;
