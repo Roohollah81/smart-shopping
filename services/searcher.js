@@ -49,15 +49,46 @@ const STOPWORDS = new Set([
 // ---------------------------------------------------------------
 const NEGATIVE_MODIFIERS = new Set([
   // قطعات و یدکی
-  'یدک', 'یدکی', 'قطعه', 'قطعات', 'لوازم', 'جانبی', 'متعلقات', 'متعلق',
-  'جایگزین', 'بدل', 'مشابه', 'نمونه',
+  "یدک",
+  "یدکی",
+  "قطعه",
+  "قطعات",
+  "لوازم",
+  "جانبی",
+  "متعلقات",
+  "متعلق",
+  "جایگزین",
+  "بدل",
+  "مشابه",
+  "نمونه",
   // لوازم جانبی رایج
-  'شارژر', 'باتری', 'کابل', 'آداپتور', 'محافظ', 'قاب', 'کیف', 'جعبه',
-  'سیم', 'مبدل', 'برچسب', 'فیلتر', 'نوک', 'تیغ', 'سوزن', 'کارتریج',
+  "شارژر",
+  "باتری",
+  "کابل",
+  "آداپتور",
+  "محافظ",
+  "قاب",
+  "کیف",
+  "جعبه",
+  "سیم",
+  "مبدل",
+  "برچسب",
+  "فیلتر",
+  "نوک",
+  "تیغ",
+  "سوزن",
+  "کارتریج",
   // خدمات
-  'تعمیر', 'سرویس', 'نصب', 'آموزش', 'راهنما', 'کتاب', 'دفترچه',
+  "تعمیر",
+  "سرویس",
+  "نصب",
+  "آموزش",
+  "راهنما",
+  "کتاب",
+  "دفترچه",
   // برای/مخصوص (اگر بخواهیم دقیق باشیم)
-  'بجای', 'بجای',
+  "بجای",
+  "بجای",
 ]);
 
 function normalize(text) {
@@ -124,7 +155,13 @@ function queryMatchScore(query, title) {
   const tt = tokenize(title);
 
   if (qt.length === 0) {
-    return { score: 1, ratio: 1, matchedTokens: [], missedTokens: [], reason: null };
+    return {
+      score: 1,
+      ratio: 1,
+      matchedTokens: [],
+      missedTokens: [],
+      reason: null,
+    };
   }
 
   // ⭐ چک کلمات ناخواسته (قبل از هر چیز)
@@ -147,19 +184,30 @@ function queryMatchScore(query, title) {
   }
   if (missedIdentifiers.length > 0) {
     return {
-      score: 0, ratio: 0, matchedTokens: [], missedTokens: missedIdentifiers,
-      reason: `شناسه حیاتی مطابقت ندارد: ${missedIdentifiers.join('، ')}`,
+      score: 0,
+      ratio: 0,
+      matchedTokens: [],
+      missedTokens: missedIdentifiers,
+      reason: `شناسه حیاتی مطابقت ندارد: ${missedIdentifiers.join("، ")}`,
     };
   }
 
-  let totalWeight = 0, matchedWeight = 0, matchedCount = 0;
-  const matchedTokens = [], missedTokens = [];
+  let totalWeight = 0,
+    matchedWeight = 0,
+    matchedCount = 0;
+  const matchedTokens = [],
+    missedTokens = [];
   for (const token of qt) {
-    const weight = isCriticalIdentifier(token) ? 10 : Math.pow(token.length, 1.5);
+    const weight = isCriticalIdentifier(token)
+      ? 10
+      : Math.pow(token.length, 1.5);
     totalWeight += weight;
     const isMatched = tt.some((t) => tokensMatch(token, t));
-    if (isMatched) { matchedWeight += weight; matchedCount++; matchedTokens.push(token); }
-    else missedTokens.push(token);
+    if (isMatched) {
+      matchedWeight += weight;
+      matchedCount++;
+      matchedTokens.push(token);
+    } else missedTokens.push(token);
   }
   const score = totalWeight > 0 ? matchedWeight / totalWeight : 0;
   const ratio = qt.length > 0 ? matchedCount / qt.length : 0;
@@ -191,25 +239,46 @@ function overlapCoefficient(a, b) {
   return inter / Math.min(setA.size, setB.size);
 }
 
+// ---------------------------------------------------------------
+// 🎯 شباهت بین دو عنوان — با بررسی دقیق شناسه‌های حیاتی
+// ---------------------------------------------------------------
 function similarity(titleA, titleB) {
   const ta = tokenize(titleA);
   const tb = tokenize(titleB);
 
-  // ترکیب Jaccard و Overlap — Overlap سخاوتمندانه‌تر است
   const jac = jaccard(ta, tb);
   const overlap = overlapCoefficient(ta, tb);
   const baseSim = 0.4 * jac + 0.6 * overlap;
 
-  const modelA = ta.filter(isModelToken);
-  const modelB = tb.filter(isModelToken);
+  // شناسه‌های حیاتی (اعداد، مدل‌ها، کدها)
+  const idsA = ta.filter(isCriticalIdentifier);
+  const idsB = tb.filter(isCriticalIdentifier);
 
-  if (modelA.length && modelB.length) {
-    const modelJac = jaccard(modelA, modelB);
-    const modelOverlap = overlapCoefficient(modelA, modelB);
-    const modelSim = 0.3 * modelJac + 0.7 * modelOverlap;
-    return 0.4 * baseSim + 0.6 * modelSim;
+  // ============ حالت ۱: هیچ‌کدام شناسه ندارند ============
+  if (idsA.length === 0 && idsB.length === 0) {
+    return baseSim;
   }
-  return baseSim;
+
+  // ============ حالت ۲: یکی شناسه دارد، دیگری ندارد ============
+  // ← این دقیقاً همان مشکل شماست: «پاکن برقی تیهو» vs «پاکن برقی تیهو TC8302»
+  if (idsA.length > 0 && idsB.length === 0) {
+    return baseSim * 0.4;
+  }
+  if (idsA.length === 0 && idsB.length > 0) {
+    return baseSim * 0.4;
+  }
+
+  // ============ حالت ۳: هر دو شناسه دارند ============
+  const commonIds = idsA.filter((id) => idsB.includes(id));
+
+  // اگر هیچ شناسه‌ای مشترک نیست → تفاوت مدل آشکار
+  if (commonIds.length === 0) {
+    return baseSim * 0.3;
+  }
+
+  // اگر شناسه‌های مشترک وجود دارند → بر اساس نسبت تطبیق
+  const idMatchRatio = commonIds.length / Math.max(idsA.length, idsB.length);
+  return 0.3 * baseSim + 0.7 * idMatchRatio;
 }
 
 function clusterProducts(products, threshold = 0.6) {
