@@ -16,6 +16,49 @@ const spinner = document.getElementById("spinner");
 let items = [];
 
 // ================================================================
+// 🏪 نقشه‌ی آیکون فروشگاه‌ها (لوگوی مستقیم)
+// ================================================================
+const STORE_ICONS = {
+  دیجی‌کالا: [
+    "https://dkstatics-public.digikala.com/digikala-static/455aa1c48c81b07b7b4be44b78e7b0ffb6f8bb44_1681290128.png",
+    "https://www.digikala.com/favicon.ico",
+  ],
+  ترب: [
+    "https://torob.com/static/images/logo.svg",
+    "https://torob.com/favicon.ico",
+  ],
+  قلم‌تراش: [
+    "https://ghalamtarash.ir/wp-content/uploads/2023/08/logo.png",
+    "https://www.google.com/s2/favicons?domain=ghalamtarash.ir&sz=128",
+  ],
+  "آرمان آرت": [
+    "https://armanartstore.com/wp-content/uploads/2022/01/logo.png",
+    "https://www.google.com/s2/favicons?domain=armanartstore.com&sz=128",
+  ],
+  عالم‌زاده: [
+    "https://alemzadeh.ir/wp-content/uploads/2023/01/logo.png",
+    "https://www.google.com/s2/favicons?domain=alemzadeh.ir&sz=128",
+  ],
+  "مهستان آرت": [
+    "https://mahestanart.com/wp-content/uploads/2022/05/logo.png",
+    "https://www.google.com/s2/favicons?domain=mahestanart.com&sz=128",
+  ],
+  "مجد مارکت": [
+    "https://majdmarket.com/logo.png",
+    "https://www.google.com/s2/favicons?domain=majdmarket.com&sz=128",
+  ],
+};
+
+// ---------------------------------------------------------------
+// ساخت لیست URLهای آیکون فروشگاه (با fallback زنجیره‌ای)
+// ---------------------------------------------------------------
+function getStoreIconUrls(storeName) {
+  const urls = STORE_ICONS[storeName];
+  if (!urls) return [];
+  return Array.isArray(urls) ? urls : [urls];
+}
+
+// ================================================================
 // مدیریت آیتم‌ها
 // ================================================================
 function addItem() {
@@ -140,12 +183,61 @@ function renderStoreSection(store, isBest) {
     ? `<h2 class="section-title best-title">✨ به صرفه ترین فروشگاه</h2>`
     : "";
 
+  // 🏪 ساخت زنجیره‌ی fallback برای آیکون فروشگاه
+  const iconUrls = getStoreIconUrls(store.storeName);
+  const fallbackEmoji = isBest ? "🥇" : "🏪";
+
+  let storeIconHtml;
+  if (iconUrls.length > 0) {
+    // ساخت onerror زنجیره‌ای برای امتحان کردن URLهای بعدی
+    const errorHandlers = iconUrls.slice(1).map((nextUrl, i) => {
+      const nextIndex = i + 1;
+      if (nextIndex < iconUrls.length - 1) {
+        return `this.src='${nextUrl}'`;
+      }
+      // آخرین URL → نمایش امجی
+      return `this.style.display='none'; this.nextElementSibling.style.display='flex';`;
+    });
+
+    // برای هر URL، اگر خطا داد، URL بعدی را امتحان کن
+    // (onerror به صورت پیش‌فرض به آخرین fallback می‌رود)
+    const onerrorChain = `
+      this.onerror=null;
+      const urls = ${JSON.stringify(iconUrls)};
+      const currentIdx = urls.indexOf(this.src);
+      if (currentIdx >= 0 && currentIdx < urls.length - 1) {
+        this.src = urls[currentIdx + 1];
+      } else {
+        this.style.display='none';
+        this.nextElementSibling.style.display='flex';
+      }
+    `
+      .replace(/\s+/g, " ")
+      .trim();
+
+    storeIconHtml = `
+      <img 
+        src="${escapeHtml(iconUrls[0])}" 
+        alt="${escapeHtml(store.storeName)}" 
+        class="store-logo" 
+        loading="lazy"
+        referrerpolicy="no-referrer"
+        onerror="${onerrorChain.replace(/"/g, "&quot;")}"
+      />
+      <span class="store-icon-fallback" style="display:none;">${fallbackEmoji}</span>
+    `;
+  } else {
+    storeIconHtml = `<span class="store-icon-fallback" style="display:flex;">${fallbackEmoji}</span>`;
+  }
+
   return `
     <section class="store-section ${isBest ? "best-store" : ""}">
       ${bestTitle}
       <div class="store-header-row">
         <div class="store-badge">
-          <span class="store-icon">${isBest ? "🥇" : "🏪"}</span>
+          <div class="store-logo-wrapper">
+            ${storeIconHtml}
+          </div>
           <h3 class="store-name">${escapeHtml(store.storeName)}</h3>
         </div>
         <div class="store-total">
