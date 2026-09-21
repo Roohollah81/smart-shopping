@@ -1,3 +1,7 @@
+// ================================================================
+// public/script.js
+// ================================================================
+
 const itemInput = document.getElementById("item-input");
 const addBtn = document.getElementById("add-btn");
 const searchBtn = document.getElementById("search-btn");
@@ -5,16 +9,15 @@ const searchBtnText = document.getElementById("search-btn-text");
 const clearBtn = document.getElementById("clear-btn");
 const itemsList = document.getElementById("items-list");
 const resultsSection = document.getElementById("results-section");
-const cheapestBanner = document.getElementById("cheapest-banner");
 const storesContainer = document.getElementById("stores-container");
 const errorBox = document.getElementById("error-box");
 const spinner = document.getElementById("spinner");
 
 let items = [];
-let lastQueries = [];
-let singleStoreSortOrders = {}; // ترتیب هر بخش تک‌فروشگاهی: { [qIndex]: 'asc' | 'desc' }
 
-// ---------- مدیریت آیتم‌ها ----------
+// ================================================================
+// مدیریت آیتم‌ها
+// ================================================================
 function addItem() {
   const value = itemInput.value.trim();
   if (!value) return;
@@ -53,14 +56,14 @@ function renderItems() {
 
 function clearAll() {
   items = [];
-  lastQueries = [];
-  singleStoreSortOrders = {};
   renderItems();
   resultsSection.classList.add("hidden");
   hideError();
 }
 
-// ---------- جستجو ----------
+// ================================================================
+// جستجو
+// ================================================================
 async function search() {
   if (items.length === 0) return;
   hideError();
@@ -87,323 +90,162 @@ async function search() {
   }
 }
 
+// ================================================================
+// نمایش نتایج
+// ================================================================
 function renderResults(data) {
-  const { queries, basketComparison } = data;
+  const { basketComparison } = data;
 
-  // ذخیره برای مرتب‌سازی مجدد
-  lastQueries = queries;
-  singleStoreSortOrders = {};
-  queries.forEach((_, i) => (singleStoreSortOrders[i] = "asc"));
-
-  // ========== ۱. رندر بخش تحلیل هوشمند ==========
-  renderAnalysisPanel(queries, basketComparison);
-
-  // ========== ۲. بنر بهترین فروشگاه ==========
-  if (basketComparison && basketComparison.length > 0) {
-    const best = basketComparison[0];
-    cheapestBanner.innerHTML = `
-      <div class="label">🎉 ارزان‌ترین فروشگاه برای خرید همه اقلام</div>
-      <div class="store-name">${escapeHtml(best.storeName)}</div>
-      <div class="total">
-        ${formatPrice(best.total)} تومان
-        <span class="coverage">(${best.itemCount} از ${queries.length} قلم)</span>
-      </div>
-    `;
-  } else {
-    cheapestBanner.innerHTML = "";
+  if (!basketComparison || basketComparison.length === 0) {
+    showError("هیچ نتیجه‌ای در فروشگاه‌های پشتیبانی‌شده یافت نشد.");
+    resultsSection.classList.add("hidden");
+    return;
   }
 
-  // ========== ۳. رندر لیست کامل ==========
-  renderComparisonList();
+  const best = basketComparison[0];
+  let html = renderStoreSection(best, true);
 
+  const others = basketComparison.slice(1);
+  if (others.length > 0) {
+    html += `<h2 class="section-title others-title">فروشگاه های دیگر</h2>`;
+    for (const store of others) {
+      html += renderStoreSection(store, false);
+    }
+  }
+
+  storesContainer.innerHTML = html;
   resultsSection.classList.remove("hidden");
   resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 // ================================================================
-// رندر لیست کامل مقایسه
+// رندر یک بخش فروشگاه
 // ================================================================
-function renderComparisonList() {
-  // ذخیره وضعیت باز/بسته details ها قبل از re-render
-  const openStates = {};
-  document.querySelectorAll(".single-store-details").forEach((el, i) => {
-    openStates[i] = el.open;
-  });
-
-  let html = "";
-
-  lastQueries.forEach(({ query, matches }, qIndex) => {
-    const singleSortOrder = singleStoreSortOrders[qIndex] || "asc";
-
-    html += `
-      <div class="query-group">
-        <h3 class="query-title">🔍 ${escapeHtml(query)}</h3>
-    `;
-
-    if (!matches || matches.length === 0) {
-      html += `<p class="no-match">هیچ محصولی یافت نشد.</p>`;
-    } else {
-      const comparable = matches.filter((m) => m.storeCount >= 2);
-      const singleStore = [...matches.filter((m) => m.storeCount === 1)].sort(
-        (a, b) => {
-          const pa = a.cheapest?.price ?? Infinity;
-          const pb = b.cheapest?.price ?? Infinity;
-          return singleSortOrder === "asc" ? pa - pb : pb - pa;
-        },
-      );
-
-      if (comparable.length > 0) {
-        html += `<p class="match-hint">✅ ${comparable.length} محصول مشترک بین فروشگاه‌ها پیدا شد:</p>`;
-        html += '<div class="matches-list">';
-        for (const match of comparable) {
-          html += renderMatch(match);
-        }
-        html += "</div>";
-      }
-
-      if (singleStore.length > 0) {
-        html += `
-          <details class="single-store-details" data-single-index="${qIndex}">
-            <summary>ℹ️ ${singleStore.length} محصول فقط در یک فروشگاه یافت شد</summary>
-            <div class="single-store-toolbar">
-              <button
-                class="sort-toggle"
-                data-single-sort-index="${qIndex}"
-                type="button"
-                aria-label="تغییر ترتیب قیمت"
-              >
-                <span class="sort-arrow ${singleSortOrder === "desc" ? "desc" : ""}">
-                  ${singleSortOrder === "desc" ? "↓" : "↑"}
-                </span>
-                <span class="sort-text">
-                  ${singleSortOrder === "desc" ? "گران‌ترین" : "ارزان‌ترین"}
-                </span>
-              </button>
-            </div>
-            <div class="matches-list">
-              ${singleStore.map(renderMatch).join("")}
-            </div>
-          </details>
-        `;
-      }
-    }
-
-    html += `</div>`;
-  });
-
-  storesContainer.innerHTML = html;
-
-  // بازگرداندن وضعیت باز/بسته details ها
-  document.querySelectorAll(".single-store-details").forEach((el, i) => {
-    if (openStates[i]) el.open = true;
-  });
-
-  // اتصال رویداد دکمه ترتیب بخش تک‌فروشگاهی
-  document
-    .querySelectorAll(".sort-toggle[data-single-sort-index]")
-    .forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const idx = parseInt(btn.dataset.singleSortIndex, 10);
-        singleStoreSortOrders[idx] =
-          singleStoreSortOrders[idx] === "asc" ? "desc" : "asc";
-        renderComparisonList();
-        // باز نگه داشتن همان details بعد از re-render
-        const details = document.querySelector(
-          `.single-store-details[data-single-index="${idx}"]`,
-        );
-        if (details) details.open = true;
-      });
-    });
-}
-
-// ---------- رندر پنل تحلیل هوشمند ----------
-function renderAnalysisPanel(queries, basketComparison) {
-  const panel = document.getElementById("analysis-content");
-
-  // اگر هیچ نتیجه‌ای نبود
-  if (!basketComparison || basketComparison.length === 0) {
-    panel.innerHTML = `
-      <div class="analysis-empty">
-        ⚠️ هیچ نتیجه‌ای برای تحلیل یافت نشد.
-      </div>
-    `;
-    return;
-  }
-
-  // ---------------------------------------------------------------
-  // محاسبه شاخص‌های تحلیلی
-  // ---------------------------------------------------------------
-  const best = basketComparison[0];
-  const totalItems = queries.length;
-
-  // ارزان‌ترین پیشنهاد هر قلم (از هر فروشگاهی)
-  const smartPickPerItem = queries.map(({ query, matches }) => {
-    if (!matches || matches.length === 0) {
-      return { query, best: null };
-    }
-    // بهترین تطبیق: بیشترین تعداد فروشگاه، سپس کمترین قیمت
-    const sorted = [...matches]
-      .filter((m) => m.cheapest && m.cheapest.price > 0)
-      .sort((a, b) => {
-        if (b.storeCount !== a.storeCount) return b.storeCount - a.storeCount;
-        return a.cheapest.price - b.cheapest.price;
-      });
-    return { query, best: sorted[0] || null };
-  });
-
-  // مجموع «خرید هوشمند» (هر قلم از ارزان‌ترین فروشگاه خودش)
-  const smartTotal = smartPickPerItem.reduce(
-    (sum, item) => sum + (item.best ? item.best.cheapest.price : 0),
-    0,
-  );
-  const smartFoundCount = smartPickPerItem.filter((i) => i.best).length;
-
-  // مقایسه با بهترین سبد تک‌فروشگاهی
-  const singleStoreTotal = best.total;
-  const savingsVsSingle = singleStoreTotal - smartTotal;
-  const savingsPercent =
-    singleStoreTotal > 0
-      ? Math.round((savingsVsSingle / singleStoreTotal) * 100)
-      : 0;
-
-  // ---------------------------------------------------------------
-  // ساخت HTML — نسخه لینک‌دار
-  // ---------------------------------------------------------------
-  const smartItemsHtml = smartPickPerItem
-    .map(({ query, best }) => {
-      if (!best) {
-        // آیتم ناموجود — غیرقابل کلیک
-        return `
-        <div class="smart-item smart-item-missing">
-          <div class="smart-item-info">
-            <div class="smart-item-query">${escapeHtml(query)}</div>
-            <div class="smart-item-title">محصولی یافت نشد</div>
-          </div>
-          <div class="smart-item-status">❌</div>
-        </div>
-      `;
-      }
-
-      const hasLink = best.cheapest.link && best.cheapest.link !== "#";
-      const tag = hasLink ? "a" : "div";
-      const linkAttrs = hasLink
-        ? `href="${escapeHtml(best.cheapest.link)}" target="_blank" rel="noopener noreferrer"`
-        : "";
-
-      return `
-      <${tag} class="smart-item ${hasLink ? "smart-item-link" : ""}" ${linkAttrs}>
-        <div class="smart-item-info">
-          <div class="smart-item-query">${escapeHtml(query)}</div>
-          <div class="smart-item-title">${escapeHtml(best.cheapest.productTitle)}</div>
-        </div>
-        <div class="smart-item-store">
-          <span class="store-tag">${escapeHtml(best.cheapest.storeName)}</span>
-        </div>
-        <div class="smart-item-price">${formatPrice(best.cheapest.price)} تومان</div>
-        ${hasLink ? '<span class="smart-item-arrow">↗</span>' : ""}
-      </${tag}>
-    `;
-    })
+function renderStoreSection(store, isBest) {
+  const productCards = store.items
+    .map((item) => renderProductCard(item, store))
     .join("");
 
-  const comparisonHtml =
-    savingsVsSingle > 0
+  const missingHtml =
+    store.missing && store.missing.length > 0
       ? `
-      <div class="analysis-comparison">
-        <div class="comparison-row">
-          <span class="comparison-label">💡 خرید همه از یک فروشگاه (${escapeHtml(best.storeName)})</span>
-          <span class="comparison-value">${formatPrice(singleStoreTotal)} تومان</span>
-        </div>
-        <div class="comparison-row highlight">
-          <span class="comparison-label">🧠 خرید هوشمند (هر قلم از بهترین فروشگاه)</span>
-          <span class="comparison-value">${formatPrice(smartTotal)} تومان</span>
-        </div>
-        <div class="comparison-savings">
-          💰 صرفه‌جویی با خرید هوشمند: 
-          <strong>${formatPrice(savingsVsSingle)} تومان (${savingsPercent}٪)</strong>
-        </div>
+      <div class="missing-note">
+        <span class="missing-icon">⚠️</span>
+        <span>ناموجود در این فروشگاه: ${store.missing.map(escapeHtml).join("، ")}</span>
       </div>
     `
-      : `
-      <div class="analysis-comparison">
-        <div class="comparison-row highlight">
-          <span class="comparison-label">🧠 مجموع خرید هوشمند</span>
-          <span class="comparison-value">${formatPrice(smartTotal)} تومان</span>
-        </div>
-        <div class="comparison-note">
-          ℹ️ خرید همه اقلام از «${escapeHtml(best.storeName)}» در حال حاضر به‌صرفه‌تر است.
-        </div>
-      </div>
-    `;
-
-  panel.innerHTML = `
-    <div class="analysis-conclusion">
-      <div class="conclusion-icon">🏆</div>
-      <div class="conclusion-text">
-        <div class="conclusion-label">نتیجه تحلیل</div>
-        <div class="conclusion-main">
-          بهترین گزینه: <strong>${escapeHtml(best.storeName)}</strong>
-          <span class="conclusion-coverage">(${best.itemCount} از ${totalItems} قلم)</span>
-        </div>
-        <div class="conclusion-total">${formatPrice(best.total)} تومان</div>
-      </div>
-    </div>
-
-    <div class="analysis-section">
-      <h4 class="analysis-subtitle">📦 پیشنهاد بهینه برای هر قلم</h4>
-      <div class="smart-items-list">${smartItemsHtml}</div>
-    </div>
-
-    <div class="analysis-section">
-      <h4 class="analysis-subtitle">📊 مقایسه استراتژی‌های خرید</h4>
-      ${comparisonHtml}
-    </div>
-
-    <div class="analysis-disclaimer">
-      ⚙️ این نتیجه بر اساس شباهت عنوان محصولات (الگوریتم Jaccard + وزن‌دهی مدل) و قیمت‌های لحظه‌ای فروشگاه‌ها محاسبه شده است.
-      ممکن است برخی قیمت‌ها با صفحه واقعی محصول تفاوت جزئی داشته باشند.
-    </div>
-  `;
-}
-
-function renderMatch(match) {
-  const offersHtml = match.offers
-    .map(
-      (offer, i) => `
-      <div class="offer-row ${i === 0 ? "best-offer" : ""}">
-        <div class="offer-store">
-          ${i === 0 ? "🏆 " : ""}${escapeHtml(offer.storeName)}
-        </div>
-        <a class="offer-link" href="${escapeHtml(offer.link)}" target="_blank" rel="noopener">
-          مشاهده
-        </a>
-        <div class="offer-price">${formatPrice(offer.price)} تومان</div>
-      </div>
-    `,
-    )
-    .join("");
-
-  const savingsHtml =
-    match.savings > 0
-      ? `
-    <div class="savings-badge">
-      صرفه‌جویی: ${formatPrice(match.savings)} تومان (${match.savingsPercent}٪)
-    </div>
-  `
       : "";
 
+  const bestTitle = isBest
+    ? `<h2 class="section-title best-title">✨ به صرفه ترین فروشگاه</h2>`
+    : "";
+
   return `
-    <div class="match-card">
-      <div class="match-name">${escapeHtml(match.productName)}</div>
-      ${savingsHtml}
-      <div class="offers-table">${offersHtml}</div>
+    <section class="store-section ${isBest ? "best-store" : ""}">
+      ${bestTitle}
+      <div class="store-header-row">
+        <div class="store-badge">
+          <span class="store-icon">${isBest ? "🥇" : "🏪"}</span>
+          <h3 class="store-name">${escapeHtml(store.storeName)}</h3>
+        </div>
+        <div class="store-total">
+          <span class="total-label">مجموع سبد</span>
+          <span class="total-value">${formatPrice(store.total)} تومان</span>
+        </div>
+      </div>
+      <div class="products-grid">${productCards}</div>
+      ${missingHtml}
+    </section>
+  `;
+}
+
+// ================================================================
+// رندر کارت محصول با تصویر
+// ================================================================
+function renderProductCard(item, store) {
+  const icon = getProductIcon(item.title);
+  const hasLink = item.link && item.link !== "#";
+
+  // 🖼️ استخراج امن URL تصویر
+  let imageUrl = item.image;
+  if (Array.isArray(imageUrl)) imageUrl = imageUrl[0];
+  if (typeof imageUrl === "object" && imageUrl)
+    imageUrl = imageUrl.url || imageUrl.src;
+  const hasImage =
+    imageUrl && typeof imageUrl === "string" && imageUrl.startsWith("http");
+
+  const imageContent = hasImage
+    ? `<img 
+        src="${escapeHtml(imageUrl)}" 
+        alt="${escapeHtml(item.title)}" 
+        class="product-image-real" 
+        loading="lazy"
+        referrerpolicy="no-referrer"
+        data-lightbox="true"
+        onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<span class=&quot;product-image-icon&quot;>${icon}</span>';"
+      />
+      <span class="image-zoom-hint">🔍</span>`
+    : `<span class="product-image-icon">${icon}</span>`;
+
+  return `
+    <div class="product-card">
+      <div class="product-image-wrapper ${hasImage ? "has-real-image" : ""} ${hasImage ? "clickable-image" : ""}">
+        ${imageContent}
+      </div>
+      <div class="product-body">
+        <div class="product-query">${escapeHtml(item.query)}</div>
+        <div class="product-title" title="${escapeHtml(item.title)}">
+          ${escapeHtml(item.title)}
+        </div>
+        <div class="product-price-section">
+          <span class="product-price-value">${formatPrice(item.price)}</span>
+          <span class="product-price-currency">تومان</span>
+        </div>
+      </div>
+      ${
+        hasLink
+          ? `<a class="product-action" href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">
+              مشاهده در ${escapeHtml(store.storeName)} ↗
+            </a>`
+          : `<div class="product-action disabled">لینک موجود نیست</div>`
+      }
     </div>
   `;
 }
 
-// ---------- توابع کمکی ----------
+// ================================================================
+// تشخیص آیکون
+// ================================================================
+function getProductIcon(title) {
+  const t = (title || "").toLowerCase();
+  if (t.includes("قلمو") || t.includes("قلم مو") || t.includes("brush"))
+    return "🖌️";
+  if (t.includes("مقوا") || t.includes("کاغذ") || t.includes("ورق"))
+    return "📄";
+  if (t.includes("دفتر") || t.includes("بلوک") || t.includes("اسکچ"))
+    return "📔";
+  if (t.includes("خودکار") || t.includes("روان")) return "🖊️";
+  if (t.includes("مداد") || t.includes("تراش")) return "✏️";
+  if (t.includes("آبرنگ") || t.includes("رنگ") || t.includes("گواش"))
+    return "🎨";
+  if (t.includes("ماوس")) return "🖱️";
+  if (t.includes("کیبورد")) return "⌨️";
+  if (t.includes("هدفون") || t.includes("هدست")) return "🎧";
+  if (t.includes("گوشی") || t.includes("موبایل")) return "📱";
+  if (t.includes("شارژر")) return "🔌";
+  if (t.includes("کابل")) return "🔗";
+  if (t.includes("پاک‌کن") || t.includes("پاکن")) return "🧽";
+  if (t.includes("خط‌کش") || t.includes("گونیا")) return "📐";
+  if (t.includes("چسب")) return "🧴";
+  if (t.includes("قیچی")) return "✂️";
+  if (t.includes("ماژیک")) return "🖍️";
+  if (t.includes("کوله") || t.includes("کیف")) return "🎒";
+  return "📦";
+}
+
+// ================================================================
+// توابع کمکی
+// ================================================================
 function setLoading(loading) {
   searchBtn.disabled = loading;
   spinner.classList.toggle("active", loading);
@@ -429,7 +271,9 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// ---------- رویدادها ----------
+// ================================================================
+// رویدادها
+// ================================================================
 addBtn.addEventListener("click", addItem);
 itemInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") addItem();
@@ -437,7 +281,9 @@ itemInput.addEventListener("keydown", (e) => {
 searchBtn.addEventListener("click", search);
 clearBtn.addEventListener("click", clearAll);
 
-// ---------- مدیریت تم ----------
+// ================================================================
+// مدیریت تم
+// ================================================================
 const themeToggle = document.getElementById("theme-toggle");
 const themeIcon = themeToggle.querySelector(".theme-icon");
 
@@ -462,6 +308,56 @@ themeToggle.addEventListener("click", () => {
   const current =
     document.documentElement.getAttribute("data-theme") || "light";
   applyTheme(current === "dark" ? "light" : "dark");
+});
+
+// ================================================================
+// 🖼️ مودال نمایش تصویر بزرگ (Lightbox)
+// ================================================================
+const imageModal = document.getElementById("image-modal");
+const imageModalImg = document.getElementById("image-modal-img");
+const imageModalCaption = imageModal.querySelector(".image-modal-caption");
+const imageModalClose = imageModal.querySelector(".image-modal-close");
+const imageModalBackdrop = imageModal.querySelector(".image-modal-backdrop");
+
+function openImageModal(src, caption, alt) {
+  imageModalImg.src = src;
+  imageModalImg.alt = alt || "";
+  imageModalCaption.textContent = caption || "";
+  imageModal.classList.remove("hidden");
+  document.body.style.overflow = "hidden"; // قفل اسکرول
+}
+
+function closeImageModal() {
+  imageModal.classList.add("hidden");
+  imageModalImg.src = "";
+  document.body.style.overflow = "";
+}
+
+// رویداد کلیک روی تصاویر (Event Delegation)
+document.addEventListener("click", (e) => {
+  const img = e.target.closest(".product-image-wrapper.clickable-image");
+  if (!img) return;
+
+  const realImg = img.querySelector(".product-image-real");
+  if (!realImg || !realImg.src) return;
+
+  // عنوان محصول از کارت والد
+  const card = img.closest(".product-card");
+  const title =
+    card?.querySelector(".product-title")?.textContent?.trim() || "";
+
+  openImageModal(realImg.src, title, realImg.alt);
+});
+
+// بستن مودال
+imageModalClose.addEventListener("click", closeImageModal);
+imageModalBackdrop.addEventListener("click", closeImageModal);
+
+// بستن با کلید Escape
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !imageModal.classList.contains("hidden")) {
+    closeImageModal();
+  }
 });
 
 initTheme();

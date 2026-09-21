@@ -44,11 +44,7 @@ const STOPWORDS = new Set([
   "درجه",
 ]);
 
-// ---------------------------------------------------------------
-// 🚫 کلمات تغییردهنده‌ی معنا (اگر در عنوان باشند ولی در query نباشند، رد می‌شوند)
-// ---------------------------------------------------------------
 const NEGATIVE_MODIFIERS = new Set([
-  // قطعات و یدکی
   "یدک",
   "یدکی",
   "قطعه",
@@ -61,7 +57,6 @@ const NEGATIVE_MODIFIERS = new Set([
   "بدل",
   "مشابه",
   "نمونه",
-  // لوازم جانبی رایج
   "شارژر",
   "باتری",
   "کابل",
@@ -78,7 +73,6 @@ const NEGATIVE_MODIFIERS = new Set([
   "تیغ",
   "سوزن",
   "کارتریج",
-  // خدمات
   "تعمیر",
   "سرویس",
   "نصب",
@@ -86,8 +80,6 @@ const NEGATIVE_MODIFIERS = new Set([
   "راهنما",
   "کتاب",
   "دفترچه",
-  // برای/مخصوص (اگر بخواهیم دقیق باشیم)
-  "بجای",
   "بجای",
 ]);
 
@@ -135,17 +127,11 @@ function tokensMatch(queryToken, titleToken) {
   return longer.includes(shorter);
 }
 
-// ---------------------------------------------------------------
-// 🚫 بررسی کلمات ناخواسته در عنوان
-// ---------------------------------------------------------------
 function findUnwantedModifier(query, title) {
   const qTokens = new Set(tokenize(query));
   const tTokens = tokenize(title);
-
   for (const token of tTokens) {
-    if (NEGATIVE_MODIFIERS.has(token) && !qTokens.has(token)) {
-      return token;
-    }
+    if (NEGATIVE_MODIFIERS.has(token) && !qTokens.has(token)) return token;
   }
   return null;
 }
@@ -164,7 +150,6 @@ function queryMatchScore(query, title) {
     };
   }
 
-  // ⭐ چک کلمات ناخواسته (قبل از هر چیز)
   const unwanted = findUnwantedModifier(query, title);
   if (unwanted) {
     return {
@@ -176,7 +161,6 @@ function queryMatchScore(query, title) {
     };
   }
 
-  // ... بقیه کد قبلی بدون تغییر
   const queryIdentifiers = qt.filter(isCriticalIdentifier);
   const missedIdentifiers = [];
   for (const id of queryIdentifiers) {
@@ -227,56 +211,17 @@ function isModelToken(token) {
   return /[a-z0-9]/i.test(token) && token.length >= 2;
 }
 
-// ---------------------------------------------------------------
-// 🎯 شباهت با Overlap Coefficient (بهبودیافته برای خوشه‌بندی بین‌فروشگاهی)
-// ---------------------------------------------------------------
-function overlapCoefficient(a, b) {
-  const setA = new Set(a);
-  const setB = new Set(b);
-  if (setA.size === 0 || setB.size === 0) return 0;
-  let inter = 0;
-  for (const x of setA) if (setB.has(x)) inter++;
-  return inter / Math.min(setA.size, setB.size);
-}
-
-// ---------------------------------------------------------------
-// 🎯 شباهت بین دو عنوان — با بررسی دقیق شناسه‌های حیاتی
-// ---------------------------------------------------------------
 function similarity(titleA, titleB) {
-  const ta = tokenize(titleA);
-  const tb = tokenize(titleB);
-
-  const jac = jaccard(ta, tb);
-  const overlap = overlapCoefficient(ta, tb);
-  const baseSim = 0.4 * jac + 0.6 * overlap;
-
-  // شناسه‌های حیاتی (اعداد، مدل‌ها، کدها)
+  const ta = tokenize(titleA),
+    tb = tokenize(titleB);
+  const baseSim = jaccard(ta, tb);
   const idsA = ta.filter(isCriticalIdentifier);
   const idsB = tb.filter(isCriticalIdentifier);
-
-  // ============ حالت ۱: هیچ‌کدام شناسه ندارند ============
-  if (idsA.length === 0 && idsB.length === 0) {
-    return baseSim;
-  }
-
-  // ============ حالت ۲: یکی شناسه دارد، دیگری ندارد ============
-  // ← این دقیقاً همان مشکل شماست: «پاکن برقی تیهو» vs «پاکن برقی تیهو TC8302»
-  if (idsA.length > 0 && idsB.length === 0) {
-    return baseSim * 0.4;
-  }
-  if (idsA.length === 0 && idsB.length > 0) {
-    return baseSim * 0.4;
-  }
-
-  // ============ حالت ۳: هر دو شناسه دارند ============
+  if (idsA.length === 0 && idsB.length === 0) return baseSim;
+  if (idsA.length > 0 && idsB.length === 0) return baseSim * 0.4;
+  if (idsA.length === 0 && idsB.length > 0) return baseSim * 0.4;
   const commonIds = idsA.filter((id) => idsB.includes(id));
-
-  // اگر هیچ شناسه‌ای مشترک نیست → تفاوت مدل آشکار
-  if (commonIds.length === 0) {
-    return baseSim * 0.3;
-  }
-
-  // اگر شناسه‌های مشترک وجود دارند → بر اساس نسبت تطبیق
+  if (commonIds.length === 0) return baseSim * 0.3;
   const idMatchRatio = commonIds.length / Math.max(idsA.length, idsB.length);
   return 0.3 * baseSim + 0.7 * idMatchRatio;
 }
@@ -302,160 +247,365 @@ function clusterProducts(products, threshold = 0.6) {
   return clusters;
 }
 
+// ---------------------------------------------------------------
+// 🖼️ استخراج تصویر از عنصر HTML
+// ---------------------------------------------------------------
+function extractProductImage($, element, domain) {
+  const imageSelectors = [
+    "img.attachment-woocommerce_thumbnail",
+    ".product-image img",
+    ".product-thumbnail img",
+    ".product-card-image img",
+    "img.wp-post-image",
+    'img[class*="product"]',
+    'img[class*="thumb"]',
+    'img[loading="lazy"]',
+    "img",
+  ];
+
+  for (const sel of imageSelectors) {
+    const img = $(element).find(sel).first();
+    if (img.length === 0) continue;
+
+    let src =
+      img.attr("data-src") ||
+      img.attr("data-lazy-src") ||
+      img.attr("data-original") ||
+      img.attr("src") ||
+      "";
+
+    if (!src) {
+      const srcset = img.attr("srcset") || img.attr("data-srcset") || "";
+      if (srcset) src = srcset.split(",")[0].trim().split(" ")[0];
+    }
+
+    if (!src) continue;
+    if (src.startsWith("data:")) continue;
+
+    if (!src.startsWith("http")) {
+      src = `https://${domain}${src.startsWith("/") ? "" : "/"}${src}`;
+    }
+
+    return src;
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------
+// 🖼️ استخراج محصولات از __NEXT_DATA__
+// ---------------------------------------------------------------
+function extractFromNextData(data, storeName, domain) {
+  const products = [];
+  const seen = new Set();
+
+  function walk(obj, depth = 0) {
+    if (depth > 15 || !obj || typeof obj !== "object") return;
+
+    if (Array.isArray(obj)) {
+      for (const item of obj) walk(item, depth + 1);
+      return;
+    }
+
+    const name = obj.name || obj.title || obj.productName;
+    const price =
+      obj.price ||
+      obj.final_price ||
+      obj.regular_price ||
+      obj.sale_price ||
+      obj.price_with_discount;
+
+    if (name && price && typeof name === "string" && name.length > 3) {
+      const num = parseInt(String(price).replace(/[^\d]/g, ""), 10);
+      if (!isNaN(num) && num > 0 && !seen.has(name)) {
+        seen.add(name);
+        const slug = obj.slug || obj.id || obj.product_id;
+
+        let image =
+          obj.image ||
+          obj.image_url ||
+          obj.thumbnail ||
+          obj.thumbnail_url ||
+          obj.cover ||
+          (Array.isArray(obj.images) ? obj.images[0] : null);
+
+        if (image && typeof image === "object") {
+          image = image.url || image.src || image.path || null;
+        }
+        if (Array.isArray(image)) image = image[0];
+        if (image && typeof image === "string" && !image.startsWith("http")) {
+          image = `https://${domain}${image.startsWith("/") ? "" : "/"}${image}`;
+        }
+
+        products.push({
+          storeName,
+          productTitle: name,
+          price: num < 10000000 ? num : Math.round(num / 10),
+          link: slug
+            ? `https://${domain}/products/${slug}`
+            : `https://${domain}/`,
+          image: image || null,
+        });
+      }
+    }
+
+    for (const key of Object.keys(obj)) walk(obj[key], depth + 1);
+  }
+
+  walk(data);
+  return products;
+}
+
+// ---------------------------------------------------------------
+// 💰 استخراج قیمت از متن
+// ---------------------------------------------------------------
+function parsePriceText(text, currency) {
+  if (!text) return 0;
+  let cleaned = text
+    .replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
+    .replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d))
+    .replace(/[^\d]/g, "");
+  let price = parseInt(cleaned, 10);
+  if (isNaN(price) || price === 0) return 0;
+  if (currency === "rial") price = Math.round(price / 10);
+  if (price < 100 || price > 500000000) return 0;
+  return price;
+}
+
 // ================================================================
-// 🌐 پیکربندی فروشگاه‌های جدید
+// 🌐 پیکربندی فروشگاه‌ها
 // ================================================================
 const NEW_STORES_CONFIG = [
-  { name: "قلم‌تراش", domain: "ghalamtarash.ir" },
-  { name: "آرمان آرت", domain: "armanartstore.com" },
-  { name: "عالم‌زاده", domain: "alemzadeh.ir" },
-  { name: "مجد مارکت", domain: "majdmarket.com" },
-  { name: "مهستان آرت", domain: "mahestanart.com" },
+  {
+    name: "قلم‌تراش",
+    domain: "ghalamtarash.ir",
+    searchUrl: (q) =>
+      `https://ghalamtarash.ir/?s=${encodeURIComponent(q)}&post_type=product`,
+    itemSelector: "li.product, .product.type-product",
+    titleSelector: ".woocommerce-loop-product__title, h2, h3",
+    priceSelector: ".price ins .amount, .price .amount, .price",
+    currency: "rial",
+  },
+  {
+    name: "آرمان آرت",
+    domain: "armanartstore.com",
+    searchUrl: (q) =>
+      `https://armanartstore.com/?s=${encodeURIComponent(q)}&post_type=product`,
+    itemSelector: "li.product",
+    titleSelector: ".woocommerce-loop-product__title, h2, h3",
+    priceSelector: ".price ins .amount, .price .amount, .price",
+    currency: "toman",
+  },
+  {
+    name: "عالم‌زاده",
+    domain: "alemzadeh.ir",
+    searchUrl: (q) =>
+      `https://alemzadeh.ir/?s=${encodeURIComponent(q)}&post_type=product`,
+    itemSelector: ".product-card",
+    titleSelector: "h3, h2, .product-card-title",
+    priceSelector: ".product-card-price, .price",
+    currency: "rial",
+  },
+  {
+    name: "مهستان آرت",
+    domain: "mahestanart.com",
+    searchUrl: (q) =>
+      `https://mahestanart.com/?s=${encodeURIComponent(q)}&post_type=product`,
+    itemSelector: ".product-card, .product-item, li.product",
+    titleSelector: "h3, h2, .product-title",
+    priceSelector: ".product-price, .price",
+    currency: "toman",
+  },
+  {
+    name: "مجد مارکت",
+    domain: "majdmarket.com",
+    searchUrl: (q) =>
+      `https://majdmarket.com/products?search=${encodeURIComponent(q)}`,
+    itemSelector: 'a[href*="/products/"]',
+    titleSelector: "__self__",
+    priceSelector: '[class*="price"], .price',
+    currency: "toman",
+    type: "nextjs",
+  },
 ];
 
 // ================================================================
-// 🌐 جستجو در ووکامرس — با Store API + Scraping fallback
+// 🌐 جستجو در ووکامرس
 // ================================================================
 async function searchWooCommerceStore(storeConfig, query, limit = 20) {
-  const { name, domain } = storeConfig;
-
-  // مرحله ۱: Store API (عمومی، بدون احراز هویت، همراه قیمت)
-  const storeApiUrl = `https://${domain}/wp-json/wc/store/v1/products?search=${encodeURIComponent(query)}&per_page=${limit}`;
-
-  try {
-    const response = await axios.get(storeApiUrl, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        Accept: "application/json",
-      },
-      timeout: 15000,
-    });
-
-    const products = response.data || [];
-    if (Array.isArray(products) && products.length > 0) {
-      const mapped = products.slice(0, limit).map((p) => ({
-        storeName: name,
-        productTitle: p.name || "—",
-        price: parseStoreApiPrice(p),
-        link: p.permalink || `https://${domain}/?p=${p.id}`,
-      }));
-
-      // اگر همه قیمت‌ها صفر بودند، به Scraping برو
-      if (mapped.some((p) => p.price > 0)) {
-        console.log(
-          `  ✔ ${name}: ${mapped.length} محصول از Store API (قیمت‌دار)`,
-        );
-        return mapped;
-      }
-      console.log(
-        `  ⚠️ ${name}: Store API پاسخ داد ولی قیمت‌ها خالی بودند، Scraping...`,
-      );
-    } else {
-      console.log(`  ℹ️ ${name}: Store API محصولی برنگرداند، Scraping...`);
-    }
-  } catch (error) {
-    console.log(
-      `  ⚠️ ${name}: Store API خطا داد (${error.message})، Scraping...`,
-    );
-  }
-
-  // مرحله ۲: Scraping HTML
-  return await searchWooCommerceStoreByScraping(storeConfig, query, limit);
-}
-
-// استخراج قیمت از Store API
-function parseStoreApiPrice(product) {
-  if (product.prices) {
-    const minorUnit = product.prices.currency_minor_unit ?? 0;
-    const rawPrice = product.prices.price || product.prices.regular_price;
-    if (rawPrice) {
-      const num = parseInt(String(rawPrice).replace(/[^\d]/g, ""), 10);
-      if (!isNaN(num) && num > 0)
-        return Math.round(num / Math.pow(10, minorUnit));
-    }
-  }
-  return 0;
-}
-
-// Scraping HTML به‌عنوان راه‌حل پشتیبان
-async function searchWooCommerceStoreByScraping(
-  storeConfig,
-  query,
-  limit = 20,
-) {
-  const { name, domain } = storeConfig;
-  const url = `https://${domain}/?s=${encodeURIComponent(query)}&post_type=product`;
+  const {
+    name,
+    domain,
+    searchUrl,
+    itemSelector,
+    titleSelector,
+    priceSelector,
+    currency,
+  } = storeConfig;
+  const url = searchUrl(query);
 
   try {
     const response = await axios.get(url, {
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        Accept: "text/html",
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+          "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml",
+        "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
       },
-      timeout: 15000,
+      timeout: 20000,
+      validateStatus: () => true,
     });
+
+    if (response.status !== 200 || !response.data) {
+      console.log(`  ⚠️ ${name}: HTTP ${response.status}`);
+      return [];
+    }
 
     const $ = cheerio.load(response.data);
     const products = [];
+    const seen = new Set();
 
-    const selectors = [
-      "li.product",
-      ".product",
-      ".product-item",
-      ".wc-block-grid__product",
-      "article.product",
-    ];
-
-    for (const sel of selectors) {
-      $(sel)
-        .slice(0, limit)
-        .each((i, el) => {
-          const title = $(el)
-            .find(
-              "h2, h3, .woocommerce-loop-product__title, .wc-block-grid__product-title, .product-title, .entry-title",
-            )
-            .first()
-            .text()
-            .trim();
-          const priceText = $(el)
-            .find(
-              ".price, .amount, .woocommerce-Price-amount, .wc-block-grid__product-price",
-            )
-            .first()
-            .text()
-            .trim();
-          const link = $(el).find("a").first().attr("href") || "";
-
-          if (!title || !priceText) return;
-
-          const price = parseInt(priceText.replace(/[^\d]/g, ""), 10);
-          if (isNaN(price) || price === 0) return;
-
-          if (!products.some((p) => p.productTitle === title)) {
-            products.push({
-              storeName: name,
-              productTitle: title,
-              price,
-              link: link.startsWith("http") ? link : `https://${domain}${link}`,
-            });
-          }
-        });
-      if (products.length > 0) break;
+    // تلاش برای __NEXT_DATA__
+    const nextDataMatch = response.data.match(
+      /<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/,
+    );
+    if (nextDataMatch) {
+      try {
+        const nextData = JSON.parse(nextDataMatch[1]);
+        const nextProducts = extractFromNextData(nextData, name, domain);
+        if (nextProducts.length > 0) {
+          console.log(
+            `  ✔ ${name}: ${nextProducts.length} محصول از __NEXT_DATA__`,
+          );
+          return nextProducts.slice(0, limit);
+        }
+      } catch (e) {}
     }
 
-    console.log(`  ✔ ${name}: ${products.length} محصول از Scraping`);
+    $(itemSelector)
+      .slice(0, limit * 3)
+      .each((i, el) => {
+        if (products.length >= limit) return false;
+
+        let title = "";
+        if (titleSelector === "__self__") {
+          title = $(el).text().trim();
+        } else {
+          title = $(el).find(titleSelector).first().text().trim();
+        }
+        title = title.replace(/\s+/g, " ").substring(0, 200);
+        if (!title || title.length < 5) return;
+
+        let link =
+          $(el).attr("href") || $(el).find("a").first().attr("href") || "";
+        if (!link.startsWith("http")) {
+          link = `https://${domain}${link.startsWith("/") ? "" : "/"}${link}`;
+        }
+
+        let priceText = "";
+        if ($(el).find(priceSelector).length === 0) {
+          priceText = $(el).text();
+        } else {
+          priceText = $(el).find(priceSelector).first().text();
+        }
+        const price = parsePriceText(priceText, currency);
+        if (price === 0) return;
+
+        const image = extractProductImage($, el, domain);
+
+        if (seen.has(title)) return;
+        seen.add(title);
+
+        products.push({
+          storeName: name,
+          productTitle: title,
+          price,
+          link,
+          image,
+        });
+      });
+
+    console.log(`  ✔ ${name}: ${products.length} محصول استخراج شد`);
     return products;
   } catch (error) {
-    console.warn(`  ⚠️ ${name}: Scraping هم خطا داد (${error.message})`);
+    console.log(`  ⚠️ ${name}: خطا (${error.message})`);
     return [];
   }
 }
 
-// ================================================================
+// ---------------------------------------------------------------
+// 🖼️ استخراج URL تصویر با کیفیت بالا از API دیجی‌کالا
+// ---------------------------------------------------------------
+function extractDigikalaImage(p) {
+  if (!p || !p.images) return null;
+
+  const candidates = [
+    p.images.main,
+    p.images.main_image,
+    p.images.thumbnail,
+    Array.isArray(p.images) ? p.images[0] : null,
+  ].filter(Boolean);
+
+  for (const img of candidates) {
+    let url = null;
+
+    if (typeof img === "string" && img.startsWith("http")) {
+      url = img;
+    } else if (typeof img === "object") {
+      let rawUrl = img.url || img.webp_url || img.src || img.path;
+      if (Array.isArray(rawUrl)) rawUrl = rawUrl[0];
+      if (typeof rawUrl === "string" && rawUrl.startsWith("http")) {
+        url = rawUrl;
+      }
+    }
+
+    if (!url) continue;
+
+    // 🎯 حذف query string → نسخه اصلی با کیفیت بالا (1280×1280)
+    return url.split("?")[0];
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------
+// 🎯 ارتقاء URL تصویر دیجی‌کالا به کیفیت بالا
+// ---------------------------------------------------------------
+function upgradeDigikalaImageUrl(url) {
+  if (!url) return url;
+
+  try {
+    // روش ۱: اگر x-oss-process دارد، پارامتر resize را تغییر بده
+    if (url.includes("x-oss-process")) {
+      // تغییر w_220 (یا هر عددی) به w_1000
+      let newUrl = url.replace(/resize[^/]*?w_\d+/g, "resize,w_1000");
+      // تغییر h هم اگر وجود داشت
+      newUrl = newUrl.replace(/resize[^/]*?h_\d+/g, "resize,h_1000");
+      // افزایش کیفیت
+      newUrl = newUrl.replace(/quality,q_\d+/g, "quality,q_95");
+      // حذف m_lfit اگر می‌خواهیم سایز کامل باشد (اختیاری)
+      if (newUrl.includes("w_1000")) return newUrl;
+    }
+
+    // روش ۲: اگر پارامترهای resize و quality جدا هستند
+    if (url.match(/[?&]w=\d+/)) {
+      return url.replace(/([?&])w=\d+/g, "$1w=1000");
+    }
+
+    // روش ۳: اگر URL شامل _220x220 یا _thumbnail است
+    return url
+      .replace(/_220x220/g, "_1000x1000")
+      .replace(/_500x500/g, "_1000x1000")
+      .replace(/_thumbnail/g, "_large")
+      .replace(/-220x220/g, "-1000x1000");
+  } catch (e) {
+    return url;
+  }
+}
+
+// ---------------------------------------------------------------
 // 🏪 دیجی‌کالا
-// ================================================================
+// ---------------------------------------------------------------
 async function searchDigikala(query, limit = 20) {
   try {
     const response = await axios.get("https://api.digikala.com/v1/search/", {
@@ -468,21 +618,39 @@ async function searchDigikala(query, limit = 20) {
       timeout: 15000,
     });
     const products = response.data?.data?.products || [];
-    return products.slice(0, limit).map((p) => ({
-      storeName: "دیجی‌کالا",
-      productTitle: p.title_fa || "—",
-      price:
-        parseInt(
-          String(p.default_variant?.price?.selling_price || "0").replace(
-            /[^\d]/g,
-            "",
-          ),
-          10,
-        ) / 10,
-      link: `https://www.digikala.com/product/dkp-${p.id}/`,
-    }));
+
+    return products.slice(0, limit).map((p) => {
+      const image = extractDigikalaImage(p);
+
+      // لاگ دیباگ (فقط برای تست — بعداً می‌توانید حذف کنید)
+      if (!image) {
+        console.log(
+          `  ⚠️ دیجی‌کالا: تصویر برای «${(p.title_fa || "").substring(0, 40)}» یافت نشد`,
+        );
+        if (p.images)
+          console.log(
+            `     ساختار images:`,
+            JSON.stringify(p.images).substring(0, 200),
+          );
+      }
+
+      return {
+        storeName: "دیجی‌کالا",
+        productTitle: p.title_fa || "—",
+        price:
+          parseInt(
+            String(p.default_variant?.price?.selling_price || "0").replace(
+              /[^\d]/g,
+              "",
+            ),
+            10,
+          ) / 10,
+        link: `https://www.digikala.com/product/dkp-${p.id}/`,
+        image,
+      };
+    });
   } catch (error) {
-    console.warn(`⚠️ خطا در دیجی‌کالا:`, error.message);
+    console.warn(`⚠️ خطا در جستجوی دیجی‌کالا:`, error.message);
     return [];
   }
 }
@@ -498,7 +666,8 @@ async function searchTorob(query, limit = 20) {
         params: { q: query, source: "next_desktop", page: 0, size: limit },
         headers: {
           "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
           Accept: "application/json, text/plain, */*",
           "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
           Referer: "https://torob.com/",
@@ -508,14 +677,33 @@ async function searchTorob(query, limit = 20) {
       },
     );
     const products = response.data?.results || [];
-    return products.slice(0, limit).map((p) => ({
-      storeName: "ترب",
-      productTitle: p.name1 || p.name || "—",
-      price: parseInt(String(p.price || "0").replace(/[^\d]/g, ""), 10),
-      link: `https://torob.com/p/${p.random_key || p.id}/`,
-    }));
+    return products.slice(0, limit).map((p) => {
+      let image =
+        p.image_url ||
+        p.image ||
+        p.thumbnail ||
+        (p.images && p.images[0]) ||
+        null;
+
+      // ارتقاء کیفیت تصویر ترب
+      if (image && typeof image === "string") {
+        // ترب معمولاً با پارامتر size یا width کار می‌کند
+        image = image
+          .replace(/[?&]size=\d+/g, "")
+          .replace(/[?&]width=\d+/g, "")
+          .replace(/[?&]height=\d+/g, "");
+      }
+
+      return {
+        storeName: "ترب",
+        productTitle: p.name1 || p.name || "—",
+        price: parseInt(String(p.price || "0").replace(/[^\d]/g, ""), 10),
+        link: `https://torob.com/p/${p.random_key || p.id}/`,
+        image,
+      };
+    });
   } catch (error) {
-    console.warn(`⚠️ خطا در ترب:`, error.message);
+    console.warn(`⚠️ خطا در جستجوی ترب:`, error.message);
     return [];
   }
 }
@@ -524,19 +712,18 @@ async function searchTorob(query, limit = 20) {
 // 🎯 تابع اصلی
 // ================================================================
 async function compareBasket(shoppingList) {
-  const queries = [];
   const MIN_QUERY_MATCH = 0.6;
   const MIN_TOKEN_RATIO = 0.75;
   const SEP = "─".repeat(70);
   const THICK_SEP = "═".repeat(70);
+
+  const queries = [];
 
   for (const query of shoppingList) {
     console.log("\n\n");
     console.log(THICK_SEP);
     console.log(`🔍 جستجو: «${query}»`);
     console.log(THICK_SEP);
-
-    // گزارش منابع
     console.log("📡 در حال جستجو در فروشگاه‌ها...");
 
     const allResults = await Promise.all([
@@ -561,8 +748,8 @@ async function compareBasket(shoppingList) {
 
     const relevantProducts = [];
     let acceptedCount = 0,
-      rejectedCount = 0;
-    let zeroPriceRejected = 0;
+      rejectedCount = 0,
+      zeroPriceRejected = 0;
 
     for (const p of allProducts) {
       const matchInfo = queryMatchScore(query, p.productTitle);
@@ -571,15 +758,12 @@ async function compareBasket(shoppingList) {
       const isAccepted = passesScore && passesRatio;
 
       if (isAccepted) {
-        if (p.price === 0) {
-          zeroPriceRejected++;
-        } else {
+        if (p.price === 0) zeroPriceRejected++;
+        else {
           acceptedCount++;
           relevantProducts.push(p);
         }
-      } else {
-        rejectedCount++;
-      }
+      } else rejectedCount++;
 
       const icon = isAccepted && p.price > 0 ? "✅" : "❌";
       const priceStr =
@@ -592,32 +776,27 @@ async function compareBasket(shoppingList) {
         p.productTitle.length > 40
           ? p.productTitle.substring(0, 40) + "..."
           : p.productTitle;
+      const imgFlag = p.image ? "🖼️" : "  ";
 
       console.log(
-        `${icon}  [${scoreStr}│${ratioStr}│${priceStr}]  ${store}  │  ${title}`,
+        `${icon} ${imgFlag} [${scoreStr}│${ratioStr}│${priceStr}]  ${store}  │  ${title}`,
       );
 
-      if (matchInfo.reason) {
-        console.log(`        ⛔ ${matchInfo.reason}`);
-      } else if (!isAccepted) {
+      if (matchInfo.reason) console.log(`        ⛔ ${matchInfo.reason}`);
+      else if (!isAccepted) {
         const reasons = [];
         if (!passesScore) reasons.push(`امتیاز کم`);
-        if (!passesRatio)
-          reasons.push(`نسبت کم (${(matchInfo.ratio * 100).toFixed(0)}%)`);
+        if (!passesRatio) reasons.push(`نسبت کم`);
         console.log(`        ⛔ ${reasons.join(" + ")}`);
-      } else if (p.price === 0) {
-        console.log(
-          `        ⚠️ تطبیق خوب ولی قیمت استخراج نشد — نادیده گرفته شد`,
-        );
-      } else {
+      } else if (p.price === 0) console.log(`        ⚠️ قیمت استخراج نشد`);
+      else
         console.log(`        ✔ ${matchInfo.matchedTokens.join(" + ") || "—"}`);
-      }
       console.log("");
     }
 
     console.log(SEP);
     console.log(
-      `📊 خلاصه: ${acceptedCount} تأیید │ ${rejectedCount} رد تطبیق │ ${zeroPriceRejected} رد به‌خاطر قیمت`,
+      `📊 خلاصه: ${acceptedCount} تأیید │ ${rejectedCount} رد تطبیق │ ${zeroPriceRejected} رد قیمت`,
     );
     console.log(SEP);
     console.log("");
@@ -654,36 +833,18 @@ async function compareBasket(shoppingList) {
       })
       .filter((m) => m.offers.length > 0 && m.cheapest.price > 0)
       .sort((a, b) => {
-        // ۱. خوشه‌هایی که در چند فروشگاه هستند اول بیایند
         if (b.storeCount !== a.storeCount) return b.storeCount - a.storeCount;
-        // ۲. سپس بر اساس ارزان‌ترین قیمت (صعودی)
         return a.cheapest.price - b.cheapest.price;
-      })
-      .slice(0, 30); // ← افزایش از ۱۰ به ۳۰
-
-    // 📊 لاگ تفصیلی خوشه‌بندی
-    console.log(`\n📦 خوشه‌بندی:`);
-    console.log(`   کل محصولات تأییدشده: ${relevantProducts.length}`);
-    console.log(`   تعداد خوشه‌ها: ${clusters.length}`);
-    const multiStoreClusters = matches.filter((m) => m.storeCount > 1);
-    console.log(`   خوشه‌های چندفروشگاهی: ${multiStoreClusters.length}`);
-    const singleStoreClusters = matches.filter((m) => m.storeCount === 1);
-    console.log(`   خوشه‌های تک‌فروشگاهی: ${singleStoreClusters.length}`);
+      });
 
     console.log(`🎯 خوشه‌های نهایی: ${matches.length}`);
-    matches.forEach((m, i) => {
-      const storeList = m.offers
-        .map((o) => `${o.storeName} (${o.price.toLocaleString("fa-IR")})`)
-        .join(" / ");
-      console.log(`   ${i + 1}. [${m.storeCount} فروشگاه] ${storeList}`);
-      console.log(`      ${m.productName.substring(0, 70)}`);
-    });
-    console.log("");
-
     queries.push({ query, matches });
     await new Promise((r) => setTimeout(r, 800));
   }
 
+  // ===============================================================
+  // ساخت basketComparison (گروه‌بندی بر اساس فروشگاه)
+  // ===============================================================
   const storeNames = new Set();
   for (const { matches } of queries) {
     for (const match of matches) {
@@ -697,7 +858,9 @@ async function compareBasket(shoppingList) {
         itemCount = 0;
       const missing = [],
         pickedItems = [];
+
       for (const { query, matches } of queries) {
+        // ارزان‌ترین پیشنهاد آن فروشگاه برای این query
         let cheapestForStore = null;
         for (const match of matches) {
           const offer = match.offers.find((o) => o.storeName === storeName);
@@ -708,6 +871,7 @@ async function compareBasket(shoppingList) {
             cheapestForStore = offer;
           }
         }
+
         if (cheapestForStore) {
           total += cheapestForStore.price;
           itemCount++;
@@ -716,9 +880,13 @@ async function compareBasket(shoppingList) {
             title: cheapestForStore.productTitle,
             price: cheapestForStore.price,
             link: cheapestForStore.link,
+            image: cheapestForStore.image || null,
           });
-        } else missing.push(query);
+        } else {
+          missing.push(query);
+        }
       }
+
       return { storeName, total, itemCount, missing, items: pickedItems };
     })
     .filter((b) => b.itemCount > 0)

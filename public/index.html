@@ -1,88 +1,87 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fa" dir="rtl">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>خرید هوشمند | مقایسه قیمت سبد خرید</title>
-  <link rel="stylesheet" href="style.css" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700&display=swap"
-    rel="stylesheet"
-  />
-</head>
-<body>
-  <div class="container">
-    <!-- هدر -->
-    <header class="header">
-      <div class="logo">
-        <span class="logo-icon">🛒</span>
-        <div>
-          <h1>خرید هوشمند</h1>
-          <p class="subtitle">مقایسه قیمت سبد خرید در فروشگاه‌های آنلاین</p>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>خرید هوشمند | مقایسه قیمت سبد خرید</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <!-- هدر -->
+      <header class="header">
+        <div class="logo">
+          <span class="logo-icon">🛒</span>
+          <div>
+            <h1>خرید هوشمند</h1>
+            <p class="subtitle">مقایسه قیمت سبد خرید در فروشگاه‌های آنلاین</p>
+          </div>
         </div>
-      </div>
 
-      <!-- دکمه تغییر تم -->
-      <button id="theme-toggle" class="theme-toggle" aria-label="تغییر حالت روشن/تاریک">
-        <span class="theme-icon">🌙</span>
-      </button>
-    </header>
-
-    <!-- فرم ورودی -->
-    <section class="input-section">
-      <div class="input-header">
-        <h2>📝 لیست خرید خود را وارد کنید</h2>
-        <p class="hint">هر آیتم را در یک خط جداگانه بنویسید یا با Enter اضافه کنید</p>
-      </div>
-
-      <div class="input-wrapper">
-        <input
-          type="text"
-          id="item-input"
-          placeholder="مثلاً: گوشی سامسونگ"
-          autocomplete="off"
-        />
-        <button id="add-btn" class="btn-add">افزودن</button>
-      </div>
-
-      <div id="items-list" class="items-list">
-        <!-- آیتم‌ها اینجا نمایش داده می‌شوند -->
-      </div>
-
-      <div class="actions">
-        <button id="search-btn" class="btn-search" disabled>
-          <span class="spinner" id="spinner"></span>
-          <span id="search-btn-text">🔍 جستجو و مقایسه</span>
+        <button
+          id="theme-toggle"
+          class="theme-toggle"
+          aria-label="تغییر حالت روشن/تاریک"
+        >
+          <span class="theme-icon">🌙</span>
         </button>
-        <button id="clear-btn" class="btn-clear">پاک کردن همه</button>
-      </div>
-    </section>
+      </header>
 
-    <!-- نتایج -->
-    <section id="results-section" class="results-section hidden">
-      
-      <!-- ⭐ بخش تحلیل هوشمند (جدا از لیست مقایسه) -->
-      <div id="analysis-panel" class="analysis-panel">
-        <div class="analysis-header">
-          <span class="analysis-badge">🧠 تحلیل هوشمند</span>
-          <h3 class="analysis-title">بهترین پیشنهاد بر اساس الگوریتم تطبیق</h3>
+      <!-- فرم ورودی -->
+      <section class="input-section">
+        <div class="input-header">
+          <h2>📝 لیست خرید خود را وارد کنید</h2>
+          <p class="hint">
+            هر آیتم را در یک خط جداگانه بنویسید یا با Enter اضافه کنید
+          </p>
         </div>
-        <div id="analysis-content" class="analysis-content"></div>
+
+        <div class="input-wrapper">
+          <input
+            type="text"
+            id="item-input"
+            placeholder="مثلاً: قلمو سرگرد پارس آرت شماره 4"
+            autocomplete="off"
+          />
+          <button id="add-btn" class="btn-add">افزودن</button>
+        </div>
+
+        <div id="items-list" class="items-list"></div>
+
+        <div class="actions">
+          <button id="search-btn" class="btn-search" disabled>
+            <span class="spinner" id="spinner"></span>
+            <span id="search-btn-text">🔍 جستجو و مقایسه</span>
+          </button>
+          <button id="clear-btn" class="btn-clear">پاک کردن همه</button>
+        </div>
+      </section>
+
+      <!-- نتایج -->
+      <section id="results-section" class="results-section hidden">
+        <div id="stores-container" class="stores-container"></div>
+      </section>
+
+      <!-- خطا -->
+      <div id="error-box" class="error-box hidden"></div>
+    </div>
+
+    <!-- 🖼️ مودال نمایش تصویر بزرگ -->
+    <div id="image-modal" class="image-modal hidden">
+      <div class="image-modal-backdrop"></div>
+      <button class="image-modal-close" aria-label="بستن">✕</button>
+      <div class="image-modal-content">
+        <img id="image-modal-img" src="" alt="" />
+        <div class="image-modal-caption"></div>
       </div>
+    </div>
 
-      <!-- لیست مقایسه کامل -->
-      <h2 class="results-title">📋 لیست کامل مقایسه</h2>
-      <div id="cheapest-banner" class="cheapest-banner"></div>
-      <div id="stores-container" class="stores-container"></div>
-    </section>
-
-    <!-- خطا -->
-    <div id="error-box" class="error-box hidden"></div>
-  </div>
-
-  <script src="script.js"></script>
-</body>
+    <script src="script.js"></script>
+  </body>
 </html>
