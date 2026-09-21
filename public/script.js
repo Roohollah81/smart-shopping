@@ -16,47 +16,52 @@ const spinner = document.getElementById("spinner");
 let items = [];
 
 // ================================================================
-// 🏪 نقشه‌ی آیکون فروشگاه‌ها (لوگوی مستقیم)
+// 🏪 فروشگاه‌های پشتیبانی‌شده
 // ================================================================
-const STORE_ICONS = {
-  دیجی‌کالا: [
-    "https://dkstatics-public.digikala.com/digikala-static/455aa1c48c81b07b7b4be44b78e7b0ffb6f8bb44_1681290128.png",
-    "https://www.digikala.com/favicon.ico",
-  ],
-  ترب: [
-    "https://torob.com/static/images/logo.svg",
-    "https://torob.com/favicon.ico",
-  ],
-  قلم‌تراش: [
-    "https://ghalamtarash.ir/wp-content/uploads/2023/08/logo.png",
-    "https://www.google.com/s2/favicons?domain=ghalamtarash.ir&sz=128",
-  ],
-  "آرمان آرت": [
-    "https://armanartstore.com/wp-content/uploads/2022/01/logo.png",
-    "https://www.google.com/s2/favicons?domain=armanartstore.com&sz=128",
-  ],
-  عالم‌زاده: [
-    "https://alemzadeh.ir/wp-content/uploads/2023/01/logo.png",
-    "https://www.google.com/s2/favicons?domain=alemzadeh.ir&sz=128",
-  ],
-  "مهستان آرت": [
-    "https://mahestanart.com/wp-content/uploads/2022/05/logo.png",
-    "https://www.google.com/s2/favicons?domain=mahestanart.com&sz=128",
-  ],
-  "مجد مارکت": [
-    "https://majdmarket.com/logo.png",
-    "https://www.google.com/s2/favicons?domain=majdmarket.com&sz=128",
-  ],
-};
-
-// ---------------------------------------------------------------
-// ساخت لیست URLهای آیکون فروشگاه (با fallback زنجیره‌ای)
-// ---------------------------------------------------------------
-function getStoreIconUrls(storeName) {
-  const urls = STORE_ICONS[storeName];
-  if (!urls) return [];
-  return Array.isArray(urls) ? urls : [urls];
-}
+const SUPPORTED_STORES = [
+  {
+    name: "دیجی‌کالا",
+    url: "https://www.digikala.com",
+    icon: "https://www.google.com/s2/favicons?domain=digikala.com&sz=128",
+    color: "#ef4444",
+  },
+  {
+    name: "ترب",
+    url: "https://torob.com",
+    icon: "https://www.google.com/s2/favicons?domain=torob.com&sz=128",
+    color: "#f59e0b",
+  },
+  {
+    name: "قلم‌تراش",
+    url: "https://ghalamtarash.ir",
+    icon: "https://www.google.com/s2/favicons?domain=ghalamtarash.ir&sz=128",
+    color: "#84cc16",
+  },
+  {
+    name: "آرمان آرت",
+    url: "https://armanartstore.com",
+    icon: "https://www.google.com/s2/favicons?domain=armanartstore.com&sz=128",
+    color: "#ec4899",
+  },
+  {
+    name: "عالم‌زاده",
+    url: "https://alemzadeh.ir",
+    icon: "https://www.google.com/s2/favicons?domain=alemzadeh.ir&sz=128",
+    color: "#3b82f6",
+  },
+  {
+    name: "مهستان آرت",
+    url: "https://mahestanart.com",
+    icon: "https://www.google.com/s2/favicons?domain=mahestanart.com&sz=128",
+    color: "#a855f7",
+  },
+  {
+    name: "مجد مارکت",
+    url: "https://majdmarket.com",
+    icon: "https://www.google.com/s2/favicons?domain=majdmarket.com&sz=128",
+    color: "#f97316",
+  },
+];
 
 // ================================================================
 // مدیریت آیتم‌ها
@@ -183,52 +188,21 @@ function renderStoreSection(store, isBest) {
     ? `<h2 class="section-title best-title">✨ به صرفه ترین فروشگاه</h2>`
     : "";
 
-  // 🏪 ساخت زنجیره‌ی fallback برای آیکون فروشگاه
-  const iconUrls = getStoreIconUrls(store.storeName);
+  // 🏪 آیکون فروشگاه
+  const storeIconUrl = getStoreIconUrl(store.storeName);
   const fallbackEmoji = isBest ? "🥇" : "🏪";
 
-  let storeIconHtml;
-  if (iconUrls.length > 0) {
-    // ساخت onerror زنجیره‌ای برای امتحان کردن URLهای بعدی
-    const errorHandlers = iconUrls.slice(1).map((nextUrl, i) => {
-      const nextIndex = i + 1;
-      if (nextIndex < iconUrls.length - 1) {
-        return `this.src='${nextUrl}'`;
-      }
-      // آخرین URL → نمایش امجی
-      return `this.style.display='none'; this.nextElementSibling.style.display='flex';`;
-    });
-
-    // برای هر URL، اگر خطا داد، URL بعدی را امتحان کن
-    // (onerror به صورت پیش‌فرض به آخرین fallback می‌رود)
-    const onerrorChain = `
-      this.onerror=null;
-      const urls = ${JSON.stringify(iconUrls)};
-      const currentIdx = urls.indexOf(this.src);
-      if (currentIdx >= 0 && currentIdx < urls.length - 1) {
-        this.src = urls[currentIdx + 1];
-      } else {
-        this.style.display='none';
-        this.nextElementSibling.style.display='flex';
-      }
-    `
-      .replace(/\s+/g, " ")
-      .trim();
-
-    storeIconHtml = `
-      <img 
-        src="${escapeHtml(iconUrls[0])}" 
+  const storeIconHtml = storeIconUrl
+    ? `<img 
+        src="${escapeHtml(storeIconUrl)}" 
         alt="${escapeHtml(store.storeName)}" 
         class="store-logo" 
         loading="lazy"
         referrerpolicy="no-referrer"
-        onerror="${onerrorChain.replace(/"/g, "&quot;")}"
+        onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';"
       />
-      <span class="store-icon-fallback" style="display:none;">${fallbackEmoji}</span>
-    `;
-  } else {
-    storeIconHtml = `<span class="store-icon-fallback" style="display:flex;">${fallbackEmoji}</span>`;
-  }
+      <span class="store-icon-fallback" style="display:none;">${fallbackEmoji}</span>`
+    : `<span class="store-icon-fallback" style="display:flex;">${fallbackEmoji}</span>`;
 
   return `
     <section class="store-section ${isBest ? "best-store" : ""}">
@@ -252,7 +226,7 @@ function renderStoreSection(store, isBest) {
 }
 
 // ================================================================
-// رندر کارت محصول با تصویر
+// رندر کارت محصول
 // ================================================================
 function renderProductCard(item, store) {
   const icon = getProductIcon(item.title);
@@ -261,8 +235,9 @@ function renderProductCard(item, store) {
   // 🖼️ استخراج امن URL تصویر
   let imageUrl = item.image;
   if (Array.isArray(imageUrl)) imageUrl = imageUrl[0];
-  if (typeof imageUrl === "object" && imageUrl)
+  if (typeof imageUrl === "object" && imageUrl) {
     imageUrl = imageUrl.url || imageUrl.src;
+  }
   const hasImage =
     imageUrl && typeof imageUrl === "string" && imageUrl.startsWith("http");
 
@@ -296,7 +271,9 @@ function renderProductCard(item, store) {
       </div>
       ${
         hasLink
-          ? `<a class="product-action" href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">
+          ? `<a class="product-action" href="${escapeHtml(
+              item.link,
+            )}" target="_blank" rel="noopener noreferrer">
               مشاهده در ${escapeHtml(store.storeName)} ↗
             </a>`
           : `<div class="product-action disabled">لینک موجود نیست</div>`
@@ -306,7 +283,25 @@ function renderProductCard(item, store) {
 }
 
 // ================================================================
-// تشخیص آیکون
+// نقشه‌ی آیکون فروشگاه‌ها
+// ================================================================
+function getStoreIconUrl(storeName) {
+  const domainMap = {
+    دیجی‌کالا: "digikala.com",
+    ترب: "torob.com",
+    قلم‌تراش: "ghalamtarash.ir",
+    "آرمان آرت": "armanartstore.com",
+    عالم‌زاده: "alemzadeh.ir",
+    "مهستان آرت": "mahestanart.com",
+    "مجد مارکت": "majdmarket.com",
+  };
+  const domain = domainMap[storeName];
+  if (!domain) return null;
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+}
+
+// ================================================================
+// تشخیص آیکون بر اساس دسته‌بندی محصول
 // ================================================================
 function getProductIcon(title) {
   const t = (title || "").toLowerCase();
@@ -334,6 +329,247 @@ function getProductIcon(title) {
   if (t.includes("کوله") || t.includes("کیف")) return "🎒";
   return "📦";
 }
+
+// ================================================================
+// 🏪 ساخت HTML یک کارت فروشگاه
+// ================================================================
+function buildStoreCard(store) {
+  return `
+    <a 
+      class="store-strip-card" 
+      style="--store-color: ${store.color};"
+      href="${escapeHtml(store.url)}"
+      target="_blank"
+      rel="noopener noreferrer"
+      title="رفتن به ${escapeHtml(store.name)}"
+    >
+      <div class="store-strip-info">
+        <span class="store-strip-name">${escapeHtml(store.name)}</span>
+      </div>
+      <div class="store-strip-logo">
+        <img 
+          src="${escapeHtml(store.icon)}" 
+          alt="${escapeHtml(store.name)}"
+          loading="lazy"
+          referrerpolicy="no-referrer"
+          onerror="this.onerror=null; this.parentElement.innerHTML='<span class=&quot;store-strip-fallback&quot;>🏪</span>';"
+        />
+      </div>
+    </a>
+  `;
+}
+
+// ================================================================
+// رندر نوار فروشگاه‌ها
+// ================================================================
+function renderSupportedStores() {
+  const strip = document.getElementById("stores-strip");
+  if (!strip) return;
+
+  // 🎯 معکوس کردن ترتیب DOM تا در LTR دیجی‌کالا راست‌ترین باشد
+  const cardsHtml = [...SUPPORTED_STORES]
+    .reverse()
+    .map(buildStoreCard)
+    .join("");
+
+  strip.innerHTML = `
+    <div class="stores-strip-track">${cardsHtml}</div>
+    <div class="stores-strip-track" aria-hidden="true">${cardsHtml}</div>
+  `;
+
+  // 🎯 اعمال direction به صورت inline (بالاترین اولویت)
+  strip.style.direction = "ltr";
+
+  initStripAutoScroll();
+}
+
+// ================================================================
+// مدیریت اسکرول خودکار + دستی (حلقه‌ی بی‌نهایت یکپارچه)
+// ================================================================
+function initStripAutoScroll() {
+  const wrapper = document.querySelector(".supported-stores");
+  const strip = document.getElementById("stores-strip");
+  if (!wrapper || !strip) return;
+
+  let stripPos = 0;
+  let lastTime = performance.now();
+  const SPEED = 25; // پیکسل در ثانیه
+
+  let isMouseDown = false;
+  let isDragging = false;
+  let clickSuppressed = false;
+  let dragStartX = 0;
+  let dragStartPos = 0;
+  let isHovering = false;
+
+  // 🎯 اندازه‌ی واقعی یک track
+  let trackWidth = 0;
+
+  function measureTrack() {
+    const firstTrack = strip.querySelector(".stores-strip-track");
+    if (firstTrack) {
+      trackWidth = firstTrack.getBoundingClientRect().width;
+    }
+  }
+
+  measureTrack();
+  window.addEventListener("resize", measureTrack);
+
+  // 🎯 حلقه‌ی انیمیشن
+  function tick(now) {
+    const dt = Math.min((now - lastTime) / 1000, 0.1);
+    lastTime = now;
+
+    if (trackWidth > 0) {
+      // حرکت خودکار فقط اگر کاربر هاور نکرده و درگ نمی‌کند
+      if (!isHovering && !isDragging) {
+        stripPos -= SPEED * dt;
+      }
+
+      // 📐 نرمال‌سازی با ماژول منفی
+      stripPos = stripPos % trackWidth;
+      if (stripPos > 0) stripPos -= trackWidth;
+
+      strip.style.transform = `translateX(${stripPos}px)`;
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  requestAnimationFrame((t) => {
+    lastTime = t;
+    requestAnimationFrame(tick);
+  });
+
+  // 🖱️ ورود و خروج موس (cursor از CSS می‌آید)
+  wrapper.addEventListener("mouseenter", () => {
+    isHovering = true;
+  });
+
+  wrapper.addEventListener("mouseleave", () => {
+    isHovering = false;
+    isMouseDown = false;
+    isDragging = false;
+  });
+
+  // 🖱️ شروع درگ
+  wrapper.addEventListener("mousedown", (e) => {
+    if (e.button !== 0) return;
+    isMouseDown = true;
+    isDragging = false;
+    clickSuppressed = false;
+    dragStartX = e.clientX;
+    dragStartPos = stripPos;
+  });
+
+  // 🖱️ حرکت موس
+  document.addEventListener("mousemove", (e) => {
+    if (!isMouseDown) return;
+    const delta = e.clientX - dragStartX;
+
+    if (!isDragging && Math.abs(delta) > 5) {
+      isDragging = true;
+      clickSuppressed = true;
+    }
+
+    if (isDragging) {
+      stripPos = dragStartPos + delta;
+    }
+  });
+
+  // 🖱️ رها کردن موس
+  document.addEventListener("mouseup", () => {
+    if (isMouseDown) {
+      isMouseDown = false;
+      isDragging = false;
+    }
+  });
+
+  // 🚫 جلوگیری از کلیک روی لینک‌ها هنگام درگ
+  wrapper.addEventListener(
+    "click",
+    (e) => {
+      if (clickSuppressed) {
+        e.preventDefault();
+        e.stopPropagation();
+        clickSuppressed = false;
+      }
+    },
+    true,
+  );
+
+  // 🎡 اسکرول با چرخ ماوس
+  wrapper.addEventListener(
+    "wheel",
+    (e) => {
+      e.preventDefault();
+      stripPos -= (e.deltaY + e.deltaX) * 0.6;
+    },
+    { passive: false },
+  );
+}
+
+// ================================================================
+// 🖼️ مودال نمایش تصویر بزرگ (Lightbox)
+// ================================================================
+const imageModal = document.getElementById("image-modal");
+const imageModalImg = document.getElementById("image-modal-img");
+const imageModalCaption = imageModal
+  ? imageModal.querySelector(".image-modal-caption")
+  : null;
+const imageModalClose = imageModal
+  ? imageModal.querySelector(".image-modal-close")
+  : null;
+const imageModalBackdrop = imageModal
+  ? imageModal.querySelector(".image-modal-backdrop")
+  : null;
+
+function openImageModal(src, caption, alt) {
+  if (!imageModal) return;
+  imageModalImg.src = src;
+  imageModalImg.alt = alt || "";
+  if (imageModalCaption) imageModalCaption.textContent = caption || "";
+  imageModal.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+}
+
+function closeImageModal() {
+  if (!imageModal) return;
+  imageModal.classList.add("hidden");
+  imageModalImg.src = "";
+  document.body.style.overflow = "";
+}
+
+// رویداد کلیک روی تصاویر (Event Delegation)
+document.addEventListener("click", (e) => {
+  const img = e.target.closest(".product-image-wrapper.clickable-image");
+  if (!img) return;
+
+  const realImg = img.querySelector(".product-image-real");
+  if (!realImg || !realImg.src) return;
+
+  const card = img.closest(".product-card");
+  const title =
+    card?.querySelector(".product-title")?.textContent?.trim() || "";
+
+  openImageModal(realImg.src, title, realImg.alt);
+});
+
+// بستن مودال
+if (imageModalClose) imageModalClose.addEventListener("click", closeImageModal);
+if (imageModalBackdrop)
+  imageModalBackdrop.addEventListener("click", closeImageModal);
+
+// بستن با کلید Escape
+document.addEventListener("keydown", (e) => {
+  if (
+    e.key === "Escape" &&
+    imageModal &&
+    !imageModal.classList.contains("hidden")
+  ) {
+    closeImageModal();
+  }
+});
 
 // ================================================================
 // توابع کمکی
@@ -374,7 +610,7 @@ searchBtn.addEventListener("click", search);
 clearBtn.addEventListener("click", clearAll);
 
 // ================================================================
-// مدیریت تم
+// مدیریت تم روشن/تاریک
 // ================================================================
 const themeToggle = document.getElementById("theme-toggle");
 const themeIcon = themeToggle.querySelector(".theme-icon");
@@ -387,8 +623,9 @@ function applyTheme(theme) {
 
 function initTheme() {
   const saved = localStorage.getItem("theme");
-  if (saved) applyTheme(saved);
-  else {
+  if (saved) {
+    applyTheme(saved);
+  } else {
     const prefersDark = window.matchMedia(
       "(prefers-color-scheme: dark)",
     ).matches;
@@ -402,54 +639,9 @@ themeToggle.addEventListener("click", () => {
   applyTheme(current === "dark" ? "light" : "dark");
 });
 
-// ================================================================
-// 🖼️ مودال نمایش تصویر بزرگ (Lightbox)
-// ================================================================
-const imageModal = document.getElementById("image-modal");
-const imageModalImg = document.getElementById("image-modal-img");
-const imageModalCaption = imageModal.querySelector(".image-modal-caption");
-const imageModalClose = imageModal.querySelector(".image-modal-close");
-const imageModalBackdrop = imageModal.querySelector(".image-modal-backdrop");
-
-function openImageModal(src, caption, alt) {
-  imageModalImg.src = src;
-  imageModalImg.alt = alt || "";
-  imageModalCaption.textContent = caption || "";
-  imageModal.classList.remove("hidden");
-  document.body.style.overflow = "hidden"; // قفل اسکرول
-}
-
-function closeImageModal() {
-  imageModal.classList.add("hidden");
-  imageModalImg.src = "";
-  document.body.style.overflow = "";
-}
-
-// رویداد کلیک روی تصاویر (Event Delegation)
-document.addEventListener("click", (e) => {
-  const img = e.target.closest(".product-image-wrapper.clickable-image");
-  if (!img) return;
-
-  const realImg = img.querySelector(".product-image-real");
-  if (!realImg || !realImg.src) return;
-
-  // عنوان محصول از کارت والد
-  const card = img.closest(".product-card");
-  const title =
-    card?.querySelector(".product-title")?.textContent?.trim() || "";
-
-  openImageModal(realImg.src, title, realImg.alt);
-});
-
-// بستن مودال
-imageModalClose.addEventListener("click", closeImageModal);
-imageModalBackdrop.addEventListener("click", closeImageModal);
-
-// بستن با کلید Escape
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !imageModal.classList.contains("hidden")) {
-    closeImageModal();
-  }
-});
-
 initTheme();
+
+// ================================================================
+// 🚀 اجرای اولیه
+// ================================================================
+renderSupportedStores();
