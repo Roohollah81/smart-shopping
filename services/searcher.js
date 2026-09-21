@@ -933,30 +933,40 @@ async function compareBasket(shoppingList) {
         pickedItems = [];
 
       for (const { query, matches } of queries) {
-        let cheapestForStore = null;
+        // 🎯 جمع‌آوری همه پیشنهادهای این فروشگاه برای این query
+        const offersForStore = [];
         for (const match of matches) {
           const offer = match.offers.find((o) => o.storeName === storeName);
-          if (
-            offer &&
-            (!cheapestForStore || offer.price < cheapestForStore.price)
-          ) {
-            cheapestForStore = offer;
-          }
+          if (offer) offersForStore.push(offer);
         }
 
-        if (cheapestForStore) {
-          total += cheapestForStore.price;
-          itemCount++;
-          pickedItems.push({
-            query,
-            title: cheapestForStore.productTitle,
-            price: cheapestForStore.price,
-            link: cheapestForStore.link,
-            image: cheapestForStore.image || null,
-          });
-        } else {
+        if (offersForStore.length === 0) {
           missing.push(query);
+          continue;
         }
+
+        // 🎯 مرتب‌سازی بر اساس قیمت (کمترین اول)
+        offersForStore.sort((a, b) => a.price - b.price);
+
+        const cheapest = offersForStore[0];
+        const others = offersForStore.slice(1);
+
+        total += cheapest.price;
+        itemCount++;
+        pickedItems.push({
+          query,
+          title: cheapest.productTitle,
+          price: cheapest.price,
+          link: cheapest.link,
+          image: cheapest.image || null,
+          // 🎯 سایر محصولات این فروشگاه برای این query
+          otherItems: others.map((o) => ({
+            title: o.productTitle,
+            price: o.price,
+            link: o.link,
+            image: o.image || null,
+          })),
+        });
       }
 
       return { storeName, total, itemCount, missing, items: pickedItems };

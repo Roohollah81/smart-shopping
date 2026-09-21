@@ -15,9 +15,6 @@ const spinner = document.getElementById("spinner");
 
 let items = [];
 
-// ================================================================
-// 🏪 فروشگاه‌های پشتیبانی‌شده
-// ================================================================
 const SUPPORTED_STORES = [
   {
     name: "دیجی‌کالا",
@@ -63,9 +60,12 @@ const SUPPORTED_STORES = [
   },
 ];
 
-// ================================================================
-// مدیریت آیتم‌ها
-// ================================================================
+function getStoreColor(storeName) {
+  const s = SUPPORTED_STORES.find((x) => x.name === storeName);
+  return s ? s.color : "#6366f1";
+}
+
+// ---------- آیتم‌ها ----------
 function addItem() {
   const value = itemInput.value.trim();
   if (!value) return;
@@ -82,26 +82,23 @@ function addItem() {
   itemInput.focus();
   renderItems();
 }
-
-function removeItem(index) {
-  items.splice(index, 1);
+function removeItem(i) {
+  items.splice(i, 1);
   renderItems();
 }
-
 function renderItems() {
   itemsList.innerHTML = items
     .map(
-      (item, i) => `
-      <div class="item-chip">
-        <span>${escapeHtml(item)}</span>
-        <span class="remove" onclick="removeItem(${i})">✕</span>
-      </div>
-    `,
+      (it, i) => `
+    <div class="item-chip">
+      <span>${escapeHtml(it)}</span>
+      <span class="remove" onclick="removeItem(${i})">✕</span>
+    </div>
+  `,
     )
     .join("");
   searchBtn.disabled = items.length === 0;
 }
-
 function clearAll() {
   items = [];
   renderItems();
@@ -109,109 +106,77 @@ function clearAll() {
   hideError();
 }
 
-// ================================================================
-// جستجو
-// ================================================================
 async function search() {
   if (items.length === 0) return;
   hideError();
   setLoading(true);
-
   try {
-    const response = await fetch("/api/compare", {
+    const r = await fetch("/api/compare", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ items }),
     });
-    const data = await response.json();
-
+    const data = await r.json();
     if (!data.success) {
       showError(data.error || "خطایی رخ داد.");
       return;
     }
     renderResults(data.data);
-  } catch (error) {
-    showError("ارتباط با سرور برقرار نشد. لطفاً دوباره تلاش کنید.");
-    console.error(error);
+  } catch (e) {
+    showError("ارتباط با سرور برقرار نشد.");
+    console.error(e);
   } finally {
     setLoading(false);
   }
 }
 
-// ================================================================
-// نمایش نتایج
-// ================================================================
+// ---------- نمایش نتایج ----------
 function renderResults(data) {
   const { basketComparison } = data;
-
   if (!basketComparison || basketComparison.length === 0) {
-    showError("هیچ نتیجه‌ای در فروشگاه‌های پشتیبانی‌شده یافت نشد.");
+    showError("هیچ نتیجه‌ای یافت نشد.");
     resultsSection.classList.add("hidden");
     return;
   }
-
   const best = basketComparison[0];
   let html = renderStoreSection(best, true);
-
   const others = basketComparison.slice(1);
   if (others.length > 0) {
     html += `<h2 class="section-title others-title">فروشگاه های دیگر</h2>`;
-    for (const store of others) {
-      html += renderStoreSection(store, false);
-    }
+    for (const s of others) html += renderStoreSection(s, false);
   }
-
   storesContainer.innerHTML = html;
+  requestAnimationFrame(() => {
+    document.querySelectorAll("[data-strip-track]").forEach(initStripDrag);
+  });
   resultsSection.classList.remove("hidden");
   resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-// ================================================================
-// رندر یک بخش فروشگاه
-// ================================================================
+// ---------- بخش فروشگاه ----------
 function renderStoreSection(store, isBest) {
-  const productCards = store.items
-    .map((item) => renderProductCard(item, store))
+  const storeColor = getStoreColor(store.storeName);
+  const cards = store.items
+    .map((it) => renderProductCard(it, store, storeColor))
     .join("");
-
   const missingHtml =
     store.missing && store.missing.length > 0
-      ? `
-      <div class="missing-note">
-        <span class="missing-icon">⚠️</span>
-        <span>ناموجود در این فروشگاه: ${store.missing.map(escapeHtml).join("، ")}</span>
-      </div>
-    `
+      ? `<div class="missing-note"><span>⚠️</span><span>ناموجود در این فروشگاه: ${store.missing.map(escapeHtml).join("، ")}</span></div>`
       : "";
-
   const bestTitle = isBest
     ? `<h2 class="section-title best-title">✨ به صرفه ترین فروشگاه</h2>`
     : "";
-
-  // 🏪 آیکون فروشگاه
-  const storeIconUrl = getStoreIconUrl(store.storeName);
-  const fallbackEmoji = isBest ? "🥇" : "🏪";
-
-  const storeIconHtml = storeIconUrl
-    ? `<img 
-        src="${escapeHtml(storeIconUrl)}" 
-        alt="${escapeHtml(store.storeName)}" 
-        class="store-logo" 
-        loading="lazy"
-        referrerpolicy="no-referrer"
-        onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';"
-      />
-      <span class="store-icon-fallback" style="display:none;">${fallbackEmoji}</span>`
-    : `<span class="store-icon-fallback" style="display:flex;">${fallbackEmoji}</span>`;
-
+  const iconUrl = getStoreIconUrl(store.storeName);
+  const fallback = isBest ? "🥇" : "🏪";
+  const iconHtml = iconUrl
+    ? `<img src="${escapeHtml(iconUrl)}" alt="" class="store-logo" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';" /><span class="store-icon-fallback" style="display:none;">${fallback}</span>`
+    : `<span class="store-icon-fallback" style="display:flex;">${fallback}</span>`;
   return `
-    <section class="store-section ${isBest ? "best-store" : ""}">
+    <section class="store-section ${isBest ? "best-store" : ""}" style="--store-color: ${storeColor};">
       ${bestTitle}
       <div class="store-header-row">
         <div class="store-badge">
-          <div class="store-logo-wrapper">
-            ${storeIconHtml}
-          </div>
+          <div class="store-logo-wrapper">${iconHtml}</div>
           <h3 class="store-name">${escapeHtml(store.storeName)}</h3>
         </div>
         <div class="store-total">
@@ -219,74 +184,335 @@ function renderStoreSection(store, isBest) {
           <span class="total-value">${formatPrice(store.total)} تومان</span>
         </div>
       </div>
-      <div class="products-grid">${productCards}</div>
+      <div class="products-grid">${cards}</div>
       ${missingHtml}
     </section>
   `;
 }
 
-// ================================================================
-// رندر کارت محصول
-// ================================================================
-function renderProductCard(item, store) {
+// ---------- کارت محصول ----------
+function renderProductCard(item, store, storeColor) {
   const icon = getProductIcon(item.title);
   const hasLink = item.link && item.link !== "#";
+  const others = Array.isArray(item.otherItems) ? item.otherItems : [];
+  const hasOthers = others.length > 0;
+  const totalCount = 1 + others.length;
 
-  // 🖼️ استخراج امن URL تصویر
-  let imageUrl = item.image;
-  if (Array.isArray(imageUrl)) imageUrl = imageUrl[0];
-  if (typeof imageUrl === "object" && imageUrl) {
-    imageUrl = imageUrl.url || imageUrl.src;
-  }
-  const hasImage =
-    imageUrl && typeof imageUrl === "string" && imageUrl.startsWith("http");
+  let img = item.image;
+  if (Array.isArray(img)) img = img[0];
+  if (typeof img === "object" && img) img = img.url || img.src;
+  const hasImg = img && typeof img === "string" && img.startsWith("http");
 
-  const imageContent = hasImage
-    ? `<img 
-        src="${escapeHtml(imageUrl)}" 
-        alt="${escapeHtml(item.title)}" 
-        class="product-image-real" 
-        loading="lazy"
-        referrerpolicy="no-referrer"
-        data-lightbox="true"
-        onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<span class=&quot;product-image-icon&quot;>${icon}</span>';"
-      />
-      <span class="image-zoom-hint">🔍</span>`
+  const imgContent = hasImg
+    ? `<img src="${escapeHtml(img)}" alt="" class="product-image-real" draggable="false" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<span class=&quot;product-image-icon&quot;>${icon}</span>';" />`
     : `<span class="product-image-icon">${icon}</span>`;
 
+  // 🎯 پشته‌های Filmo — قبل از collapsed در DOM (z-index طبیعی)
+  const stackHtml = hasOthers
+    ? `<div class="product-stack-layer stack-layer-2"></div>
+       <div class="product-stack-layer stack-layer-1"></div>`
+    : "";
+
+  // 🎯 بج بازکننده (خارج از collapsed تا tooltip کلیپ نشود)
+  const badgeHtml = hasOthers
+    ? `<button class="expand-badge" type="button" aria-label="مشاهده ${others.length} آیتم دیگر">
+         <svg class="expand-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+           <polyline points="15 18 9 12 15 6"></polyline>
+         </svg>
+         <span class="expand-tooltip">مشاهده ${others.length} آیتم دیگر</span>
+       </button>`
+    : "";
+
+  let expandedHtml = "";
+  if (hasOthers) {
+    const allItems = [
+      {
+        title: item.title,
+        price: item.price,
+        link: item.link,
+        image: item.image,
+        isSelected: true,
+      },
+      ...others.map((o) => ({ ...o, isSelected: false })),
+    ].sort((a, b) => a.price - b.price);
+
+    expandedHtml = `
+      <div class="product-expanded hidden">
+        <button class="strip-close" type="button" aria-label="بستن">✕</button>
+        <div class="strip-viewport">
+          <button class="strip-nav strip-nav-right" type="button" aria-label="قبلی">‹</button>
+          <div class="strip-track" data-strip-track data-strip-rtl="true">
+            ${allItems.map((it) => renderStripItem(it, storeColor)).join("")}
+          </div>
+          <button class="strip-nav strip-nav-left" type="button" aria-label="بعدی">›</button>
+        </div>
+        <div class="strip-counter">${totalCount} آیتم · مرتب شده به ترتیب قیمت</div>
+      </div>
+    `;
+  }
+
   return `
-    <div class="product-card">
-      <div class="product-image-wrapper ${hasImage ? "has-real-image" : ""} ${hasImage ? "clickable-image" : ""}">
-        ${imageContent}
-      </div>
-      <div class="product-body">
-        <div class="product-query">${escapeHtml(item.query)}</div>
-        <div class="product-title" title="${escapeHtml(item.title)}">
-          ${escapeHtml(item.title)}
+    <div class="product-card ${hasOthers ? "has-others" : ""}">
+      ${stackHtml}
+      <div class="product-collapsed">
+        <div class="product-image-wrapper ${hasImg ? "has-real-image clickable-image" : ""}">
+          ${imgContent}
         </div>
-        <div class="product-price-section">
-          <span class="product-price-value">${formatPrice(item.price)}</span>
-          <span class="product-price-currency">تومان</span>
+        <div class="product-body">
+          <div class="product-query">${escapeHtml(item.query)}</div>
+          <div class="product-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
+          <div class="product-price-section">
+            <span class="product-price-value">${formatPrice(item.price)}</span>
+            <span class="product-price-currency">تومان</span>
+          </div>
         </div>
+        ${hasLink ? `<a class="product-action" href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">مشاهده در ${escapeHtml(store.storeName)} ↗</a>` : `<div class="product-action disabled">لینک موجود نیست</div>`}
       </div>
-      ${
-        hasLink
-          ? `<a class="product-action" href="${escapeHtml(
-              item.link,
-            )}" target="_blank" rel="noopener noreferrer">
-              مشاهده در ${escapeHtml(store.storeName)} ↗
-            </a>`
-          : `<div class="product-action disabled">لینک موجود نیست</div>`
-      }
+      ${badgeHtml}
+      ${expandedHtml}
     </div>
   `;
 }
 
-// ================================================================
-// نقشه‌ی آیکون فروشگاه‌ها
-// ================================================================
-function getStoreIconUrl(storeName) {
-  const domainMap = {
+// ---------- آیتم strip ----------
+function renderStripItem(it, storeColor) {
+  const icon = getProductIcon(it.title);
+  const hasLink = it.link && it.link !== "#";
+  let img = it.image;
+  if (Array.isArray(img)) img = img[0];
+  if (typeof img === "object" && img) img = img.url || img.src;
+  const hasImg = img && typeof img === "string" && img.startsWith("http");
+  const imgContent = hasImg
+    ? `<img src="${escapeHtml(img)}" alt="" class="strip-item-image" draggable="false" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';" /><span class="strip-item-icon" style="display:none;">${icon}</span>`
+    : `<span class="strip-item-icon">${icon}</span>`;
+  return `
+    <div class="strip-item ${it.isSelected ? "selected" : ""}" style="--store-color: ${storeColor};">
+      ${it.isSelected ? '<span class="strip-item-badge">💰 کمترین قیمت</span>' : ""}
+      <div class="strip-item-image-wrapper ${hasImg ? "clickable-image" : ""}">${imgContent}</div>
+      <div class="strip-item-body">
+        <div class="strip-item-title" title="${escapeHtml(it.title)}">${escapeHtml(it.title)}</div>
+        <div class="strip-item-price">
+          <span class="strip-item-price-value">${formatPrice(it.price)}</span>
+          <span class="strip-item-price-currency">تومان</span>
+        </div>
+      </div>
+      ${hasLink ? `<a class="strip-item-action" href="${escapeHtml(it.link)}" target="_blank" rel="noopener noreferrer">مشاهده ↗</a>` : `<div class="strip-item-action disabled">بدون لینک</div>`}
+    </div>
+  `;
+}
+
+// ---------- اسکرول نرم ----------
+function smoothScrollTo(track, target, duration = 1200) {
+  const start = track.scrollLeft;
+  const dist = target - start;
+  if (Math.abs(dist) < 1) return;
+  const t0 = performance.now();
+  function step(now) {
+    const t = Math.min((now - t0) / duration, 1);
+    const eased = 1 - Math.pow(1 - t, 3);
+    track.scrollLeft = start + dist * eased;
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// ---------- باز/بسته ----------
+function toggleCardExpand(card, expand) {
+  if (!card) return;
+  const grid = card.closest(".products-grid");
+  const allCards = Array.from(grid.querySelectorAll(".product-card"));
+  const collapsed = card.querySelector(".product-collapsed");
+  const expanded = card.querySelector(".product-expanded");
+  if (!collapsed || !expanded) return;
+
+  if (expand) {
+    allCards.forEach((c) => {
+      if (c !== card && c.classList.contains("expanded"))
+        toggleCardExpand(c, false);
+    });
+    const cardRect = card.getBoundingClientRect();
+    allCards.forEach((c) => {
+      if (c === card) return;
+      const r = c.getBoundingClientRect();
+      if (Math.abs(r.top - cardRect.top) < 5) c.classList.add("hidden-sibling");
+    });
+    card.classList.add("expanded");
+    collapsed.classList.add("hidden");
+    expanded.classList.remove("hidden");
+    requestAnimationFrame(() => {
+      const track = card.querySelector("[data-strip-track]");
+      if (track) {
+        initStripDrag(track);
+        smoothScrollTo(track, 0, 1200);
+        setTimeout(() => updateNavButtons(card), 1300);
+      }
+    });
+  } else {
+    card.classList.remove("expanded");
+    allCards.forEach((c) => c.classList.remove("hidden-sibling"));
+    collapsed.classList.remove("hidden");
+    expanded.classList.add("hidden");
+  }
+}
+
+function updateNavButtons(card) {
+  const track = card.querySelector("[data-strip-track]");
+  const right = card.querySelector(".strip-nav-right");
+  const left = card.querySelector(".strip-nav-left");
+  if (!track || !right || !left) return;
+  if (track.scrollWidth <= track.clientWidth + 2) {
+    right.style.display = "none";
+    left.style.display = "none";
+    return;
+  }
+  right.style.display = "flex";
+  left.style.display = "flex";
+  const cur = track.scrollLeft;
+  const max = track.scrollWidth - track.clientWidth;
+  right.disabled = cur > -2;
+  left.disabled = cur < -max + 2;
+}
+
+// ---------- درگ strip ----------
+function initStripDrag(track) {
+  if (!track || track.dataset.dragInit === "true") return;
+  track.dataset.dragInit = "true";
+  let dragging = false,
+    moved = false,
+    startX = 0,
+    startScroll = 0;
+
+  track.addEventListener("mousedown", (e) => {
+    if (e.button !== 0) return;
+    if (e.target.closest("a, button")) return;
+    e.preventDefault(); // 🎯 جلوگیری از drag بومی تصویر
+    dragging = true;
+    moved = false;
+    startX = e.clientX;
+    startScroll = track.scrollLeft;
+    track.style.cursor = "grabbing";
+    track.style.userSelect = "none";
+    track.style.scrollBehavior = "auto";
+  });
+
+  document.addEventListener("mousemove", (e) => {
+    if (!dragging) return;
+    e.preventDefault();
+    const dx = e.clientX - startX;
+    if (Math.abs(dx) > 3) moved = true;
+    track.scrollLeft = startScroll - dx;
+  });
+
+  document.addEventListener("mouseup", () => {
+    if (!dragging) return;
+    dragging = false;
+    track.style.cursor = "";
+    track.style.userSelect = "";
+    track.style.scrollBehavior = "";
+    if (moved) {
+      const card = track.closest(".product-card");
+      if (card) updateNavButtons(card);
+    }
+  });
+
+  track.addEventListener(
+    "click",
+    (e) => {
+      if (moved) {
+        e.preventDefault();
+        e.stopPropagation();
+        moved = false;
+      }
+    },
+    true,
+  );
+
+  track.addEventListener("scroll", () => {
+    const card = track.closest(".product-card");
+    if (card) updateNavButtons(card);
+  });
+}
+
+// ---------- رویدادها ----------
+document.addEventListener("click", (e) => {
+  const badge = e.target.closest(".expand-badge");
+  if (badge) {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleCardExpand(badge.closest(".product-card"), true);
+    return;
+  }
+
+  const closeBtn = e.target.closest(".strip-close");
+  if (closeBtn) {
+    e.preventDefault();
+    toggleCardExpand(closeBtn.closest(".product-card"), false);
+    return;
+  }
+
+  const nav = e.target.closest(".strip-nav");
+  if (nav) {
+    e.preventDefault();
+    const card = nav.closest(".product-card");
+    const track = card?.querySelector("[data-strip-track]");
+    if (!track) return;
+    const first = track.querySelector(".strip-item");
+    if (!first) return;
+    const w =
+      first.getBoundingClientRect().width +
+      parseFloat(getComputedStyle(track).gap || 12);
+    const isLeft = nav.classList.contains("strip-nav-left");
+    track.scrollBy({ left: isLeft ? -w : w, behavior: "smooth" });
+    setTimeout(() => updateNavButtons(card), 350);
+    return;
+  }
+
+  const stripImg = e.target.closest(
+    ".strip-item-image-wrapper.clickable-image",
+  );
+  if (stripImg) {
+    const img = stripImg.querySelector(".strip-item-image");
+    if (img?.src) {
+      const title =
+        stripImg
+          .closest(".strip-item")
+          ?.querySelector(".strip-item-title")
+          ?.textContent?.trim() || "";
+      openImageModal(img.src, title, img.alt);
+      return;
+    }
+  }
+
+  const prodImg = e.target.closest(".product-image-wrapper.clickable-image");
+  if (prodImg) {
+    const img = prodImg.querySelector(".product-image-real");
+    if (img?.src) {
+      const title =
+        prodImg
+          .closest(".product-card")
+          ?.querySelector(".product-title")
+          ?.textContent?.trim() || "";
+      openImageModal(img.src, title, img.alt);
+      return;
+    }
+  }
+});
+
+// 🎯 افزایش z-index کارت هنگام هاور بج
+document.addEventListener("mouseover", (e) => {
+  const badge = e.target.closest(".expand-badge");
+  if (badge) badge.closest(".product-card")?.classList.add("badge-hover");
+});
+document.addEventListener("mouseout", (e) => {
+  const badge = e.target.closest(".expand-badge");
+  if (badge && !badge.contains(e.relatedTarget)) {
+    badge.closest(".product-card")?.classList.remove("badge-hover");
+  }
+});
+
+// ---------- نقشه ----------
+function getStoreIconUrl(name) {
+  const map = {
     دیجی‌کالا: "digikala.com",
     ترب: "torob.com",
     قلم‌تراش: "ghalamtarash.ir",
@@ -295,14 +521,11 @@ function getStoreIconUrl(storeName) {
     "مهستان آرت": "mahestanart.com",
     "مجد مارکت": "majdmarket.com",
   };
-  const domain = domainMap[storeName];
-  if (!domain) return null;
-  return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+  return map[name]
+    ? `https://www.google.com/s2/favicons?domain=${map[name]}&sz=128`
+    : null;
 }
 
-// ================================================================
-// تشخیص آیکون بر اساس دسته‌بندی محصول
-// ================================================================
 function getProductIcon(title) {
   const t = (title || "").toLowerCase();
   if (t.includes("قلمو") || t.includes("قلم مو") || t.includes("brush"))
@@ -330,278 +553,171 @@ function getProductIcon(title) {
   return "📦";
 }
 
-// ================================================================
-// 🏪 ساخت HTML یک کارت فروشگاه
-// ================================================================
 function buildStoreCard(store) {
   return `
-    <a 
-      class="store-strip-card" 
-      style="--store-color: ${store.color};"
-      href="${escapeHtml(store.url)}"
-      target="_blank"
-      rel="noopener noreferrer"
-      title="رفتن به ${escapeHtml(store.name)}"
-    >
-      <div class="store-strip-info">
-        <span class="store-strip-name">${escapeHtml(store.name)}</span>
-      </div>
+    <a class="store-strip-card" style="--store-color: ${store.color};" href="${escapeHtml(store.url)}" target="_blank" rel="noopener noreferrer">
+      <div class="store-strip-info"><span class="store-strip-name">${escapeHtml(store.name)}</span></div>
       <div class="store-strip-logo">
-        <img 
-          src="${escapeHtml(store.icon)}" 
-          alt="${escapeHtml(store.name)}"
-          loading="lazy"
-          referrerpolicy="no-referrer"
-          onerror="this.onerror=null; this.parentElement.innerHTML='<span class=&quot;store-strip-fallback&quot;>🏪</span>';"
-        />
+        <img src="${escapeHtml(store.icon)}" alt="" draggable="false" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.parentElement.innerHTML='<span class=&quot;store-strip-fallback&quot;>🏪</span>';" />
       </div>
     </a>
   `;
 }
 
-// ================================================================
-// رندر نوار فروشگاه‌ها
-// ================================================================
 function renderSupportedStores() {
   const strip = document.getElementById("stores-strip");
   if (!strip) return;
-
-  // 🎯 معکوس کردن ترتیب DOM تا در LTR دیجی‌کالا راست‌ترین باشد
-  const cardsHtml = [...SUPPORTED_STORES]
-    .reverse()
-    .map(buildStoreCard)
-    .join("");
-
-  strip.innerHTML = `
-    <div class="stores-strip-track">${cardsHtml}</div>
-    <div class="stores-strip-track" aria-hidden="true">${cardsHtml}</div>
-  `;
-
-  // 🎯 اعمال direction به صورت inline (بالاترین اولویت)
+  const cards = [...SUPPORTED_STORES].reverse().map(buildStoreCard).join("");
+  strip.innerHTML = `<div class="stores-strip-track">${cards}</div><div class="stores-strip-track" aria-hidden="true">${cards}</div>`;
   strip.style.direction = "ltr";
-
   initStripAutoScroll();
 }
 
-// ================================================================
-// مدیریت اسکرول خودکار + دستی (حلقه‌ی بی‌نهایت یکپارچه)
-// ================================================================
 function initStripAutoScroll() {
   const wrapper = document.querySelector(".supported-stores");
   const strip = document.getElementById("stores-strip");
   if (!wrapper || !strip) return;
+  let pos = 0,
+    lastT = performance.now();
+  const SPEED = 25;
+  let mDown = false,
+    dragging = false,
+    suppress = false;
+  let startX = 0,
+    startPos = 0,
+    hover = false,
+    trackW = 0;
 
-  let stripPos = 0;
-  let lastTime = performance.now();
-  const SPEED = 25; // پیکسل در ثانیه
-
-  let isMouseDown = false;
-  let isDragging = false;
-  let clickSuppressed = false;
-  let dragStartX = 0;
-  let dragStartPos = 0;
-  let isHovering = false;
-
-  // 🎯 اندازه‌ی واقعی یک track
-  let trackWidth = 0;
-
-  function measureTrack() {
-    const firstTrack = strip.querySelector(".stores-strip-track");
-    if (firstTrack) {
-      trackWidth = firstTrack.getBoundingClientRect().width;
-    }
+  function measure() {
+    const t = strip.querySelector(".stores-strip-track");
+    if (t) trackW = t.getBoundingClientRect().width;
   }
+  measure();
+  window.addEventListener("resize", measure);
 
-  measureTrack();
-  window.addEventListener("resize", measureTrack);
-
-  // 🎯 حلقه‌ی انیمیشن
   function tick(now) {
-    const dt = Math.min((now - lastTime) / 1000, 0.1);
-    lastTime = now;
-
-    if (trackWidth > 0) {
-      // حرکت خودکار فقط اگر کاربر هاور نکرده و درگ نمی‌کند
-      if (!isHovering && !isDragging) {
-        stripPos -= SPEED * dt;
-      }
-
-      // 📐 نرمال‌سازی با ماژول منفی
-      stripPos = stripPos % trackWidth;
-      if (stripPos > 0) stripPos -= trackWidth;
-
-      strip.style.transform = `translateX(${stripPos}px)`;
+    const dt = Math.min((now - lastT) / 1000, 0.1);
+    lastT = now;
+    if (trackW > 0) {
+      if (!hover && !dragging) pos -= SPEED * dt;
+      pos = pos % trackW;
+      if (pos > 0) pos -= trackW;
+      strip.style.transform = `translateX(${pos}px)`;
     }
-
     requestAnimationFrame(tick);
   }
-
   requestAnimationFrame((t) => {
-    lastTime = t;
+    lastT = t;
     requestAnimationFrame(tick);
   });
 
-  // 🖱️ ورود و خروج موس (cursor از CSS می‌آید)
   wrapper.addEventListener("mouseenter", () => {
-    isHovering = true;
+    hover = true;
   });
-
   wrapper.addEventListener("mouseleave", () => {
-    isHovering = false;
-    isMouseDown = false;
-    isDragging = false;
+    hover = false;
+    mDown = false;
+    dragging = false;
   });
-
-  // 🖱️ شروع درگ
   wrapper.addEventListener("mousedown", (e) => {
     if (e.button !== 0) return;
-    isMouseDown = true;
-    isDragging = false;
-    clickSuppressed = false;
-    dragStartX = e.clientX;
-    dragStartPos = stripPos;
+    mDown = true;
+    dragging = false;
+    suppress = false;
+    startX = e.clientX;
+    startPos = pos;
   });
-
-  // 🖱️ حرکت موس
   document.addEventListener("mousemove", (e) => {
-    if (!isMouseDown) return;
-    const delta = e.clientX - dragStartX;
-
-    if (!isDragging && Math.abs(delta) > 5) {
-      isDragging = true;
-      clickSuppressed = true;
+    if (!mDown) return;
+    const dx = e.clientX - startX;
+    if (!dragging && Math.abs(dx) > 5) {
+      dragging = true;
+      suppress = true;
     }
-
-    if (isDragging) {
-      stripPos = dragStartPos + delta;
-    }
+    if (dragging) pos = startPos + dx;
   });
-
-  // 🖱️ رها کردن موس
   document.addEventListener("mouseup", () => {
-    if (isMouseDown) {
-      isMouseDown = false;
-      isDragging = false;
+    if (mDown) {
+      mDown = false;
+      dragging = false;
     }
   });
-
-  // 🚫 جلوگیری از کلیک روی لینک‌ها هنگام درگ
   wrapper.addEventListener(
     "click",
     (e) => {
-      if (clickSuppressed) {
+      if (suppress) {
         e.preventDefault();
         e.stopPropagation();
-        clickSuppressed = false;
+        suppress = false;
       }
     },
     true,
   );
-
-  // 🎡 اسکرول با چرخ ماوس
   wrapper.addEventListener(
     "wheel",
     (e) => {
       e.preventDefault();
-      stripPos -= (e.deltaY + e.deltaX) * 0.6;
+      pos -= (e.deltaY + e.deltaX) * 0.6;
     },
     { passive: false },
   );
 }
 
-// ================================================================
-// 🖼️ مودال نمایش تصویر بزرگ (Lightbox)
-// ================================================================
+// ---------- مودال ----------
 const imageModal = document.getElementById("image-modal");
 const imageModalImg = document.getElementById("image-modal-img");
-const imageModalCaption = imageModal
-  ? imageModal.querySelector(".image-modal-caption")
-  : null;
-const imageModalClose = imageModal
-  ? imageModal.querySelector(".image-modal-close")
-  : null;
-const imageModalBackdrop = imageModal
-  ? imageModal.querySelector(".image-modal-backdrop")
-  : null;
+const imageModalCaption = imageModal?.querySelector(".image-modal-caption");
+const imageModalClose = imageModal?.querySelector(".image-modal-close");
+const imageModalBackdrop = imageModal?.querySelector(".image-modal-backdrop");
 
-function openImageModal(src, caption, alt) {
+function openImageModal(src, cap, alt) {
   if (!imageModal) return;
   imageModalImg.src = src;
   imageModalImg.alt = alt || "";
-  if (imageModalCaption) imageModalCaption.textContent = caption || "";
+  if (imageModalCaption) imageModalCaption.textContent = cap || "";
   imageModal.classList.remove("hidden");
   document.body.style.overflow = "hidden";
 }
-
 function closeImageModal() {
   if (!imageModal) return;
   imageModal.classList.add("hidden");
   imageModalImg.src = "";
   document.body.style.overflow = "";
 }
-
-// رویداد کلیک روی تصاویر (Event Delegation)
-document.addEventListener("click", (e) => {
-  const img = e.target.closest(".product-image-wrapper.clickable-image");
-  if (!img) return;
-
-  const realImg = img.querySelector(".product-image-real");
-  if (!realImg || !realImg.src) return;
-
-  const card = img.closest(".product-card");
-  const title =
-    card?.querySelector(".product-title")?.textContent?.trim() || "";
-
-  openImageModal(realImg.src, title, realImg.alt);
-});
-
-// بستن مودال
 if (imageModalClose) imageModalClose.addEventListener("click", closeImageModal);
 if (imageModalBackdrop)
   imageModalBackdrop.addEventListener("click", closeImageModal);
-
-// بستن با کلید Escape
 document.addEventListener("keydown", (e) => {
   if (
     e.key === "Escape" &&
     imageModal &&
     !imageModal.classList.contains("hidden")
-  ) {
+  )
     closeImageModal();
-  }
 });
 
-// ================================================================
-// توابع کمکی
-// ================================================================
-function setLoading(loading) {
-  searchBtn.disabled = loading;
-  spinner.classList.toggle("active", loading);
-  searchBtnText.textContent = loading ? "در حال جستجو..." : "🔍 جستجو و مقایسه";
+// ---------- کمکی ----------
+function setLoading(v) {
+  searchBtn.disabled = v;
+  spinner.classList.toggle("active", v);
+  searchBtnText.textContent = v ? "در حال جستجو..." : "🔍 جستجو و مقایسه";
 }
-
-function showError(message) {
-  errorBox.textContent = "⚠️ " + message;
+function showError(m) {
+  errorBox.textContent = "⚠️ " + m;
   errorBox.classList.remove("hidden");
 }
-
 function hideError() {
   errorBox.classList.add("hidden");
 }
-
-function formatPrice(price) {
-  return Number(price).toLocaleString("fa-IR");
+function formatPrice(p) {
+  return Number(p).toLocaleString("fa-IR");
+}
+function escapeHtml(t) {
+  const d = document.createElement("div");
+  d.textContent = t;
+  return d.innerHTML;
 }
 
-function escapeHtml(text) {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-// ================================================================
-// رویدادها
-// ================================================================
 addBtn.addEventListener("click", addItem);
 itemInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") addItem();
@@ -609,39 +725,28 @@ itemInput.addEventListener("keydown", (e) => {
 searchBtn.addEventListener("click", search);
 clearBtn.addEventListener("click", clearAll);
 
-// ================================================================
-// مدیریت تم روشن/تاریک
-// ================================================================
+// ---------- تم ----------
 const themeToggle = document.getElementById("theme-toggle");
 const themeIcon = themeToggle.querySelector(".theme-icon");
-
-function applyTheme(theme) {
-  document.documentElement.setAttribute("data-theme", theme);
-  themeIcon.textContent = theme === "dark" ? "☀️" : "🌙";
-  localStorage.setItem("theme", theme);
+function applyTheme(t) {
+  document.documentElement.setAttribute("data-theme", t);
+  themeIcon.textContent = t === "dark" ? "☀️" : "🌙";
+  localStorage.setItem("theme", t);
 }
-
 function initTheme() {
-  const saved = localStorage.getItem("theme");
-  if (saved) {
-    applyTheme(saved);
-  } else {
-    const prefersDark = window.matchMedia(
-      "(prefers-color-scheme: dark)",
-    ).matches;
-    applyTheme(prefersDark ? "dark" : "light");
-  }
+  const s = localStorage.getItem("theme");
+  if (s) applyTheme(s);
+  else
+    applyTheme(
+      window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light",
+    );
 }
-
 themeToggle.addEventListener("click", () => {
-  const current =
-    document.documentElement.getAttribute("data-theme") || "light";
-  applyTheme(current === "dark" ? "light" : "dark");
+  const c = document.documentElement.getAttribute("data-theme") || "light";
+  applyTheme(c === "dark" ? "light" : "dark");
 });
-
 initTheme();
 
-// ================================================================
-// 🚀 اجرای اولیه
-// ================================================================
 renderSupportedStores();
