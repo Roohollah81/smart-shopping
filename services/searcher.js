@@ -248,7 +248,7 @@ function clusterProducts(products, threshold = 0.6) {
 }
 
 // ---------------------------------------------------------------
-// 🖼️ استخراج تصویر از عنصر HTML
+// 🖼️ استخراج URL تصویر با کیفیت بالا از عنصر HTML
 // ---------------------------------------------------------------
 function extractProductImage($, element, domain) {
   const imageSelectors = [
@@ -263,32 +263,130 @@ function extractProductImage($, element, domain) {
     "img",
   ];
 
+  let bestUrl = null;
+
   for (const sel of imageSelectors) {
     const img = $(element).find(sel).first();
     if (img.length === 0) continue;
 
-    let src =
-      img.attr("data-src") ||
-      img.attr("data-lazy-src") ||
+    // 🎯 اولویت ۱: از srcset بزرگ‌ترین سایز را بگیر
+    const srcset = img.attr("srcset") || img.attr("data-srcset") || "";
+    if (srcset) {
+      const largest = pickLargestFromSrcset(srcset);
+      if (largest) {
+        bestUrl = largest;
+        break;
+      }
+    }
+
+    // 🎯 اولویت ۲: از data attributes (data-large، data-full و...)
+    const dataLarge =
+      img.attr("data-large_image") ||
+      img.attr("data-large-image") ||
+      img.attr("data-full-src") ||
       img.attr("data-original") ||
-      img.attr("src") ||
-      "";
-
-    if (!src) {
-      const srcset = img.attr("srcset") || img.attr("data-srcset") || "";
-      if (srcset) src = srcset.split(",")[0].trim().split(" ")[0];
+      img.attr("data-src") ||
+      img.attr("data-lazy-src");
+    if (dataLarge) {
+      bestUrl = dataLarge;
+      break;
     }
 
-    if (!src) continue;
-    if (src.startsWith("data:")) continue;
-
-    if (!src.startsWith("http")) {
-      src = `https://${domain}${src.startsWith("/") ? "" : "/"}${src}`;
+    // 🎯 اولویت ۳: از src
+    const src = img.attr("src") || "";
+    if (src && !src.startsWith("data:")) {
+      bestUrl = src;
+      break;
     }
-
-    return src;
   }
-  return null;
+
+  if (!bestUrl) return null;
+  if (bestUrl.startsWith("data:")) return null;
+
+  // تبدیل URL نسبی به مطلق
+  if (!bestUrl.startsWith("http")) {
+    bestUrl = `https://${domain}${bestUrl.startsWith("/") ? "" : "/"}${bestUrl}`;
+  }
+
+  // 🎯 حذف suffix سایز از نام فایل ووکامرس برای دریافت تصویر اصلی
+  bestUrl = upgradeWooCommerceImageUrl(bestUrl);
+
+  return bestUrl;
+}
+
+// ---------------------------------------------------------------
+// 🎯 انتخاب بزرگ‌ترین URL از srcset
+// ---------------------------------------------------------------
+function pickLargestFromSrcset(srcset) {
+  if (!srcset) return null;
+
+  const parts = srcset
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  let maxWidth = 0;
+  let bestUrl = null;
+
+  for (const part of parts) {
+    const [url, descriptor] = part.split(/\s+/);
+    if (!url) continue;
+
+    let width = 0;
+    if (descriptor) {
+      const wMatch = descriptor.match(/^(\d+)w$/);
+      const xMatch = descriptor.match(/^([\d.]+)x$/);
+      if (wMatch) width = parseInt(wMatch[1], 10);
+      else if (xMatch) width = parseFloat(xMatch[1]) * 1000;
+    }
+
+    if (width > maxWidth) {
+      maxWidth = width;
+      bestUrl = url;
+    }
+  }
+
+  return bestUrl;
+}
+
+// ---------------------------------------------------------------
+// 🎯 ارتقاء URL تصویر ووکامرس به نسخه اصلی
+// ---------------------------------------------------------------
+function upgradeWooCommerceImageUrl(url) {
+  if (!url) return url;
+
+  try {
+    // ۱. حذف suffix ابعاد از نام فایل ووکامرس
+    //    مثال: product-300x300.jpg → product.jpg
+    //         image-600x600-1.jpg → image-1.jpg
+    //         name-1024x1024.png → name.png
+    const sizePattern = /-(\d+)x(\d+)(?=\.(jpg|jpeg|png|webp|gif))/gi;
+
+    // ابتدا تلاش می‌کنیم با حذف کامل suffix
+    const withoutSize = url.replace(sizePattern, "");
+
+    // ۲. حذف پارامترهای resize از query string
+    let cleaned = withoutSize.split("?")[0];
+
+    // اگر URL شامل i0.wp.com (WordPress CDN jetpack) بود، پارامترها را نگه دار
+    if (
+      url.includes("i0.wp.com") ||
+      url.includes("i1.wp.com") ||
+      url.includes("i2.wp.com")
+    ) {
+      // در این حالت حذف query string باعث از کار افتادن می‌شود
+      // فقط پارامتر resize را حذف کن
+      cleaned = url
+        .replace(/[?&]resize=[^&]+/g, "")
+        .replace(/[?&]w=\d+/g, "")
+        .replace(/[?&]h=\d+/g, "");
+      cleaned = cleaned.replace(/[?&]$/, "");
+    }
+
+    return cleaned;
+  } catch (e) {
+    return url;
+  }
 }
 
 // ---------------------------------------------------------------
