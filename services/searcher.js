@@ -154,12 +154,89 @@ function tokensMatch(queryToken, titleToken) {
   return longer.includes(shorter);
 }
 
+// ---------------------------------------------------------------
+// 🚫 کلمات ناخواسته — تفکیک سخت‌گیرانه و نرم
+// ---------------------------------------------------------------
+// این‌ها همیشه رد می‌شوند (هر جای عنوان که باشند)
+const ALWAYS_NEGATIVE = new Set([
+  "یدک",
+  "یدکی",
+  "قطعه",
+  "قطعات",
+  "لوازم",
+  "جانبی",
+  "متعلقات",
+  "متعلق",
+  "جایگزین",
+  "بدل",
+  "مشابه",
+  "نمونه",
+  "تعمیر",
+  "سرویس",
+  "نصب",
+  "آموزش",
+  "راهنما",
+  "کتاب",
+  "دفترچه",
+]);
+
+// این‌ها فقط اگر قبل از کلمات query بیایند رد می‌شوند
+// (یعنی وقتی محصول جانبی است، نه توضیح بسته‌بندی)
+const ACCESSORY_WORDS = new Set([
+  "کیف",
+  "جعبه",
+  "قاب",
+  "محافظ",
+  "شارژر",
+  "باتری",
+  "کابل",
+  "آداپتور",
+  "سیم",
+  "مبدل",
+  "برچسب",
+  "فیلتر",
+  "نوک",
+  "تیغ",
+  "سوزن",
+  "کارتریج",
+]);
+
 function findUnwantedModifier(query, title) {
   const qTokens = new Set(tokenize(query));
   const tTokens = tokenize(title);
+  if (tTokens.length === 0) return null;
+
+  // مرحله ۱: بررسی کلمات «همیشه منفی»
   for (const token of tTokens) {
-    if (NEGATIVE_MODIFIERS.has(token) && !qTokens.has(token)) return token;
+    if (ALWAYS_NEGATIVE.has(token) && !qTokens.has(token)) {
+      return token;
+    }
   }
+
+  // مرحله ۲: بررسی کلمات جانبی با ترتیب
+  for (let i = 0; i < tTokens.length; i++) {
+    const token = tTokens[i];
+    if (!ACCESSORY_WORDS.has(token)) continue;
+    if (qTokens.has(token)) continue;
+
+    // آیا این کلمه قبل از هر کلمه‌ی query در عنوان آمده؟
+    // اگر بله → احتمالاً محصول جانبی است (مثل «کیف مداد»)
+    // اگر نه → توضیح بسته‌بندی است (مثل «مداد با جعبه»)
+    let comesBeforeQueryWord = false;
+    for (let j = 0; j < tTokens.length; j++) {
+      if (qTokens.has(tTokens[j])) {
+        if (i < j) comesBeforeQueryWord = true;
+        break;
+      }
+    }
+
+    // فقط اگر کلمه جانبی «در ابتدای عنوان» باشد، رد می‌کنیم
+    // مگر اینکه هیچ کلمه‌ی query در عنوان نباشد (که آن‌وقت رد می‌شود)
+    if (i === 0 || comesBeforeQueryWord) {
+      return token;
+    }
+  }
+
   return null;
 }
 
