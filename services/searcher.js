@@ -799,10 +799,14 @@ async function compareBasket(shoppingList) {
     console.log(THICK_SEP);
     console.log("📡 در حال جستجو در فروشگاه‌ها...");
 
+    // 🎯 جدا کردن عالم‌زاده از لیست عمومی
+    const otherStores = NEW_STORES_CONFIG.filter((s) => s.name !== "عالم‌زاده");
+
     const allResults = await Promise.all([
       searchDigikala(query, 20),
       searchTorob(query, 20),
-      ...NEW_STORES_CONFIG.map((s) => searchWooCommerceStore(s, query, 20)),
+      ...otherStores.map((s) => searchWooCommerceStore(s, query, 20)),
+      searchAlemzadehWithPuppeteer(query, 20), // 👈 اسکرپر اختصاصی
     ]);
     const allProducts = allResults.flat();
 
@@ -978,6 +982,185 @@ async function compareBasket(shoppingList) {
     });
 
   return { queries, basketComparison };
+}
+
+// ================================================================
+// 🌐 اسکرپر اختصاصی عالم‌زاده با Puppeteer (برای جستجوی داینامیک)
+// ================================================================
+const puppeteer = require("puppeteer");
+
+async function searchAlemzadehWithPuppeteer(query, limit = 20) {
+  const browser = await puppeteer.launch({
+    headless: "new",
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    executablePath:
+      "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", // مسیر Chrome خود را اینجا بگذارید
+  });
+
+  try {
+    const page = await browser.newPage();
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    );
+
+    const url = `https://alemzadeh.ir/products?q=${encodeURIComponent(query)}`;
+    console.log(`  ⏳ عالم‌زاده: بارگذاری صفحه با Puppeteer...`);
+
+    await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
+
+    // صبر کن تا کارت‌های محصول ظاهر شوند
+    await page
+      .waitForSelector(".product-card, li.product, .products .product", {
+        timeout: 10000,
+      })
+      .catch(() => {});
+
+    // اسکرول به پایین برای لود شدن تصاویر lazy
+    await page.evaluate(() => {
+      window.scrollTo(0, document.body.scrollHeight / 2);
+    });
+    await new Promise((r) => setTimeout(r, 800));
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await new Promise((r) => setTimeout(r, 300));
+
+    const products = await page.evaluate(() => {
+      const items = document.querySelectorAll(
+        ".product-card, li.product, .products .product",
+      );
+      const result = [];
+
+      items.forEach((el) => {
+        // 🎯 عنوان
+        const titleEl = el.querySelector(
+          "h3, h2, .product-card-title, .product-title, .woocommerce-loop-product__title",
+        );
+        if (!titleEl) return;
+        const title = titleEl.textContent.trim();
+
+        // 🎯 قیمت — سعی می‌کنیم عنصر خاص قیمت را بگیریم
+        let priceText = "";
+        const priceCandidates = [
+          ".product-card-price",
+          '[class*="price"]',
+          ".price",
+          ".amount",
+        ];
+        for (const sel of priceCandidates) {
+          const el2 = el.querySelector(sel);
+          if (el2) {
+            const t = el2.textContent.trim();
+            // باید حداقل یک عدد داشته باشد
+            if (/\d/.test(t)) {
+              priceText = t;
+              break;
+            }
+          }
+        }
+        if (!priceText) return;
+
+        // 🎯 لینک — چند روش
+        let link = "";
+        // ۱. اگر خود کارت anchor است
+        if (el.tagName === "A" && el.href) {
+          link = el.href;
+        } else {
+          // ۲. اولین anchor داخل کارت
+          const a = el.querySelector("a[href]");
+          if (a && a.href) link = a.href;
+
+          // ۳. اگر عنوان داخل anchor باشد
+          if (!link) {
+            const titleLink = titleEl.closest("a");
+            if (titleLink && titleLink.href) link = titleLink.href;
+          }
+        }
+
+        // 🎯 تصویر — با پشتیبانی از lazy-load
+        let image = null;
+        const imgEl = el.querySelector("img");
+        if (imgEl) {
+          image =
+            imgEl.getAttribute("data-src") ||
+            imgEl.getAttribute("data-lazy-src") ||
+            imgEl.getAttribute("data-original") ||
+            imgEl.getAttribute("data-srcset") ||
+            imgEl.src ||
+            null;
+
+          // اگر srcset بود، اولین URL را بگیر
+          if (image && image.includes(",")) {
+            image = image.split(",")[0].trim().split(" ")[0];
+          }
+
+          // اگر data URI یا placeholder بود، رد کن
+          if (
+            image &&
+            (image.startsWith("data:") || image.includes("placeholder"))
+          ) {
+            image = null;
+          }
+
+          // تبدیل به URL مطلق
+          if (image && !image.startsWith("http")) {
+            try {
+              image = new URL(image, window.location.origin).href;
+            } catch (e) {
+              image = null;
+            }
+          }
+        }
+
+        // 🎯 قیمت — تبدیل به عدد
+        const cleanPrice = priceText
+          .replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
+          .replace(/[^\d]/g, "");
+        const price = parseInt(cleanPrice, 10);
+
+        if (!isNaN(price) && price > 0 && title) {
+          result.push({
+            storeName: "عالم‌زاده",
+            productTitle: title,
+            price: price,
+            link: link,
+            image: image,
+          });
+        }
+      });
+
+      return result;
+    });
+
+    // 🎯 لاگ دیباگ: نمایش وضعیت لینک و تصویر
+    const withLink = products.filter((p) => p.link).length;
+    const withImage = products.filter((p) => p.image).length;
+    console.log(
+      `  ✔ عالم‌زاده: ${products.length} محصول | ${withLink} لینک | ${withImage} تصویر`,
+    );
+
+    // اگر مشکل داشت، ساختار اولین کارت را چاپ کن
+    if (products.length > 0 && (withLink === 0 || withImage === 0)) {
+      console.log("  🔍 دیباگ عالم‌زاده — نمونه محصول اول:");
+      console.log("     عنوان:", products[0].productTitle);
+      console.log("     لینک:", products[0].link || "(خالی)");
+      console.log("     تصویر:", products[0].image || "(خالی)");
+
+      // چاپ ساختار HTML اولین کارت
+      const debugHtml = await page.evaluate(() => {
+        const first = document.querySelector(
+          ".product-card, li.product, .products .product",
+        );
+        return first ? first.outerHTML.substring(0, 1500) : "not found";
+      });
+      console.log("     HTML نمونه:", debugHtml);
+    }
+
+    return products.slice(0, limit);
+  } catch (error) {
+    console.log(`  ⚠️ عالم‌زاده: خطا در Puppeteer (${error.message})`);
+    return [];
+  } finally {
+    await browser.close();
+  }
 }
 
 module.exports = { compareBasket };
