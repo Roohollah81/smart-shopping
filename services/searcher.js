@@ -83,6 +83,17 @@ const NEGATIVE_MODIFIERS = new Set([
   "بجای",
 ]);
 
+// ---------------------------------------------------------------
+// 🚫 تداخل دسته‌بندی
+// ---------------------------------------------------------------
+const CATEGORY_CONFLICTS = [
+  { query: ["اتود"], title: ["پاک کن", "پاک‌کن", "پاکن"] },
+  { query: ["تراش"], title: ["دفتر", "قلمتراش", "قلم تراش"] },
+  { query: ["قیچی"], title: ["دفتر", "کاغذ", "مقوا"] },
+  // 🎯 اگر کاربر «جلد» خواست، عنوانی که نشانه‌های «دفتر بودن» دارد رد شود
+  { query: ["جلد"], title: ["کاغذ", "مقوا", "برگ", "صفحه", "صفحات"] },
+];
+
 function normalize(text) {
   if (!text) return "";
   return text
@@ -116,14 +127,30 @@ function isCriticalIdentifier(token) {
   return false;
 }
 
+// ---------------------------------------------------------------
+// 🎯 تطبیق دو توکن (نسخه سخت‌گیرانه برای توکن‌های کوتاه)
+// ---------------------------------------------------------------
 function tokensMatch(queryToken, titleToken) {
   if (queryToken === titleToken) return true;
   if (isCriticalIdentifier(queryToken)) return false;
+
   const shorter =
     queryToken.length < titleToken.length ? queryToken : titleToken;
   const longer =
     queryToken.length < titleToken.length ? titleToken : queryToken;
+
   if (shorter.length < 3) return false;
+
+  // 🎯 توکن‌های کوتاه (≤۴ حرف): فقط تطبیق کامل یا با پسوند ساده
+  if (shorter.length <= 4) {
+    const suffixes = ["ی", "ها", "های", "تر", "ترین", "و"];
+    for (const s of suffixes) {
+      if (longer === shorter + s) return true;
+    }
+    return false;
+  }
+
+  // 🎯 توکن‌های بلند (≥۵ حرف): substring مجاز
   return longer.includes(shorter);
 }
 
@@ -132,6 +159,19 @@ function findUnwantedModifier(query, title) {
   const tTokens = tokenize(title);
   for (const token of tTokens) {
     if (NEGATIVE_MODIFIERS.has(token) && !qTokens.has(token)) return token;
+  }
+  return null;
+}
+
+function hasCategoryConflict(query, title) {
+  const qNorm = normalize(query);
+  const tNorm = normalize(title);
+
+  for (const rule of CATEGORY_CONFLICTS) {
+    const qHasAny = rule.query.some((kw) => qNorm.includes(normalize(kw)));
+    if (!qHasAny) continue;
+    const conflict = rule.title.find((kw) => tNorm.includes(normalize(kw)));
+    if (conflict) return conflict;
   }
   return null;
 }
@@ -158,6 +198,18 @@ function queryMatchScore(query, title) {
       matchedTokens: [],
       missedTokens: [unwanted],
       reason: `کلمه ناخواسته در عنوان: «${unwanted}» (در query نیست)`,
+    };
+  }
+
+  // 🎯 چک تداخل دسته‌بندی
+  const conflict = hasCategoryConflict(query, title);
+  if (conflict) {
+    return {
+      score: 0,
+      ratio: 0,
+      matchedTokens: [],
+      missedTokens: [conflict],
+      reason: `تداخل دسته‌بندی: «${conflict}» در عنوان (query نمی‌خواهد)`,
     };
   }
 
@@ -207,6 +259,15 @@ function jaccard(a, b) {
   return inter / (setA.size + setB.size - inter);
 }
 
+function overlapCoefficient(a, b) {
+  const setA = new Set(a),
+    setB = new Set(b);
+  if (setA.size === 0 || setB.size === 0) return 0;
+  let inter = 0;
+  for (const x of setA) if (setB.has(x)) inter++;
+  return inter / Math.min(setA.size, setB.size);
+}
+
 function isModelToken(token) {
   return /[a-z0-9]/i.test(token) && token.length >= 2;
 }
@@ -214,12 +275,17 @@ function isModelToken(token) {
 function similarity(titleA, titleB) {
   const ta = tokenize(titleA),
     tb = tokenize(titleB);
-  const baseSim = jaccard(ta, tb);
+  const jac = jaccard(ta, tb);
+  const overlap = overlapCoefficient(ta, tb);
+  const baseSim = 0.4 * jac + 0.6 * overlap;
+
   const idsA = ta.filter(isCriticalIdentifier);
   const idsB = tb.filter(isCriticalIdentifier);
+
   if (idsA.length === 0 && idsB.length === 0) return baseSim;
   if (idsA.length > 0 && idsB.length === 0) return baseSim * 0.4;
   if (idsA.length === 0 && idsB.length > 0) return baseSim * 0.4;
+
   const commonIds = idsA.filter((id) => idsB.includes(id));
   if (commonIds.length === 0) return baseSim * 0.3;
   const idMatchRatio = commonIds.length / Math.max(idsA.length, idsB.length);
@@ -248,7 +314,7 @@ function clusterProducts(products, threshold = 0.6) {
 }
 
 // ---------------------------------------------------------------
-// 🖼️ استخراج URL تصویر با کیفیت بالا از عنصر HTML
+// 🖼️ استخراج URL تصویر با کیفیت بالا
 // ---------------------------------------------------------------
 function extractProductImage($, element, domain) {
   const imageSelectors = [
@@ -269,7 +335,6 @@ function extractProductImage($, element, domain) {
     const img = $(element).find(sel).first();
     if (img.length === 0) continue;
 
-    // 🎯 اولویت ۱: از srcset بزرگ‌ترین سایز را بگیر
     const srcset = img.attr("srcset") || img.attr("data-srcset") || "";
     if (srcset) {
       const largest = pickLargestFromSrcset(srcset);
@@ -279,7 +344,6 @@ function extractProductImage($, element, domain) {
       }
     }
 
-    // 🎯 اولویت ۲: از data attributes (data-large، data-full و...)
     const dataLarge =
       img.attr("data-large_image") ||
       img.attr("data-large-image") ||
@@ -292,7 +356,6 @@ function extractProductImage($, element, domain) {
       break;
     }
 
-    // 🎯 اولویت ۳: از src
     const src = img.attr("src") || "";
     if (src && !src.startsWith("data:")) {
       bestUrl = src;
@@ -303,35 +366,24 @@ function extractProductImage($, element, domain) {
   if (!bestUrl) return null;
   if (bestUrl.startsWith("data:")) return null;
 
-  // تبدیل URL نسبی به مطلق
   if (!bestUrl.startsWith("http")) {
     bestUrl = `https://${domain}${bestUrl.startsWith("/") ? "" : "/"}${bestUrl}`;
   }
 
-  // 🎯 حذف suffix سایز از نام فایل ووکامرس برای دریافت تصویر اصلی
-  bestUrl = upgradeWooCommerceImageUrl(bestUrl);
-
-  return bestUrl;
+  return upgradeWooCommerceImageUrl(bestUrl);
 }
 
-// ---------------------------------------------------------------
-// 🎯 انتخاب بزرگ‌ترین URL از srcset
-// ---------------------------------------------------------------
 function pickLargestFromSrcset(srcset) {
   if (!srcset) return null;
-
   const parts = srcset
     .split(",")
     .map((p) => p.trim())
     .filter(Boolean);
-
-  let maxWidth = 0;
-  let bestUrl = null;
-
+  let maxWidth = 0,
+    bestUrl = null;
   for (const part of parts) {
     const [url, descriptor] = part.split(/\s+/);
     if (!url) continue;
-
     let width = 0;
     if (descriptor) {
       const wMatch = descriptor.match(/^(\d+)w$/);
@@ -339,50 +391,32 @@ function pickLargestFromSrcset(srcset) {
       if (wMatch) width = parseInt(wMatch[1], 10);
       else if (xMatch) width = parseFloat(xMatch[1]) * 1000;
     }
-
     if (width > maxWidth) {
       maxWidth = width;
       bestUrl = url;
     }
   }
-
   return bestUrl;
 }
 
-// ---------------------------------------------------------------
-// 🎯 ارتقاء URL تصویر ووکامرس به نسخه اصلی
-// ---------------------------------------------------------------
 function upgradeWooCommerceImageUrl(url) {
   if (!url) return url;
-
   try {
-    // ۱. حذف suffix ابعاد از نام فایل ووکامرس
-    //    مثال: product-300x300.jpg → product.jpg
-    //         image-600x600-1.jpg → image-1.jpg
-    //         name-1024x1024.png → name.png
     const sizePattern = /-(\d+)x(\d+)(?=\.(jpg|jpeg|png|webp|gif))/gi;
-
-    // ابتدا تلاش می‌کنیم با حذف کامل suffix
     const withoutSize = url.replace(sizePattern, "");
-
-    // ۲. حذف پارامترهای resize از query string
     let cleaned = withoutSize.split("?")[0];
 
-    // اگر URL شامل i0.wp.com (WordPress CDN jetpack) بود، پارامترها را نگه دار
     if (
       url.includes("i0.wp.com") ||
       url.includes("i1.wp.com") ||
       url.includes("i2.wp.com")
     ) {
-      // در این حالت حذف query string باعث از کار افتادن می‌شود
-      // فقط پارامتر resize را حذف کن
       cleaned = url
         .replace(/[?&]resize=[^&]+/g, "")
         .replace(/[?&]w=\d+/g, "")
         .replace(/[?&]h=\d+/g, "");
       cleaned = cleaned.replace(/[?&]$/, "");
     }
-
     return cleaned;
   } catch (e) {
     return url;
@@ -454,18 +488,23 @@ function extractFromNextData(data, storeName, domain) {
 }
 
 // ---------------------------------------------------------------
-// 💰 استخراج قیمت از متن
+// 💰 استخراج قیمت از متن (با حداقل ۱۰۰۰ تومان)
 // ---------------------------------------------------------------
 function parsePriceText(text, currency) {
   if (!text) return 0;
+
   let cleaned = text
     .replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
     .replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d))
     .replace(/[^\d]/g, "");
+
   let price = parseInt(cleaned, 10);
   if (isNaN(price) || price === 0) return 0;
+
   if (currency === "rial") price = Math.round(price / 10);
-  if (price < 100 || price > 500000000) return 0;
+
+  if (price < 1000 || price > 500000000) return 0;
+
   return price;
 }
 
@@ -501,7 +540,7 @@ const NEW_STORES_CONFIG = [
     itemSelector: ".product-card",
     titleSelector: "h3, h2, .product-card-title",
     priceSelector: ".product-card-price, .price",
-    currency: "rial",
+    currency: "toman",
   },
   {
     name: "مهستان آرت",
@@ -600,12 +639,24 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
           link = `https://${domain}${link.startsWith("/") ? "" : "/"}${link}`;
         }
 
+        // 🎯 اولویت ۱: قیمت فروش (ins) — قیمت خط‌خورده (del) بزرگ‌تر است
         let priceText = "";
-        if ($(el).find(priceSelector).length === 0) {
-          priceText = $(el).text();
+        const salePrice = $(el)
+          .find(".price ins .amount, .price ins, ins .amount")
+          .first()
+          .text()
+          .trim();
+        if (salePrice) {
+          priceText = salePrice;
         } else {
-          priceText = $(el).find(priceSelector).first().text();
+          const configured = $(el).find(priceSelector).first().text().trim();
+          if (configured) {
+            priceText = configured;
+          } else {
+            priceText = $(el).text();
+          }
         }
+
         const price = parsePriceText(priceText, currency);
         if (price === 0) return;
 
@@ -631,12 +682,11 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
   }
 }
 
-// ---------------------------------------------------------------
-// 🖼️ استخراج URL تصویر با کیفیت بالا از API دیجی‌کالا
-// ---------------------------------------------------------------
+// ================================================================
+// 🏪 دیجی‌کالا
+// ================================================================
 function extractDigikalaImage(p) {
   if (!p || !p.images) return null;
-
   const candidates = [
     p.images.main,
     p.images.main_image,
@@ -646,64 +696,19 @@ function extractDigikalaImage(p) {
 
   for (const img of candidates) {
     let url = null;
-
     if (typeof img === "string" && img.startsWith("http")) {
       url = img;
     } else if (typeof img === "object") {
       let rawUrl = img.url || img.webp_url || img.src || img.path;
       if (Array.isArray(rawUrl)) rawUrl = rawUrl[0];
-      if (typeof rawUrl === "string" && rawUrl.startsWith("http")) {
-        url = rawUrl;
-      }
+      if (typeof rawUrl === "string" && rawUrl.startsWith("http")) url = rawUrl;
     }
-
     if (!url) continue;
-
-    // 🎯 حذف query string → نسخه اصلی با کیفیت بالا (1280×1280)
     return url.split("?")[0];
   }
-
   return null;
 }
 
-// ---------------------------------------------------------------
-// 🎯 ارتقاء URL تصویر دیجی‌کالا به کیفیت بالا
-// ---------------------------------------------------------------
-function upgradeDigikalaImageUrl(url) {
-  if (!url) return url;
-
-  try {
-    // روش ۱: اگر x-oss-process دارد، پارامتر resize را تغییر بده
-    if (url.includes("x-oss-process")) {
-      // تغییر w_220 (یا هر عددی) به w_1000
-      let newUrl = url.replace(/resize[^/]*?w_\d+/g, "resize,w_1000");
-      // تغییر h هم اگر وجود داشت
-      newUrl = newUrl.replace(/resize[^/]*?h_\d+/g, "resize,h_1000");
-      // افزایش کیفیت
-      newUrl = newUrl.replace(/quality,q_\d+/g, "quality,q_95");
-      // حذف m_lfit اگر می‌خواهیم سایز کامل باشد (اختیاری)
-      if (newUrl.includes("w_1000")) return newUrl;
-    }
-
-    // روش ۲: اگر پارامترهای resize و quality جدا هستند
-    if (url.match(/[?&]w=\d+/)) {
-      return url.replace(/([?&])w=\d+/g, "$1w=1000");
-    }
-
-    // روش ۳: اگر URL شامل _220x220 یا _thumbnail است
-    return url
-      .replace(/_220x220/g, "_1000x1000")
-      .replace(/_500x500/g, "_1000x1000")
-      .replace(/_thumbnail/g, "_large")
-      .replace(/-220x220/g, "-1000x1000");
-  } catch (e) {
-    return url;
-  }
-}
-
-// ---------------------------------------------------------------
-// 🏪 دیجی‌کالا
-// ---------------------------------------------------------------
 async function searchDigikala(query, limit = 20) {
   try {
     const response = await axios.get("https://api.digikala.com/v1/search/", {
@@ -716,37 +721,20 @@ async function searchDigikala(query, limit = 20) {
       timeout: 15000,
     });
     const products = response.data?.data?.products || [];
-
-    return products.slice(0, limit).map((p) => {
-      const image = extractDigikalaImage(p);
-
-      // لاگ دیباگ (فقط برای تست — بعداً می‌توانید حذف کنید)
-      if (!image) {
-        console.log(
-          `  ⚠️ دیجی‌کالا: تصویر برای «${(p.title_fa || "").substring(0, 40)}» یافت نشد`,
-        );
-        if (p.images)
-          console.log(
-            `     ساختار images:`,
-            JSON.stringify(p.images).substring(0, 200),
-          );
-      }
-
-      return {
-        storeName: "دیجی‌کالا",
-        productTitle: p.title_fa || "—",
-        price:
-          parseInt(
-            String(p.default_variant?.price?.selling_price || "0").replace(
-              /[^\d]/g,
-              "",
-            ),
-            10,
-          ) / 10,
-        link: `https://www.digikala.com/product/dkp-${p.id}/`,
-        image,
-      };
-    });
+    return products.slice(0, limit).map((p) => ({
+      storeName: "دیجی‌کالا",
+      productTitle: p.title_fa || "—",
+      price:
+        parseInt(
+          String(p.default_variant?.price?.selling_price || "0").replace(
+            /[^\d]/g,
+            "",
+          ),
+          10,
+        ) / 10,
+      link: `https://www.digikala.com/product/dkp-${p.id}/`,
+      image: extractDigikalaImage(p),
+    }));
   } catch (error) {
     console.warn(`⚠️ خطا در جستجوی دیجی‌کالا:`, error.message);
     return [];
@@ -775,31 +763,18 @@ async function searchTorob(query, limit = 20) {
       },
     );
     const products = response.data?.results || [];
-    return products.slice(0, limit).map((p) => {
-      let image =
+    return products.slice(0, limit).map((p) => ({
+      storeName: "ترب",
+      productTitle: p.name1 || p.name || "—",
+      price: parseInt(String(p.price || "0").replace(/[^\d]/g, ""), 10),
+      link: `https://torob.com/p/${p.random_key || p.id}/`,
+      image:
         p.image_url ||
         p.image ||
         p.thumbnail ||
         (p.images && p.images[0]) ||
-        null;
-
-      // ارتقاء کیفیت تصویر ترب
-      if (image && typeof image === "string") {
-        // ترب معمولاً با پارامتر size یا width کار می‌کند
-        image = image
-          .replace(/[?&]size=\d+/g, "")
-          .replace(/[?&]width=\d+/g, "")
-          .replace(/[?&]height=\d+/g, "");
-      }
-
-      return {
-        storeName: "ترب",
-        productTitle: p.name1 || p.name || "—",
-        price: parseInt(String(p.price || "0").replace(/[^\d]/g, ""), 10),
-        link: `https://torob.com/p/${p.random_key || p.id}/`,
-        image,
-      };
-    });
+        null,
+    }));
   } catch (error) {
     console.warn(`⚠️ خطا در جستجوی ترب:`, error.message);
     return [];
@@ -958,7 +933,6 @@ async function compareBasket(shoppingList) {
         pickedItems = [];
 
       for (const { query, matches } of queries) {
-        // ارزان‌ترین پیشنهاد آن فروشگاه برای این query
         let cheapestForStore = null;
         for (const match of matches) {
           const offer = match.offers.find((o) => o.storeName === storeName);
