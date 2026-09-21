@@ -148,6 +148,7 @@ function renderResults(data) {
   storesContainer.innerHTML = html;
   requestAnimationFrame(() => {
     document.querySelectorAll("[data-strip-track]").forEach(initStripDrag);
+    disableAllDraggable();
   });
   resultsSection.classList.remove("hidden");
   resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -169,7 +170,7 @@ function renderStoreSection(store, isBest) {
   const iconUrl = getStoreIconUrl(store.storeName);
   const fallback = isBest ? "🥇" : "🏪";
   const iconHtml = iconUrl
-    ? `<img src="${escapeHtml(iconUrl)}" alt="" class="store-logo" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';" /><span class="store-icon-fallback" style="display:none;">${fallback}</span>`
+    ? `<img src="${escapeHtml(iconUrl)}" alt="" class="store-logo" draggable="false" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';" /><span class="store-icon-fallback" style="display:none;">${fallback}</span>`
     : `<span class="store-icon-fallback" style="display:flex;">${fallback}</span>`;
   return `
     <section class="store-section ${isBest ? "best-store" : ""}" style="--store-color: ${storeColor};">
@@ -207,15 +208,15 @@ function renderProductCard(item, store, storeColor) {
     ? `<img src="${escapeHtml(img)}" alt="" class="product-image-real" draggable="false" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<span class=&quot;product-image-icon&quot;>${icon}</span>';" />`
     : `<span class="product-image-icon">${icon}</span>`;
 
-  // 🎯 پشته‌های Filmo — قبل از collapsed در DOM (z-index طبیعی)
+  // 🎯 پشته‌های Filmo
   const stackHtml = hasOthers
     ? `<div class="product-stack-layer stack-layer-2"></div>
        <div class="product-stack-layer stack-layer-1"></div>`
     : "";
 
-  // 🎯 بج بازکننده (خارج از collapsed تا tooltip کلیپ نشود)
+  // 🎯 بج بازکننده
   const badgeHtml = hasOthers
-    ? `<button class="expand-badge" type="button" aria-label="مشاهده ${others.length} آیتم دیگر">
+    ? `<button class="expand-badge" type="button" aria-label="مشاهده ${others.length} آیتم دیگر" draggable="false">
          <svg class="expand-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
            <polyline points="15 18 9 12 15 6"></polyline>
          </svg>
@@ -238,13 +239,13 @@ function renderProductCard(item, store, storeColor) {
 
     expandedHtml = `
       <div class="product-expanded hidden">
-        <button class="strip-close" type="button" aria-label="بستن">✕</button>
+        <button class="strip-close" type="button" aria-label="بستن" draggable="false">✕</button>
         <div class="strip-viewport">
-          <button class="strip-nav strip-nav-right" type="button" aria-label="قبلی">‹</button>
+          <button class="strip-nav strip-nav-right" type="button" aria-label="قبلی" draggable="false">‹</button>
           <div class="strip-track" data-strip-track data-strip-rtl="true">
             ${allItems.map((it) => renderStripItem(it, storeColor)).join("")}
           </div>
-          <button class="strip-nav strip-nav-left" type="button" aria-label="بعدی">›</button>
+          <button class="strip-nav strip-nav-left" type="button" aria-label="بعدی" draggable="false">›</button>
         </div>
         <div class="strip-counter">${totalCount} آیتم · مرتب شده به ترتیب قیمت</div>
       </div>
@@ -266,7 +267,7 @@ function renderProductCard(item, store, storeColor) {
             <span class="product-price-currency">تومان</span>
           </div>
         </div>
-        ${hasLink ? `<a class="product-action" href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">مشاهده در ${escapeHtml(store.storeName)} ↗</a>` : `<div class="product-action disabled">لینک موجود نیست</div>`}
+        ${hasLink ? `<a class="product-action" href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer" draggable="false">مشاهده در ${escapeHtml(store.storeName)} ↗</a>` : `<div class="product-action disabled">لینک موجود نیست</div>`}
       </div>
       ${badgeHtml}
       ${expandedHtml}
@@ -296,7 +297,7 @@ function renderStripItem(it, storeColor) {
           <span class="strip-item-price-currency">تومان</span>
         </div>
       </div>
-      ${hasLink ? `<a class="strip-item-action" href="${escapeHtml(it.link)}" target="_blank" rel="noopener noreferrer">مشاهده ↗</a>` : `<div class="strip-item-action disabled">بدون لینک</div>`}
+      ${hasLink ? `<a class="strip-item-action" href="${escapeHtml(it.link)}" target="_blank" rel="noopener noreferrer" draggable="false">مشاهده ↗</a>` : `<div class="strip-item-action disabled">بدون لینک</div>`}
     </div>
   `;
 }
@@ -385,7 +386,7 @@ function initStripDrag(track) {
   track.addEventListener("mousedown", (e) => {
     if (e.button !== 0) return;
     if (e.target.closest("a, button")) return;
-    e.preventDefault(); // 🎯 جلوگیری از drag بومی تصویر
+    e.preventDefault();
     dragging = true;
     moved = false;
     startX = e.clientX;
@@ -510,6 +511,58 @@ document.addEventListener("mouseout", (e) => {
   }
 });
 
+// ================================================================
+// 🎯 جلوگیری سراسری از drag & drop متن و لینک
+// ================================================================
+document.addEventListener(
+  "dragstart",
+  (e) => {
+    const target = e.target;
+    // اگر روی تصویر قابل کلیک (lightbox) بود، اجازه بده
+    if (target.closest(".clickable-image img")) return;
+    // در غیر این صورت، drag را لغو کن
+    e.preventDefault();
+    return false;
+  },
+  true,
+);
+
+document.addEventListener(
+  "mousedown",
+  (e) => {
+    const interactive = e.target.closest(
+      "a, button, .product-action, .strip-item-action, .store-strip-card, .expand-badge, .strip-nav, .strip-close",
+    );
+    if (interactive && e.detail > 1) {
+      e.preventDefault();
+    }
+  },
+  true,
+);
+
+function disableAllDraggable() {
+  document.querySelectorAll("a, img").forEach((el) => {
+    el.setAttribute("draggable", "false");
+  });
+}
+
+// 🎯 برای لینک‌هایی که بعداً ساخته می‌شوند
+const observer = new MutationObserver((mutations) => {
+  mutations.forEach((m) => {
+    m.addedNodes.forEach((node) => {
+      if (node.nodeType === 1) {
+        if (node.tagName === "A" || node.tagName === "IMG") {
+          node.setAttribute("draggable", "false");
+        }
+        node
+          .querySelectorAll?.("a, img")
+          .forEach((el) => el.setAttribute("draggable", "false"));
+      }
+    });
+  });
+});
+observer.observe(document.body, { childList: true, subtree: true });
+
 // ---------- نقشه ----------
 function getStoreIconUrl(name) {
   const map = {
@@ -555,7 +608,7 @@ function getProductIcon(title) {
 
 function buildStoreCard(store) {
   return `
-    <a class="store-strip-card" style="--store-color: ${store.color};" href="${escapeHtml(store.url)}" target="_blank" rel="noopener noreferrer">
+    <a class="store-strip-card" style="--store-color: ${store.color};" href="${escapeHtml(store.url)}" target="_blank" rel="noopener noreferrer" draggable="false">
       <div class="store-strip-info"><span class="store-strip-name">${escapeHtml(store.name)}</span></div>
       <div class="store-strip-logo">
         <img src="${escapeHtml(store.icon)}" alt="" draggable="false" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.parentElement.innerHTML='<span class=&quot;store-strip-fallback&quot;>🏪</span>';" />
@@ -750,3 +803,4 @@ themeToggle.addEventListener("click", () => {
 initTheme();
 
 renderSupportedStores();
+disableAllDraggable();
