@@ -1054,8 +1054,10 @@ async function compareBasket(shoppingList) {
     })
     .filter((b) => b.itemCount > 0)
     .sort((a, b) => {
-      if (b.itemCount !== a.itemCount) return b.itemCount - a.itemCount;
-      return a.total - b.total;
+      // 🎯 اولویت اول: مجموع سبد (کمترین → بیشترین)
+      if (a.total !== b.total) return a.total - b.total;
+      // 🎯 اولویت دوم: در صورت تساوی قیمت، فروشگاه با آیتم بیشتر بالاتر
+      return b.itemCount - a.itemCount;
     });
 
   return { queries, basketComparison };
