@@ -162,7 +162,26 @@ function renderStoreSection(store, isBest) {
     .join("");
   const missingHtml =
     store.missing && store.missing.length > 0
-      ? `<div class="missing-note"><span>⚠️</span><span>ناموجود در این فروشگاه: ${store.missing.map(escapeHtml).join("، ")}</span></div>`
+      ? `
+      <div class="missing-section">
+        <div class="missing-header">
+          <span class="missing-icon">⚠️</span>
+          <span>ناموجود در این فروشگاه:</span>
+        </div>
+        <div class="missing-items-grid">
+          ${store.missing
+            .map(
+              (m) => `
+            <div class="missing-item-card">
+              <span class="missing-item-icon">📦</span>
+              <span class="missing-item-text">${escapeHtml(m)}</span>
+            </div>
+          `,
+            )
+            .join("")}
+        </div>
+      </div>
+    `
       : "";
   const bestTitle = isBest
     ? `<h2 class="section-title best-title">✨ به صرفه ترین فروشگاه</h2>`
@@ -214,13 +233,13 @@ function renderProductCard(item, store, storeColor) {
        <div class="product-stack-layer stack-layer-1"></div>`
     : "";
 
-  // 🎯 بج بازکننده
-  const badgeHtml = hasOthers
-    ? `<button class="expand-badge" type="button" aria-label="مشاهده ${others.length} آیتم دیگر" draggable="false">
-         <svg class="expand-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+  // 🎯 دکمه بازکردن — زیر قیمت و بالای دکمه مشاهده
+  const expandButtonHtml = hasOthers
+    ? `<button class="product-expand-button" type="button" draggable="false">
+         <svg class="product-expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
            <polyline points="15 18 9 12 15 6"></polyline>
          </svg>
-         <span class="expand-tooltip">مشاهده ${others.length} آیتم دیگر</span>
+         <span>مشاهده ${others.length} آیتم دیگر</span>
        </button>`
     : "";
 
@@ -266,10 +285,10 @@ function renderProductCard(item, store, storeColor) {
             <span class="product-price-value">${formatPrice(item.price)}</span>
             <span class="product-price-currency">تومان</span>
           </div>
+          ${expandButtonHtml}
         </div>
         ${hasLink ? `<a class="product-action" href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer" draggable="false">مشاهده در ${escapeHtml(store.storeName)} ↗</a>` : `<div class="product-action disabled">لینک موجود نیست</div>`}
       </div>
-      ${badgeHtml}
       ${expandedHtml}
     </div>
   `;
@@ -436,14 +455,16 @@ function initStripDrag(track) {
 
 // ---------- رویدادها ----------
 document.addEventListener("click", (e) => {
-  const badge = e.target.closest(".expand-badge");
-  if (badge) {
+  // 🎯 دکمه بازکردن (زیر قیمت)
+  const expandBtn = e.target.closest(".product-expand-button");
+  if (expandBtn) {
     e.preventDefault();
     e.stopPropagation();
-    toggleCardExpand(badge.closest(".product-card"), true);
+    toggleCardExpand(expandBtn.closest(".product-card"), true);
     return;
   }
 
+  // بستن کارت
   const closeBtn = e.target.closest(".strip-close");
   if (closeBtn) {
     e.preventDefault();
@@ -451,6 +472,7 @@ document.addEventListener("click", (e) => {
     return;
   }
 
+  // ناوبری چپ/راست
   const nav = e.target.closest(".strip-nav");
   if (nav) {
     e.preventDefault();
@@ -468,6 +490,7 @@ document.addEventListener("click", (e) => {
     return;
   }
 
+  // کلیک روی تصویر strip (lightbox)
   const stripImg = e.target.closest(
     ".strip-item-image-wrapper.clickable-image",
   );
@@ -484,6 +507,7 @@ document.addEventListener("click", (e) => {
     }
   }
 
+  // کلیک روی تصویر کارت اصلی (lightbox)
   const prodImg = e.target.closest(".product-image-wrapper.clickable-image");
   if (prodImg) {
     const img = prodImg.querySelector(".product-image-real");
@@ -499,18 +523,6 @@ document.addEventListener("click", (e) => {
   }
 });
 
-// 🎯 افزایش z-index کارت هنگام هاور بج
-document.addEventListener("mouseover", (e) => {
-  const badge = e.target.closest(".expand-badge");
-  if (badge) badge.closest(".product-card")?.classList.add("badge-hover");
-});
-document.addEventListener("mouseout", (e) => {
-  const badge = e.target.closest(".expand-badge");
-  if (badge && !badge.contains(e.relatedTarget)) {
-    badge.closest(".product-card")?.classList.remove("badge-hover");
-  }
-});
-
 // ================================================================
 // 🎯 جلوگیری سراسری از drag & drop متن و لینک
 // ================================================================
@@ -518,9 +530,7 @@ document.addEventListener(
   "dragstart",
   (e) => {
     const target = e.target;
-    // اگر روی تصویر قابل کلیک (lightbox) بود، اجازه بده
     if (target.closest(".clickable-image img")) return;
-    // در غیر این صورت، drag را لغو کن
     e.preventDefault();
     return false;
   },
@@ -530,8 +540,16 @@ document.addEventListener(
 document.addEventListener(
   "mousedown",
   (e) => {
+    // 🎯 روی strip item: فقط روی دکمه‌ها/لینک‌ها اجازه بده
+    const stripItem = e.target.closest(".strip-item");
+    if (stripItem) {
+      if (e.target.closest("a, button")) return;
+      e.preventDefault();
+      return;
+    }
+
     const interactive = e.target.closest(
-      "a, button, .product-action, .strip-item-action, .store-strip-card, .expand-badge, .strip-nav, .strip-close",
+      "a, button, .product-action, .product-expand-button, .store-strip-card, .strip-nav, .strip-close",
     );
     if (interactive && e.detail > 1) {
       e.preventDefault();
@@ -546,7 +564,6 @@ function disableAllDraggable() {
   });
 }
 
-// 🎯 برای لینک‌هایی که بعداً ساخته می‌شوند
 const observer = new MutationObserver((mutations) => {
   mutations.forEach((m) => {
     m.addedNodes.forEach((node) => {

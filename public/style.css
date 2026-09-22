@@ -119,7 +119,7 @@ body {
 }
 
 /* ================================================================
-   نوار فروشگاه‌ها (بالای صفحه)
+   نوار فروشگاه‌ها
    ================================================================ */
 .supported-stores {
   direction: ltr;
@@ -582,13 +582,13 @@ body {
   height: 100%;
 }
 
-/* 🎯 رنگ اسم فروشگاه = رنگ برند */
 .store-name {
   font-size: 1.75rem;
   font-weight: 900;
   color: var(--store-color, var(--primary-dark));
   margin: 0;
   letter-spacing: -0.5px;
+  cursor: default;
 }
 
 .store-total {
@@ -625,7 +625,6 @@ body {
   transition: transform 0.25s ease;
 }
 
-/* 🎯 کارت بدون پشته */
 .product-card:not(.has-others) .product-collapsed {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -646,9 +645,6 @@ body {
   box-shadow: 0 12px 30px rgba(99, 102, 241, 0.15);
 }
 
-/* ================================================================
-   🎯 کارت با پشته (Filmo style)
-   ================================================================ */
 .product-card.has-others {
   padding-top: 16px;
   overflow: visible;
@@ -678,7 +674,6 @@ body {
   box-shadow: 0 12px 30px rgba(99, 102, 241, 0.15);
 }
 
-/* 🎯 نوارهای پشته — هم‌خانواده با کادر */
 .product-stack-layer {
   position: absolute;
   height: 14px;
@@ -687,9 +682,6 @@ body {
   transition: all 0.25s ease;
 }
 
-/* ================================================================
-   🎯 پشته‌ها — هر لایه عقب‌تر، تیره‌تر
-   ================================================================ */
 .stack-layer-1 {
   top: 6px;
   left: 8%;
@@ -712,13 +704,11 @@ body {
   background: #0f172a;
   box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.4);
 }
-
 :root[data-theme="dark"] .stack-layer-2 {
   background: #020617;
   box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.6);
 }
 
-/* 🎯 انیمیشن هاور: نوارها به عقب می‌روند */
 .product-card.has-others:hover .stack-layer-1 {
   top: 4px;
   left: 6%;
@@ -731,7 +721,7 @@ body {
 }
 
 /* ================================================================
-   🎯 ناحیه تصویر محصول — با اندازه ثابت برای همه کارت‌ها
+   ناحیه تصویر محصول
    ================================================================ */
 .product-image-wrapper {
   position: relative;
@@ -754,7 +744,6 @@ body {
   background: #0f172a;
 }
 
-/* 🎯 تصویر با position absolute — همیشه هم‌اندازه */
 .product-image-real {
   position: absolute;
   top: 0.625rem;
@@ -774,7 +763,6 @@ body {
   transform: scale(1.04);
 }
 
-/* 🎯 آیکون جایگزین — وسط‌چین با absolute */
 .product-image-icon {
   font-size: 4rem;
   opacity: 0.9;
@@ -786,12 +774,6 @@ body {
 }
 .product-card:hover .product-image-icon {
   transform: translate(-50%, -50%) scale(1.12) rotate(-5deg);
-}
-
-/* 🎯 cursor دست روی تصویر */
-.product-image-wrapper.clickable-image,
-.strip-item-image-wrapper.clickable-image {
-  cursor: pointer;
 }
 
 /* ================================================================
@@ -818,6 +800,7 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
+  cursor: default;
 }
 
 .product-title {
@@ -830,6 +813,9 @@ body {
   -webkit-box-orient: vertical;
   overflow: hidden;
   min-height: 2.6rem;
+  cursor: default;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .product-price-section {
@@ -840,20 +826,99 @@ body {
   align-items: baseline;
   gap: 0.25rem;
   justify-content: flex-end;
+  cursor: default;
 }
 .product-price-value {
   font-size: 1.15rem;
   font-weight: 800;
   color: var(--primary-dark);
+  cursor: default;
 }
 .product-price-currency {
   font-size: 0.7rem;
   color: var(--text-muted);
   font-weight: 500;
+  cursor: default;
 }
 
 /* ================================================================
-   🎯 دکمه اقدام — مرز بالای ثابت، فقط متن می‌درخشد
+   🎯 دکمه بازکردن آیتم‌های دیگر (زیر قیمت)
+   ================================================================ */
+.product-expand-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  margin-top: 0.5rem;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--store-color, var(--primary)) 12%, var(--surface))
+      0%,
+    color-mix(in srgb, var(--store-color, var(--primary)) 6%, var(--surface))
+      100%
+  );
+  border: 1.5px solid
+    color-mix(in srgb, var(--store-color, var(--primary)) 30%, var(--border));
+  border-radius: 0.75rem;
+  color: var(--store-color, var(--primary));
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  letter-spacing: -0.2px;
+}
+
+.product-expand-button:hover {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--store-color, var(--primary)) 20%, var(--surface))
+      0%,
+    color-mix(in srgb, var(--store-color, var(--primary)) 12%, var(--surface))
+      100%
+  );
+  border-color: var(--store-color, var(--primary));
+  box-shadow: 0 4px 14px
+    color-mix(in srgb, var(--store-color, var(--primary)) 25%, transparent);
+  transform: translateY(-1px);
+}
+
+.product-expand-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px
+    color-mix(in srgb, var(--store-color, var(--primary)) 20%, transparent);
+}
+
+.product-expand-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+}
+
+.product-expand-button:hover .product-expand-icon {
+  transform: translateX(-3px);
+}
+
+:root[data-theme="dark"] .product-expand-button {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--store-color, var(--primary)) 18%, var(--surface))
+      0%,
+    color-mix(in srgb, var(--store-color, var(--primary)) 10%, var(--surface))
+      100%
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--store-color, var(--primary)) 40%,
+    var(--border)
+  );
+}
+
+/* ================================================================
+   دکمه اقدام
    ================================================================ */
 .product-action {
   display: block;
@@ -869,6 +934,7 @@ body {
   font-family: inherit;
   position: relative;
   z-index: 2;
+  cursor: pointer;
 }
 .product-action:hover:not(.disabled) {
   text-shadow: 0 0 12px
@@ -878,95 +944,6 @@ body {
   color: var(--text-muted);
   cursor: not-allowed;
   opacity: 0.6;
-}
-
-/* ================================================================
-   🎯 بج بازکننده
-   ================================================================ */
-.expand-badge {
-  position: absolute;
-  left: -18px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-  border: 3px solid var(--surface);
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.5);
-  transition: all 0.25s ease;
-  padding: 0;
-}
-.expand-badge:hover {
-  transform: translateY(-50%) scale(1.15);
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.7);
-  background: linear-gradient(135deg, #10b981, #059669);
-}
-.expand-badge-icon {
-  width: 16px;
-  height: 16px;
-  display: block;
-  flex-shrink: 0;
-}
-
-/* 🎯 کارت با هاور بج → z-index بالا */
-.product-card.badge-hover {
-  z-index: 100;
-}
-
-/* 🎯 تولتیپ */
-.expand-tooltip {
-  position: absolute;
-  right: calc(100% + 14px);
-  top: 50%;
-  transform: translateY(-50%) translateX(10px);
-  background: linear-gradient(135deg, #1e293b, #0f172a);
-  color: #ffffff;
-  font-family: "Vazirmatn", system-ui, sans-serif;
-  font-size: 0.9rem;
-  font-weight: 700;
-  padding: 0.75rem 1.25rem;
-  border-radius: 0.875rem;
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  transition: all 0.25s ease;
-  box-shadow:
-    0 15px 35px rgba(0, 0, 0, 0.45),
-    0 0 0 1px rgba(255, 255, 255, 0.08);
-  z-index: 50;
-  letter-spacing: -0.2px;
-  line-height: 1.2;
-}
-.expand-tooltip::after {
-  content: "";
-  position: absolute;
-  left: 100%;
-  top: 50%;
-  transform: translateY(-50%);
-  border: 8px solid transparent;
-  border-left-color: #0f172a;
-}
-.expand-badge:hover .expand-tooltip {
-  opacity: 1;
-  transform: translateY(-50%) translateX(0);
-}
-
-:root[data-theme="dark"] .expand-tooltip {
-  background: linear-gradient(135deg, #4338ca, #6366f1);
-  color: #f8fafc;
-  box-shadow:
-    0 15px 35px rgba(67, 56, 202, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.15);
-}
-:root[data-theme="dark"] .expand-tooltip::after {
-  border-left-color: #4338ca;
 }
 
 /* ================================================================
@@ -984,7 +961,7 @@ body {
 .product-card.expanded .product-stack-layer {
   display: none;
 }
-.product-card.expanded .expand-badge {
+.product-card.expanded .product-expand-button {
   display: none;
 }
 .product-card.expanded,
@@ -1056,6 +1033,8 @@ body {
   padding: 0.5rem 0.25rem;
   cursor: grab;
   scroll-padding-inline: 0.25rem;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .strip-track:active {
   cursor: grabbing;
@@ -1064,7 +1043,6 @@ body {
   display: none;
 }
 
-/* 🎯 دکمه‌های ناوبری — داخل کادر */
 .strip-nav {
   position: absolute;
   top: 50%;
@@ -1125,21 +1103,62 @@ body {
   transition:
     border-color 0.2s ease,
     box-shadow 0.2s ease;
-  user-select: none;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  cursor: grab;
 }
+
+.strip-item *,
+.strip-item *::before,
+.strip-item *::after {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  -webkit-user-drag: none !important;
+  user-drag: none !important;
+  cursor: inherit;
+}
+
+.strip-item:active,
+.strip-item:active * {
+  cursor: grabbing !important;
+}
+
+.strip-item:not(.selected) {
+  cursor: grab;
+}
+.strip-item:not(.selected) * {
+  cursor: grab;
+}
+
 .strip-item:hover {
   border-color: var(--primary-light);
   box-shadow: 0 6px 18px rgba(99, 102, 241, 0.15);
 }
+
 .strip-item.selected {
   border-color: #10b981;
   border-width: 3px;
   box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
   background: linear-gradient(135deg, #ecfdf5 0%, var(--surface) 100%);
+  cursor: default;
 }
+.strip-item.selected,
+.strip-item.selected * {
+  cursor: default !important;
+}
+
 :root[data-theme="dark"] .strip-item.selected {
   background: linear-gradient(135deg, #064e3b 0%, var(--surface) 100%);
   border-color: #34d399;
+}
+
+.strip-item .strip-item-action,
+.strip-item .strip-item-action * {
+  cursor: pointer !important;
 }
 
 .strip-item-badge {
@@ -1156,7 +1175,6 @@ body {
   box-shadow: 0 2px 10px rgba(16, 185, 129, 0.5);
 }
 
-/* 🎯 ناحیه تصویر strip-item — هم‌اندازه */
 .strip-item-image-wrapper {
   position: relative;
   width: 100%;
@@ -1209,6 +1227,9 @@ body {
   -webkit-box-orient: vertical;
   overflow: hidden;
   min-height: 2.25rem;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  cursor: inherit;
 }
 
 .strip-item-price {
@@ -1219,21 +1240,22 @@ body {
   align-items: baseline;
   gap: 0.25rem;
   justify-content: flex-end;
+  user-select: none !important;
+  cursor: inherit;
 }
 .strip-item-price-value {
   font-size: 1rem;
   font-weight: 800;
   color: var(--primary-dark);
+  cursor: inherit;
 }
 .strip-item-price-currency {
   font-size: 0.65rem;
   color: var(--text-muted);
   font-weight: 500;
+  cursor: inherit;
 }
 
-/* ================================================================
-   🎯 دکمه اقدام strip-item — مرز بالای ثابت
-   ================================================================ */
 .strip-item-action {
   display: block;
   text-align: center;
@@ -1247,6 +1269,7 @@ body {
   transition: text-shadow 0.2s ease;
   font-family: inherit;
   position: relative;
+  cursor: pointer !important;
 }
 .strip-item-action:hover:not(.disabled) {
   text-shadow: 0 0 10px
@@ -1254,7 +1277,7 @@ body {
 }
 .strip-item-action.disabled {
   color: var(--text-muted);
-  cursor: not-allowed;
+  cursor: not-allowed !important;
   opacity: 0.6;
 }
 
@@ -1270,21 +1293,72 @@ body {
 /* ================================================================
    یادداشت ناموجود
    ================================================================ */
-.missing-note {
+.missing-section {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px dashed var(--border);
+}
+
+.missing-header {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 1.25rem;
-  padding: 0.75rem 1rem;
-  background: rgba(239, 68, 68, 0.08);
-  border-right: 3px solid var(--danger);
-  border-radius: 0.5rem;
+  margin-bottom: 0.875rem;
+  font-size: 0.813rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.missing-header .missing-icon {
+  font-size: 1rem;
+}
+
+.missing-items-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.missing-item-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  background: rgba(239, 68, 68, 0.06);
+  border: 1.5px solid rgba(239, 68, 68, 0.25);
+  border-radius: 0.75rem;
   font-size: 0.813rem;
   color: var(--danger);
+  font-weight: 500;
+  transition: all 0.2s ease;
 }
-:root[data-theme="dark"] .missing-note {
+
+.missing-item-card:hover {
   background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.45);
+  transform: translateY(-1px);
+}
+
+.missing-item-icon {
+  font-size: 0.875rem;
+  opacity: 0.7;
+}
+
+.missing-item-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+:root[data-theme="dark"] .missing-item-card {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.3);
   color: #fca5a5;
+}
+:root[data-theme="dark"] .missing-item-card:hover {
+  background: rgba(248, 113, 113, 0.18);
+  border-color: rgba(248, 113, 113, 0.5);
 }
 
 /* ================================================================
@@ -1314,7 +1388,7 @@ body {
   inset: 0;
   background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(8px);
-  cursor: zoom-out;
+  cursor: pointer;
 }
 
 .image-modal-content {
@@ -1346,6 +1420,7 @@ body {
   background: white;
   padding: 1rem;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+  cursor: default;
 }
 :root[data-theme="dark"] .image-modal-content img {
   background: #1e293b;
@@ -1361,6 +1436,7 @@ body {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 2rem;
   backdrop-filter: blur(10px);
+  cursor: default;
 }
 
 .image-modal-close {
@@ -1405,6 +1481,134 @@ body {
 
 .hidden {
   display: none !important;
+}
+
+/* ================================================================
+   🎯 cursor پیش‌فرض
+   ================================================================ */
+.product-card,
+.product-collapsed,
+.product-body,
+.store-section,
+.store-header-row {
+  cursor: default;
+}
+
+.product-action,
+.product-expand-button,
+.strip-nav,
+.strip-close,
+.store-strip-card,
+.store-strip-card * {
+  cursor: pointer;
+}
+
+.product-image-wrapper.clickable-image,
+.product-image-wrapper.clickable-image *,
+.strip-item-image-wrapper.clickable-image,
+.strip-item-image-wrapper.clickable-image * {
+  cursor: pointer;
+}
+
+.product-query,
+.product-price-section,
+.product-price-value,
+.product-price-currency,
+.store-name {
+  cursor: default !important;
+}
+
+/* ================================================================
+   🎯 جلوگیری از درگ لینک‌ها
+   ================================================================ */
+.product-action,
+.strip-item-action,
+.store-strip-card,
+.store-strip-card *,
+.store-strip-name,
+.product-expand-button,
+.strip-nav,
+.strip-close,
+.store-name,
+.store-section,
+a,
+button {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  -webkit-user-drag: none !important;
+  user-drag: none !important;
+}
+
+img {
+  -webkit-user-drag: none !important;
+  user-drag: none !important;
+}
+
+a img,
+.product-image-wrapper.clickable-image img,
+.strip-item-image-wrapper.clickable-image img {
+  pointer-events: auto !important;
+}
+
+/* ================================================================
+   🎯 عنوان کارت اصلی — قابل انتخاب
+   ================================================================ */
+.product-title,
+.product-query,
+.item-title,
+.smart-item-title {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  cursor: default;
+}
+
+/* ================================================================
+   🎯 آیتم‌های strip — غیرقابل انتخاب مطلق
+   ================================================================ */
+.strip-item .strip-item-body .strip-item-title,
+.strip-item .strip-item-body .strip-item-price,
+.strip-item .strip-item-body .strip-item-price-value,
+.strip-item .strip-item-body .strip-item-price-currency {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-drag: none !important;
+  user-drag: none !important;
+  cursor: inherit !important;
+}
+
+.strip-item:not(.selected) .strip-item-body .strip-item-title,
+.strip-item:not(.selected) .strip-item-body .strip-item-price,
+.strip-item:not(.selected) .strip-item-body .strip-item-price-value,
+.strip-item:not(.selected) .strip-item-body .strip-item-price-currency {
+  cursor: grab !important;
+}
+
+.strip-item.selected .strip-item-body .strip-item-title,
+.strip-item.selected .strip-item-body .strip-item-price,
+.strip-item.selected .strip-item-body .strip-item-price-value,
+.strip-item.selected .strip-item-body .strip-item-price-currency {
+  cursor: default !important;
+}
+
+.strip-item:active .strip-item-body .strip-item-title,
+.strip-item:active .strip-item-body .strip-item-price,
+.strip-item:active .strip-item-body .strip-item-price-value,
+.strip-item:active .strip-item-body .strip-item-price-currency {
+  cursor: grabbing !important;
+}
+
+.strip-item .strip-item-action,
+.strip-item .strip-item-action * {
+  cursor: pointer !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 
 /* ================================================================
@@ -1455,6 +1659,10 @@ body {
   .product-action {
     padding: 0.625rem;
     font-size: 0.68rem;
+  }
+  .product-expand-button {
+    padding: 0.5rem;
+    font-size: 0.7rem;
   }
   .store-header-row {
     flex-direction: column;
@@ -1516,19 +1724,6 @@ body {
   .strip-viewport {
     padding: 0.5rem 3rem;
   }
-  .expand-badge {
-    left: -14px;
-    width: 32px;
-    height: 32px;
-  }
-  .expand-badge-icon {
-    width: 14px;
-    height: 14px;
-  }
-  .expand-tooltip {
-    font-size: 0.8rem;
-    padding: 0.625rem 1rem;
-  }
   .image-modal {
     padding: 1rem;
   }
@@ -1547,59 +1742,11 @@ body {
     width: 2.5rem;
     height: 2.5rem;
   }
-}
-
-/* ================================================================
-   🎯 جلوگیری از انتخاب و درگ متن/لینک‌ها
-   ================================================================ */
-.product-action,
-.strip-item-action,
-.store-strip-card,
-.store-strip-card *,
-.store-strip-name,
-.expand-badge,
-.strip-nav,
-.strip-close,
-.smart-item,
-.store-name,
-.store-section,
-.query-group,
-.match-card,
-.offer-row,
-a,
-button {
-  user-select: none !important;
-  -webkit-user-select: none !important;
-  -moz-user-select: none !important;
-  -ms-user-select: none !important;
-  -webkit-user-drag: none !important;
-  -khtml-user-drag: none !important;
-  -moz-user-drag: none !important;
-  -o-user-drag: none !important;
-  user-drag: none !important;
-}
-
-/* 🎯 عنوان محصول قابل انتخاب و کپی می‌ماند */
-.product-title,
-.product-query,
-.strip-item-title,
-.item-title,
-.smart-item-title {
-  user-select: text !important;
-  -webkit-user-select: text !important;
-  -moz-user-select: text !important;
-  -ms-user-select: text !important;
-  cursor: text;
-}
-
-img {
-  -webkit-user-drag: none !important;
-  user-drag: none !important;
-  pointer-events: none !important;
-}
-
-a img,
-.product-image-wrapper.clickable-image img,
-.strip-item-image-wrapper.clickable-image img {
-  pointer-events: auto !important;
+  .missing-item-card {
+    font-size: 0.75rem;
+    padding: 0.375rem 0.625rem;
+  }
+  .missing-item-text {
+    max-width: 150px;
+  }
 }
