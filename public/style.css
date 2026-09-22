@@ -1144,11 +1144,10 @@ body {
   border-width: 3px;
   box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
   background: linear-gradient(135deg, #ecfdf5 0%, var(--surface) 100%);
-  cursor: default;
 }
 .strip-item.selected,
 .strip-item.selected * {
-  cursor: default !important;
+  cursor: grab;
 }
 
 :root[data-theme="dark"] .strip-item.selected {
@@ -1571,17 +1570,16 @@ a img,
   pointer-events: auto !important;
 }
 
-/* ================================================================
-   🎯 عنوان کارت اصلی — قابل انتخاب
-   ================================================================ */
+/* 🎯 عنوان کارت اصلی — غیرقابل انتخاب */
 .product-title,
 .product-query,
 .item-title,
 .smart-item-title {
-  user-select: text !important;
-  -webkit-user-select: text !important;
-  -moz-user-select: text !important;
-  -ms-user-select: text !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  -webkit-touch-callout: none !important;
   cursor: default;
 }
 
@@ -1613,7 +1611,7 @@ a img,
 .strip-item.selected .strip-item-body .strip-item-price,
 .strip-item.selected .strip-item-body .strip-item-price-value,
 .strip-item.selected .strip-item-body .strip-item-price-currency {
-  cursor: default !important;
+  cursor: grab !important;
 }
 
 .strip-item:active .strip-item-body .strip-item-title,
