@@ -164,22 +164,20 @@ function renderStoreSection(store, isBest) {
     store.missing && store.missing.length > 0
       ? `
       <div class="missing-section">
-        <div class="missing-header">
+        <span class="missing-label">
           <span class="missing-icon">⚠️</span>
           <span>ناموجود در این فروشگاه:</span>
-        </div>
-        <div class="missing-items-grid">
-          ${store.missing
-            .map(
-              (m) => `
-            <div class="missing-item-card">
-              <span class="missing-item-icon">📦</span>
-              <span class="missing-item-text">${escapeHtml(m)}</span>
-            </div>
-          `,
-            )
-            .join("")}
-        </div>
+        </span>
+        ${store.missing
+          .map(
+            (m) => `
+          <span class="missing-item-card">
+            <span class="missing-item-icon">📦</span>
+            <span class="missing-item-text">${escapeHtml(m)}</span>
+          </span>
+        `,
+          )
+          .join("")}
       </div>
     `
       : "";
