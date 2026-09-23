@@ -930,6 +930,7 @@ body {
    ================================================================ */
 .product-card {
   position: relative;
+  padding-top: 14px; /* 🎯 برای همه کارت‌ها، برای هم‌ترازی */
   transition: transform 0.25s ease;
 }
 
@@ -954,7 +955,6 @@ body {
 }
 
 .product-card.has-others {
-  padding-top: 16px;
   overflow: visible;
 }
 
@@ -991,7 +991,7 @@ body {
 }
 
 .stack-layer-1 {
-  top: 6px;
+  top: 4px; /* 🎯 داخل فضای padding */
   left: 8%;
   right: 8%;
   background: #e2e8f0;
@@ -1000,7 +1000,7 @@ body {
 }
 
 .stack-layer-2 {
-  top: 0;
+  top: -4px; /* 🎯 بالاتر، در لبه‌ی padding */
   left: 16%;
   right: 16%;
   background: #94a3b8;
@@ -1017,17 +1017,17 @@ body {
   box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.6);
 }
 
+/* 🎯 انیمیشن hover */
 .product-card.has-others:hover .stack-layer-1 {
-  top: 4px;
+  top: 2px;
   left: 6%;
   right: 6%;
 }
 .product-card.has-others:hover .stack-layer-2 {
-  top: -4px;
+  top: -8px;
   left: 13%;
   right: 13%;
 }
-
 /* ================================================================
    ناحیه تصویر محصول
    ================================================================ */
@@ -2076,4 +2076,27 @@ a img,
   background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
   color: #0f172a;
   box-shadow: 0 4px 14px rgba(129, 140, 248, 0.4);
+}
+
+/* ================================================================
+   🎯 placeholder برای هم‌ترازی کارت‌های بدون زیرمجموعه
+   ================================================================ */
+.product-expand-placeholder {
+  display: block;
+  width: 100%;
+  /* 🎯 دقیقاً هم‌اندازه با دکمه expand */
+  height: calc(0.625rem * 2 + 0.75rem * 1.5 + 3px);
+  margin-top: 0.5rem;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* 🎯 کارت‌های بدون زیرمجموعه: قیمت بالاتر نیاید */
+.product-card:not(.has-others) .product-price-section {
+  margin-top: auto;
+}
+
+/* 🎯 کارت‌های دارای زیرمجموعه: قیمت هم بالای دکمه قرار بگیرد */
+.product-card.has-others .product-price-section {
+  margin-top: auto;
 }

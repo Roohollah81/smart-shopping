@@ -473,6 +473,7 @@ function renderProductCard(item, store, storeColor) {
        <div class="product-stack-layer stack-layer-1"></div>`
     : "";
 
+  // 🎯 اگر زیرمجموعه دارد، دکمه واقعی — وگرنه placeholder خالی
   const expandButtonHtml = hasOthers
     ? `<button class="product-expand-button" type="button" draggable="false">
          <svg class="product-expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -480,7 +481,7 @@ function renderProductCard(item, store, storeColor) {
          </svg>
          <span>مشاهده ${others.length} آیتم دیگر</span>
        </button>`
-    : "";
+    : `<div class="product-expand-placeholder" aria-hidden="true"></div>`;
 
   let expandedHtml = "";
   if (hasOthers) {
