@@ -65,113 +65,6 @@ function getStoreColor(storeName) {
   return s ? s.color : "#6366f1";
 }
 
-// ================================================================
-// 🎯 نوار پیشرفت داخل دکمه جستجو
-// ================================================================
-let progressInterval = null;
-let progressStartTime = null;
-let currentProgress = 0;
-let estimatedDuration = 25000;
-
-function toPersianNumber(num) {
-  const persian = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
-  return String(num).replace(/\d/g, (d) => persian[parseInt(d, 10)]);
-}
-
-function startProgress(itemsCount) {
-  const btn = document.getElementById("search-btn");
-  const fill = document.getElementById("search-btn-fill");
-  const textEl = document.getElementById("search-btn-text");
-  if (!btn || !fill || !textEl) return;
-
-  estimatedDuration = Math.max(itemsCount * 15000, 12000);
-  progressStartTime = performance.now();
-  currentProgress = 0;
-
-  btn.classList.add("searching");
-  fill.style.width = "0%";
-
-  progressInterval = setInterval(() => {
-    const elapsed = performance.now() - progressStartTime;
-
-    let targetProgress;
-    if (elapsed < 3000) {
-      targetProgress = (elapsed / 3000) * 25;
-    } else if (elapsed < 10000) {
-      targetProgress = 25 + ((elapsed - 3000) / 7000) * 30;
-    } else if (elapsed < 20000) {
-      targetProgress = 55 + ((elapsed - 10000) / 10000) * 20;
-    } else {
-      targetProgress = 75 + Math.min(((elapsed - 20000) / 30000) * 15, 15);
-    }
-    targetProgress = Math.min(targetProgress, 90);
-
-    currentProgress += (targetProgress - currentProgress) * 0.18;
-    fill.style.width = currentProgress + "%";
-
-    const remaining = Math.max(
-      0,
-      Math.ceil((estimatedDuration - elapsed) / 1000),
-    );
-    if (remaining > 0) {
-      textEl.textContent = `در حال جستجو... ${toPersianNumber(remaining)} ثانیه`;
-    } else {
-      textEl.textContent = "در حال دریافت نتایج...";
-    }
-  }, 200);
-
-  window.__searchSafetyTimeout = setTimeout(() => {
-    if (progressInterval) {
-      cancelProgress();
-      showError("جستجو بیش از حد طول کشید. لطفاً دوباره تلاش کنید.");
-      setLoading(false);
-    }
-  }, 90000);
-}
-
-function completeProgress() {
-  if (progressInterval) {
-    clearInterval(progressInterval);
-    progressInterval = null;
-  }
-  if (window.__searchSafetyTimeout) {
-    clearTimeout(window.__searchSafetyTimeout);
-    window.__searchSafetyTimeout = null;
-  }
-
-  const btn = document.getElementById("search-btn");
-  const fill = document.getElementById("search-btn-fill");
-  const textEl = document.getElementById("search-btn-text");
-
-  if (fill) fill.style.width = "100%";
-  if (textEl) textEl.textContent = "✓ نتایج آماده شد";
-  if (btn) btn.classList.remove("searching");
-
-  setTimeout(() => {
-    if (fill) fill.style.width = "0%";
-    if (textEl) textEl.textContent = "🔍 جستجو و مقایسه";
-  }, 800);
-}
-
-function cancelProgress() {
-  if (progressInterval) {
-    clearInterval(progressInterval);
-    progressInterval = null;
-  }
-  if (window.__searchSafetyTimeout) {
-    clearTimeout(window.__searchSafetyTimeout);
-    window.__searchSafetyTimeout = null;
-  }
-
-  const btn = document.getElementById("search-btn");
-  const fill = document.getElementById("search-btn-fill");
-  const textEl = document.getElementById("search-btn-text");
-
-  if (fill) fill.style.width = "0%";
-  if (textEl) textEl.textContent = "🔍 جستجو و مقایسه";
-  if (btn) btn.classList.remove("searching");
-}
-
 // ---------- آیتم‌ها ----------
 function addItem() {
   const value = itemInput.value.trim();
@@ -189,16 +82,19 @@ function addItem() {
   itemInput.focus();
   renderItems();
 }
+
 function removeItem(i) {
   items.splice(i, 1);
   renderItems();
 }
+
 function renderItems() {
   itemsList.innerHTML = items
     .map(
       (it, i) => `
-    <div class="item-chip">
-      <span>${escapeHtml(it)}</span>
+    <div class="item-chip" data-index="${i}">
+      <span class="item-chip-status"></span>
+      <span class="item-chip-text">${escapeHtml(it)}</span>
       <span class="remove" onclick="removeItem(${i})">✕</span>
     </div>
   `,
@@ -206,12 +102,98 @@ function renderItems() {
     .join("");
   searchBtn.disabled = items.length === 0;
 }
+
 function clearAll() {
   items = [];
   renderItems();
   resultsSection.classList.add("hidden");
   hideError();
-  cancelProgress();
+  stopStoreCycle();
+  searchBtn.classList.remove("searching");
+  setLoading(false);
+}
+
+// 🎯 علامت‌گذاری چیپ‌ها
+function markChipDone(index) {
+  const chip = document.querySelector(`.item-chip[data-index="${index}"]`);
+  if (chip) {
+    chip.classList.remove("error");
+    chip.classList.add("done");
+  }
+}
+
+function markChipError(index) {
+  const chip = document.querySelector(`.item-chip[data-index="${index}"]`);
+  if (chip) {
+    chip.classList.remove("done");
+    chip.classList.add("error");
+  }
+}
+
+// ================================================================
+// 🎯 متغیرهای انیمیشن slot
+// ================================================================
+let slotStoreInterval = null;
+let currentStoreIndex = 0;
+
+function animateSlot(slotId, newText, color = null) {
+  const slotEl = document.getElementById(slotId);
+  if (!slotEl) return;
+
+  const currentTextEl = slotEl.querySelector(".slot-text");
+  const currentText = currentTextEl ? currentTextEl.textContent : "";
+
+  // 🎯 فقط برای slot فروشگاه، رنگ برند اعمال شود
+  // slot آیتم از CSS پیش‌فرض (هم‌رنگ چیپ‌ها) استفاده می‌کند
+  if (color && slotId === "slot-store") {
+    slotEl.style.setProperty("--slot-color-bg", hexToRgba(color, 0.85));
+    slotEl.style.setProperty("--slot-color-border", hexToRgba(color, 0.95));
+  } else if (slotId === "slot-store") {
+    slotEl.style.removeProperty("--slot-color-bg");
+    slotEl.style.removeProperty("--slot-color-border");
+  }
+  // برای slot-item هیچ inline style اعمال نمی‌شود
+
+  if (currentText === newText) return;
+
+  slotEl.innerHTML = `
+    <span class="slot-text slot-out">${escapeHtml(currentText || "—")}</span>
+    <span class="slot-text slot-in">${escapeHtml(newText)}</span>
+  `;
+
+  setTimeout(() => {
+    slotEl.innerHTML = `<span class="slot-text">${escapeHtml(newText)}</span>`;
+  }, 380);
+}
+
+// 🎯 تبدیل HEX به RGBA
+function hexToRgba(hex, alpha = 1) {
+  if (!hex || !hex.startsWith("#")) return hex;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function startStoreCycle() {
+  stopStoreCycle();
+  currentStoreIndex = 0;
+
+  const firstStore = SUPPORTED_STORES[0];
+  animateSlot("slot-store", firstStore.name, firstStore.color);
+
+  slotStoreInterval = setInterval(() => {
+    currentStoreIndex = (currentStoreIndex + 1) % SUPPORTED_STORES.length;
+    const store = SUPPORTED_STORES[currentStoreIndex];
+    animateSlot("slot-store", store.name, store.color);
+  }, 1800);
+}
+
+function stopStoreCycle() {
+  if (slotStoreInterval) {
+    clearInterval(slotStoreInterval);
+    slotStoreInterval = null;
+  }
 }
 
 // ---------- جستجو ----------
@@ -219,45 +201,155 @@ async function search() {
   if (items.length === 0) return;
   hideError();
   setLoading(true);
-  startProgress(items.length);
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 90000);
+  // 🎯 پاک کردن حالت قبلی چیپ‌ها
+  document.querySelectorAll(".item-chip").forEach((chip) => {
+    chip.classList.remove("done", "error", "active");
+  });
+
+  // 🎯 ورود به حالت جستجو
+  searchBtn.classList.add("searching");
+  startStoreCycle();
 
   try {
-    const r = await fetch("/api/compare", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items }),
-      signal: controller.signal,
-    });
+    const queryResults = [];
 
-    clearTimeout(timeoutId);
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
 
-    const data = await r.json();
+      // 🎯 هایلایت چیپ فعلی
+      markChipActive(i);
+      animateSlot("slot-item", item);
 
-    if (!data.success) {
-      cancelProgress();
-      showError(data.error || "خطایی رخ داد.");
+      try {
+        const r = await fetch("/api/compare", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: [item] }),
+        });
+
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+
+        if (data.success && data.data?.queries?.[0]) {
+          queryResults.push(data.data.queries[0]);
+          markChipDone(i);
+        } else {
+          markChipError(i);
+        }
+      } catch (e) {
+        console.error(`خطا در جستجوی «${item}»:`, e);
+        markChipError(i);
+      }
+    }
+
+    const validQueries = queryResults.filter(Boolean);
+
+    if (validQueries.length === 0) {
+      showError("هیچ نتیجه‌ای یافت نشد.");
       return;
     }
 
-    completeProgress();
-    renderResults(data.data);
+    const basketComparison = computeBasketComparison(validQueries);
+    renderResults({ queries: validQueries, basketComparison });
   } catch (e) {
-    clearTimeout(timeoutId);
-    cancelProgress();
-
-    if (e.name === "AbortError") {
-      showError("جستجو بیش از حد طول کشید. لطفاً دوباره تلاش کنید.");
-    } else {
-      showError("ارتباط با سرور برقرار نشد: " + (e.message || "خطای نامشخص"));
-    }
+    showError("خطا در جستجو: " + (e.message || "خطای نامشخص"));
     console.error(e);
   } finally {
+    stopStoreCycle();
+    searchBtn.classList.remove("searching");
     setLoading(false);
+    // 🎯 پاک کردن active از همه چیپ‌ها
+    document.querySelectorAll(".item-chip.active").forEach((chip) => {
+      chip.classList.remove("active");
+    });
   }
+}
+
+// 🎯 علامت‌گذاری چیپ‌ها
+function markChipActive(index) {
+  // پاک کردن active قبلی
+  document.querySelectorAll(".item-chip.active").forEach((chip) => {
+    chip.classList.remove("active");
+  });
+  const chip = document.querySelector(`.item-chip[data-index="${index}"]`);
+  if (chip) chip.classList.add("active");
+}
+
+function markChipDone(index) {
+  const chip = document.querySelector(`.item-chip[data-index="${index}"]`);
+  if (chip) {
+    chip.classList.remove("active", "error");
+    chip.classList.add("done");
+  }
+}
+
+function markChipError(index) {
+  const chip = document.querySelector(`.item-chip[data-index="${index}"]`);
+  if (chip) {
+    chip.classList.remove("active", "done");
+    chip.classList.add("error");
+  }
+}
+
+// 🎯 محاسبه‌ی سبد خرید روی کلاینت
+function computeBasketComparison(queries) {
+  const storeNames = new Set();
+  for (const { matches } of queries) {
+    for (const match of matches) {
+      for (const offer of match.offers) {
+        storeNames.add(offer.storeName);
+      }
+    }
+  }
+
+  return Array.from(storeNames)
+    .map((storeName) => {
+      let total = 0,
+        itemCount = 0;
+      const missing = [],
+        pickedItems = [];
+
+      for (const { query, matches } of queries) {
+        const offersForStore = [];
+        for (const match of matches) {
+          const offer = match.offers.find((o) => o.storeName === storeName);
+          if (offer) offersForStore.push(offer);
+        }
+
+        if (offersForStore.length === 0) {
+          missing.push(query);
+          continue;
+        }
+
+        offersForStore.sort((a, b) => a.price - b.price);
+        const cheapest = offersForStore[0];
+        const others = offersForStore.slice(1);
+
+        total += cheapest.price;
+        itemCount++;
+        pickedItems.push({
+          query,
+          title: cheapest.productTitle,
+          price: cheapest.price,
+          link: cheapest.link,
+          image: cheapest.image || null,
+          otherItems: others.map((o) => ({
+            title: o.productTitle,
+            price: o.price,
+            link: o.link,
+            image: o.image || null,
+          })),
+        });
+      }
+
+      return { storeName, total, itemCount, missing, items: pickedItems };
+    })
+    .filter((b) => b.itemCount > 0)
+    .sort((a, b) => {
+      if (a.total !== b.total) return a.total - b.total;
+      return b.itemCount - a.itemCount;
+    });
 }
 
 // ---------- نمایش نتایج ----------
@@ -510,9 +602,7 @@ function toggleCardExpand(card, expand) {
 
     const wrapper = card.closest(".products-strip-wrapper");
     const parentTrack = wrapper?.querySelector("[data-grid-track]");
-    if (parentTrack) {
-      parentTrack.scrollTo({ left: 0, behavior: "smooth" });
-    }
+    if (parentTrack) parentTrack.scrollTo({ left: 0, behavior: "smooth" });
 
     if (wrapper) {
       wrapper.querySelectorAll(".grid-nav").forEach((btn) => {
@@ -1029,10 +1119,7 @@ document.addEventListener("keydown", (e) => {
 // ---------- کمکی ----------
 function setLoading(v) {
   searchBtn.disabled = v;
-  spinner.classList.toggle("active", v);
-  // متن و progress توسط startProgress / completeProgress مدیریت می‌شوند
 }
-
 function showError(m) {
   errorBox.textContent = "⚠️ " + m;
   errorBox.classList.remove("hidden");

@@ -867,134 +867,93 @@ async function compareBasket(shoppingList) {
   const SEP = "─".repeat(70);
   const THICK_SEP = "═".repeat(70);
 
-  const queries = [];
+  // 🎯 اجرای موازی همه‌ی queryها
+  const queryResults = await Promise.all(
+    shoppingList.map(async (query) => {
+      console.log("\n\n");
+      console.log(THICK_SEP);
+      console.log(`🔍 جستجو: «${query}»`);
+      console.log(THICK_SEP);
 
-  for (const query of shoppingList) {
-    console.log("\n\n");
-    console.log(THICK_SEP);
-    console.log(`🔍 جستجو: «${query}»`);
-    console.log(THICK_SEP);
-    console.log("📡 در حال جستجو در فروشگاه‌ها...");
+      const allResults = await Promise.all([
+        searchDigikala(query, 20),
+        searchTorob(query, 20),
+        ...NEW_STORES_CONFIG.map((s) => searchWooCommerceStore(s, query, 20)),
+        // searchAlemzadehWithPuppeteer(query, 20), // اگر Chrome نداری، کامنت کن
+      ]);
+      const allProducts = allResults.flat();
 
-    // 🎯 جدا کردن عالم‌زاده از لیست عمومی
-    const otherStores = NEW_STORES_CONFIG.filter((s) => s.name !== "عالم‌زاده");
+      const queryTokens = tokenize(query);
+      const queryIds = queryTokens.filter(isCriticalIdentifier);
 
-    const allResults = await Promise.all([
-      searchDigikala(query, 20),
-      searchTorob(query, 20),
-      ...otherStores.map((s) => searchWooCommerceStore(s, query, 20)),
-      searchAlemzadehWithPuppeteer(query, 20), // 👈 اسکرپر اختصاصی
-    ]);
-    const allProducts = allResults.flat();
+      console.log(`   تعداد کل محصولات دریافتی: ${allProducts.length}`);
 
-    const queryTokens = tokenize(query);
-    const queryIds = queryTokens.filter(isCriticalIdentifier);
+      const relevantProducts = [];
+      let acceptedCount = 0,
+        rejectedCount = 0,
+        zeroPriceRejected = 0;
 
-    console.log("");
-    console.log(
-      `   توکن‌ها (${queryTokens.length}): ${queryTokens.join(" | ")}`,
-    );
-    if (queryIds.length > 0)
-      console.log(`   🔑 شناسه‌های حیاتی: ${queryIds.join(" | ")}`);
-    console.log(`   تعداد کل محصولات دریافتی: ${allProducts.length}`);
-    console.log(THICK_SEP);
-    console.log("");
+      for (const p of allProducts) {
+        const matchInfo = queryMatchScore(query, p.productTitle);
+        const passesScore = matchInfo.score >= 0.6;
+        const passesRatio = matchInfo.ratio >= 0.75;
+        const isAccepted = passesScore && passesRatio;
 
-    const relevantProducts = [];
-    let acceptedCount = 0,
-      rejectedCount = 0,
-      zeroPriceRejected = 0;
+        if (isAccepted) {
+          if (p.price === 0) zeroPriceRejected++;
+          else {
+            acceptedCount++;
+            relevantProducts.push(p);
+          }
+        } else rejectedCount++;
+      }
 
-    for (const p of allProducts) {
-      const matchInfo = queryMatchScore(query, p.productTitle);
-      const passesScore = matchInfo.score >= MIN_QUERY_MATCH;
-      const passesRatio = matchInfo.ratio >= MIN_TOKEN_RATIO;
-      const isAccepted = passesScore && passesRatio;
+      const clusters = clusterProducts(relevantProducts, 0.5);
 
-      if (isAccepted) {
-        if (p.price === 0) zeroPriceRejected++;
-        else {
-          acceptedCount++;
-          relevantProducts.push(p);
-        }
-      } else rejectedCount++;
-
-      const icon = isAccepted && p.price > 0 ? "✅" : "❌";
-      const priceStr =
-        p.price > 0 ? p.price.toLocaleString("fa-IR") + " ت" : "بدون قیمت";
-      const scoreStr = matchInfo.score.toFixed(2).padStart(4, " ");
-      const ratioStr =
-        (matchInfo.ratio * 100).toFixed(0).padStart(3, " ") + "%";
-      const store = p.storeName.padEnd(12, " ");
-      const title =
-        p.productTitle.length > 40
-          ? p.productTitle.substring(0, 40) + "..."
-          : p.productTitle;
-      const imgFlag = p.image ? "🖼️" : "  ";
+      const matches = clusters
+        .map((cluster) => {
+          const byStore = {};
+          for (const offer of cluster.offers) {
+            if (
+              !byStore[offer.storeName] ||
+              offer.price < byStore[offer.storeName].price
+            ) {
+              byStore[offer.storeName] = offer;
+            }
+          }
+          const offers = Object.values(byStore).sort(
+            (a, b) => a.price - b.price,
+          );
+          const cheapest = offers[0];
+          const mostExpensive = offers[offers.length - 1];
+          const savings = mostExpensive.price - cheapest.price;
+          const savingsPercent =
+            mostExpensive.price > 0
+              ? Math.round((savings / mostExpensive.price) * 100)
+              : 0;
+          return {
+            productName: cluster.representative.productTitle,
+            offers,
+            cheapest,
+            savings,
+            savingsPercent,
+            storeCount: offers.length,
+          };
+        })
+        .filter((m) => m.offers.length > 0 && m.cheapest.price > 0)
+        .sort((a, b) => {
+          if (b.storeCount !== a.storeCount) return b.storeCount - a.storeCount;
+          return a.cheapest.price - b.cheapest.price;
+        });
 
       console.log(
-        `${icon} ${imgFlag} [${scoreStr}│${ratioStr}│${priceStr}]  ${store}  │  ${title}`,
+        `   ✅ ${acceptedCount} تأیید │ ❌ ${rejectedCount} رد │ 🎯 ${matches.length} خوشه`,
       );
+      return { query, matches };
+    }),
+  );
 
-      if (matchInfo.reason) console.log(`        ⛔ ${matchInfo.reason}`);
-      else if (!isAccepted) {
-        const reasons = [];
-        if (!passesScore) reasons.push(`امتیاز کم`);
-        if (!passesRatio) reasons.push(`نسبت کم`);
-        console.log(`        ⛔ ${reasons.join(" + ")}`);
-      } else if (p.price === 0) console.log(`        ⚠️ قیمت استخراج نشد`);
-      else
-        console.log(`        ✔ ${matchInfo.matchedTokens.join(" + ") || "—"}`);
-      console.log("");
-    }
-
-    console.log(SEP);
-    console.log(
-      `📊 خلاصه: ${acceptedCount} تأیید │ ${rejectedCount} رد تطبیق │ ${zeroPriceRejected} رد قیمت`,
-    );
-    console.log(SEP);
-    console.log("");
-
-    const clusters = clusterProducts(relevantProducts, 0.5);
-
-    const matches = clusters
-      .map((cluster) => {
-        const byStore = {};
-        for (const offer of cluster.offers) {
-          if (
-            !byStore[offer.storeName] ||
-            offer.price < byStore[offer.storeName].price
-          ) {
-            byStore[offer.storeName] = offer;
-          }
-        }
-        const offers = Object.values(byStore).sort((a, b) => a.price - b.price);
-        const cheapest = offers[0];
-        const mostExpensive = offers[offers.length - 1];
-        const savings = mostExpensive.price - cheapest.price;
-        const savingsPercent =
-          mostExpensive.price > 0
-            ? Math.round((savings / mostExpensive.price) * 100)
-            : 0;
-        return {
-          productName: cluster.representative.productTitle,
-          offers,
-          cheapest,
-          savings,
-          savingsPercent,
-          storeCount: offers.length,
-        };
-      })
-      .filter((m) => m.offers.length > 0 && m.cheapest.price > 0)
-      .sort((a, b) => {
-        if (b.storeCount !== a.storeCount) return b.storeCount - a.storeCount;
-        return a.cheapest.price - b.cheapest.price;
-      });
-
-    console.log(`🎯 خوشه‌های نهایی: ${matches.length}`);
-    queries.push({ query, matches });
-    await new Promise((r) => setTimeout(r, 800));
-  }
+  const queries = queryResults;
 
   // ===============================================================
   // ساخت basketComparison (گروه‌بندی بر اساس فروشگاه)

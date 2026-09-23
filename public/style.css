@@ -346,22 +346,89 @@ body {
   min-height: 2.5rem;
 }
 
+/* 🎯 چیپ‌های آیتم با حالت‌های پیشرفت */
 .item-chip {
+  position: relative;
+  transition: all 0.3s ease;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
-  color: var(--primary-dark);
   padding: 0.5rem 0.875rem;
   border-radius: 2rem;
   font-size: 0.875rem;
   font-weight: 500;
+  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  color: var(--primary-dark);
   animation: fadeIn 0.3s ease;
 }
+
+.item-chip.done {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #065f46;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+  animation: chipDonePop 0.4s ease;
+}
+
+@keyframes chipDonePop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.item-chip.error {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #991b1b;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25);
+}
+
+.item-chip-status {
+  display: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 900;
+  color: white;
+}
+
+.item-chip.done .item-chip-status {
+  display: flex;
+  background: #10b981;
+}
+.item-chip.done .item-chip-status::before {
+  content: "✓";
+}
+
+.item-chip.error .item-chip-status {
+  display: flex;
+  background: #ef4444;
+}
+.item-chip.error .item-chip-status::before {
+  content: "✕";
+}
+
 :root[data-theme="dark"] .item-chip {
   background: linear-gradient(135deg, #312e81 0%, #3730a3 100%);
   color: #c7d2fe;
 }
+:root[data-theme="dark"] .item-chip.done {
+  background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+  color: #d1fae5;
+}
+:root[data-theme="dark"] .item-chip.error {
+  background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);
+  color: #fecaca;
+}
+
 .item-chip .remove {
   cursor: pointer;
   width: 1.25rem;
@@ -372,6 +439,7 @@ body {
   border-radius: 50%;
   background: rgba(99, 102, 241, 0.15);
   font-size: 0.75rem;
+  transition: all 0.2s;
 }
 .item-chip .remove:hover {
   background: var(--danger);
@@ -386,6 +454,11 @@ body {
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
@@ -413,6 +486,8 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+  position: relative;
+  overflow: hidden;
 }
 .btn-search:hover:not(:disabled) {
   transform: translateY(-2px);
@@ -457,10 +532,172 @@ body {
 .spinner.active {
   display: inline-block;
 }
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+
+/* ================================================================
+   🎯 پنل جستجو — شبیه دستگاه شرط‌بندی (کنتراست بالا)
+   ================================================================ */
+.btn-search-idle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-search-active {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.btn-search.searching .btn-search-idle {
+  display: none;
+}
+.btn-search.searching .btn-search-active {
+  display: flex;
+}
+
+/* 🎯 متن برچسب — سفید کامل */
+.search-label {
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* 🎯 اسپینر داخل پنل */
+.search-spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2.5px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+/* 🎯 کادر slot — پس‌زمینه تیره + برند */
+.slot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.875rem;
+  min-width: 5.5rem;
+  padding: 0 0.875rem;
+  /* 🎯 پس‌زمینه: ترکیب مشکی + رنگ برند برای کنتراست بالا */
+  background: var(--slot-color-bg, rgba(0, 0, 0, 0.4));
+  border: 2px solid var(--slot-color-border, rgba(255, 255, 255, 0.6));
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.35),
+    0 2px 8px rgba(0, 0, 0, 0.2);
+  transition:
+    background 0.35s ease,
+    border-color 0.35s ease;
+}
+
+/* ================================================================
+   🎯 slot آیتم در حال جستجو — بنفش ملایم (هماهنگ با چیپ active)
+   ================================================================ */
+.slot-item {
+  min-width: 5.5rem;
+  max-width: 12rem;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
+  border-color: #818cf8 !important;
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.15),
+    0 4px 14px rgba(99, 102, 241, 0.35) !important;
+}
+
+.slot-item .slot-text {
+  color: #ffffff !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35) !important;
+  font-weight: 800;
+}
+
+/* 🎯 دارک مود */
+:root[data-theme="dark"] .slot-item {
+  background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%) !important;
+  border-color: #a5b4fc !important;
+}
+
+:root[data-theme="dark"] .slot-item .slot-text {
+  color: #0f172a !important;
+  text-shadow: none !important;
+}
+
+.slot-store {
+  min-width: 6.5rem;
+  max-width: 10rem;
+}
+
+/* 🎯 متن داخل slot — همیشه سفید، ضخیم، با سایه قوی */
+.slot-text {
+  display: block;
+  color: #ffffff;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  text-align: center;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.9),
+    0 0 6px rgba(0, 0, 0, 0.6);
+  letter-spacing: -0.2px;
+}
+
+/* 🎯 انیمیشن کنتور — خروج به بالا */
+.slot-text.slot-out {
+  animation: slotRollOut 0.35s cubic-bezier(0.55, 0.06, 0.68, 0.19) forwards;
+}
+
+/* 🎯 انیمیشن کنتور — ورود از پایین */
+.slot-text.slot-in {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: slotRollIn 0.35s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+@keyframes slotRollOut {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
   }
+  100% {
+    transform: translateY(-120%);
+    opacity: 0;
+  }
+}
+
+@keyframes slotRollIn {
+  0% {
+    transform: translateY(120%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* 🎯 دارک مود */
+:root[data-theme="dark"] .slot {
+  background: var(--slot-color-bg, rgba(0, 0, 0, 0.35));
+  border-color: var(--slot-color-border, rgba(255, 255, 255, 0.45));
 }
 
 /* ================================================================
@@ -609,7 +846,7 @@ body {
 }
 
 /* ================================================================
-   🎯 گرید محصولات — strip افقی با اسکرول
+   گرید محصولات — strip افقی
    ================================================================ */
 .products-strip-wrapper {
   position: relative;
@@ -631,23 +868,19 @@ body {
   user-select: none;
   -webkit-user-select: none;
 }
-
 .products-strip:active {
   cursor: grabbing;
 }
-
 .products-strip::-webkit-scrollbar {
   display: none;
 }
 
-/* 🎯 هر کارت در strip: به‌طور پیش‌فرض ۴ کارت در سطر */
 .products-strip .product-card {
   flex: 0 0 calc((100% - 3rem) / 4);
   min-width: 0;
   box-sizing: border-box;
 }
 
-/* 🎯 دکمه‌های ناوبری */
 .grid-nav {
   position: absolute;
   top: 50%;
@@ -670,14 +903,12 @@ body {
   padding: 0;
   z-index: 10;
 }
-
 .grid-nav-right {
   right: 0;
 }
 .grid-nav-left {
   left: 0;
 }
-
 .grid-nav:hover:not(:disabled) {
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: white;
@@ -685,7 +916,6 @@ body {
   transform: translateY(-50%) scale(1.1);
   box-shadow: 0 8px 22px rgba(99, 102, 241, 0.5);
 }
-
 .grid-nav:disabled {
   background: var(--bg);
   color: var(--text-muted);
@@ -892,8 +1122,8 @@ body {
   overflow: hidden;
   min-height: 2.6rem;
   cursor: default;
-  user-select: text;
-  -webkit-user-select: text;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .product-price-section {
@@ -920,7 +1150,7 @@ body {
 }
 
 /* ================================================================
-   🎯 دکمه بازکردن آیتم‌های دیگر (زیر قیمت)
+   دکمه بازکردن آیتم‌های دیگر
    ================================================================ */
 .product-expand-button {
   display: flex;
@@ -963,19 +1193,12 @@ body {
   transform: translateY(-1px);
 }
 
-.product-expand-button:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 6px
-    color-mix(in srgb, var(--store-color, var(--primary)) 20%, transparent);
-}
-
 .product-expand-icon {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
   transition: transform 0.3s ease;
 }
-
 .product-expand-button:hover .product-expand-icon {
   transform: translateX(-3px);
 }
@@ -1027,15 +1250,11 @@ body {
 /* ================================================================
    کارت باز شده
    ================================================================ */
-/* 🎯 کارت مخفی‌شده در همان ردیف */
 .product-card.hidden-sibling {
   display: none !important;
 }
-/* 🎯 کارت بازشده در strip: تمام عرض */
-.products-strip .product-card.expanded {
-  flex: 0 0 calc(100% - 0.25rem);
-  min-width: calc(100% - 0.25rem);
-  max-width: calc(100% - 0.25rem);
+.product-card.expanded {
+  grid-column: 1 / -1;
 }
 .product-card.expanded .product-collapsed {
   display: none;
@@ -1049,6 +1268,12 @@ body {
 .product-card.expanded,
 .product-card.expanded:hover {
   transform: none !important;
+}
+
+.products-strip .product-card.expanded {
+  flex: 0 0 calc(100% - 0.5rem);
+  min-width: calc(100% - 0.5rem);
+  max-width: calc(100% - 0.5rem);
 }
 
 /* ================================================================
@@ -1174,7 +1399,7 @@ body {
    ================================================================ */
 .strip-item {
   flex-shrink: 0;
-  width: 200px;
+  width: 260px;
   background: var(--surface);
   border: 2px solid var(--border);
   border-radius: 1rem;
@@ -1226,6 +1451,7 @@ body {
   border-width: 3px;
   box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
   background: linear-gradient(135deg, #ecfdf5 0%, var(--surface) 100%);
+  cursor: grab;
 }
 .strip-item.selected,
 .strip-item.selected * {
@@ -1372,7 +1598,7 @@ body {
 }
 
 /* ================================================================
-   🎯 بخش محصولات ناموجود — همه در یک خط
+   یادداشت ناموجود
    ================================================================ */
 .missing-section {
   display: flex;
@@ -1384,7 +1610,6 @@ body {
   border-top: 1px dashed var(--border);
 }
 
-/* 🎯 متن «ناموجود در این فروشگاه» */
 .missing-label {
   display: inline-flex;
   align-items: center;
@@ -1396,13 +1621,11 @@ body {
   white-space: nowrap;
   flex-shrink: 0;
 }
-
 .missing-label .missing-icon {
   font-size: 0.875rem;
   line-height: 1;
 }
 
-/* 🎯 کارت‌های ناموجود — هم‌اندازه با متن */
 .missing-item-card {
   display: inline-flex;
   align-items: center;
@@ -1418,25 +1641,21 @@ body {
   transition: all 0.2s ease;
   white-space: nowrap;
 }
-
 .missing-item-card:hover {
   background: rgba(239, 68, 68, 0.12);
   border-color: rgba(239, 68, 68, 0.45);
 }
-
 .missing-item-icon {
   font-size: 0.813rem;
   line-height: 1;
   opacity: 0.7;
 }
-
 .missing-item-text {
   font-size: 0.813rem;
   font-weight: 600;
   line-height: 1;
 }
 
-/* دارک مود */
 :root[data-theme="dark"] .missing-item-card {
   background: rgba(248, 113, 113, 0.1);
   border-color: rgba(248, 113, 113, 0.3);
@@ -1445,20 +1664,6 @@ body {
 :root[data-theme="dark"] .missing-item-card:hover {
   background: rgba(248, 113, 113, 0.18);
   border-color: rgba(248, 113, 113, 0.5);
-}
-
-/* موبایل */
-@media (max-width: 640px) {
-  .missing-label {
-    font-size: 0.75rem;
-  }
-  .missing-item-card {
-    font-size: 0.75rem;
-    padding: 0.3rem 0.6rem;
-  }
-  .missing-item-text {
-    font-size: 0.75rem;
-  }
 }
 
 /* ================================================================
@@ -1584,7 +1789,7 @@ body {
 }
 
 /* ================================================================
-   🎯 cursor پیش‌فرض
+   cursor
    ================================================================ */
 .product-card,
 .product-collapsed,
@@ -1598,6 +1803,7 @@ body {
 .product-expand-button,
 .strip-nav,
 .strip-close,
+.grid-nav,
 .store-strip-card,
 .store-strip-card * {
   cursor: pointer;
@@ -1611,16 +1817,15 @@ body {
 }
 
 .product-query,
+.product-title,
 .product-price-section,
 .product-price-value,
 .product-price-currency,
 .store-name {
-  cursor: default !important;
+  cursor: default;
 }
 
-/* ================================================================
-   🎯 جلوگیری از درگ لینک‌ها
-   ================================================================ */
+/* جلوگیری از درگ لینک‌ها */
 .product-action,
 .strip-item-action,
 .store-strip-card,
@@ -1629,6 +1834,7 @@ body {
 .product-expand-button,
 .strip-nav,
 .strip-close,
+.grid-nav,
 .store-name,
 .store-section,
 a,
@@ -1652,79 +1858,41 @@ a img,
   pointer-events: auto !important;
 }
 
-/* 🎯 عنوان کارت اصلی — غیرقابل انتخاب */
-.product-title,
-.product-query,
-.item-title,
-.smart-item-title {
-  user-select: none !important;
-  -webkit-user-select: none !important;
-  -moz-user-select: none !important;
-  -ms-user-select: none !important;
-  -webkit-touch-callout: none !important;
-  cursor: default;
-}
-
-/* ================================================================
-   🎯 آیتم‌های strip — غیرقابل انتخاب مطلق
-   ================================================================ */
-.strip-item .strip-item-body .strip-item-title,
-.strip-item .strip-item-body .strip-item-price,
-.strip-item .strip-item-body .strip-item-price-value,
-.strip-item .strip-item-body .strip-item-price-currency {
-  user-select: none !important;
-  -webkit-user-select: none !important;
-  -moz-user-select: none !important;
-  -ms-user-select: none !important;
-  -webkit-touch-callout: none !important;
-  -webkit-user-drag: none !important;
-  user-drag: none !important;
-  cursor: inherit !important;
-}
-
-.strip-item:not(.selected) .strip-item-body .strip-item-title,
-.strip-item:not(.selected) .strip-item-body .strip-item-price,
-.strip-item:not(.selected) .strip-item-body .strip-item-price-value,
-.strip-item:not(.selected) .strip-item-body .strip-item-price-currency {
-  cursor: grab !important;
-}
-
-.strip-item.selected .strip-item-body .strip-item-title,
-.strip-item.selected .strip-item-body .strip-item-price,
-.strip-item.selected .strip-item-body .strip-item-price-value,
-.strip-item.selected .strip-item-body .strip-item-price-currency {
-  cursor: grab !important;
-}
-
-.strip-item:active .strip-item-body .strip-item-title,
-.strip-item:active .strip-item-body .strip-item-price,
-.strip-item:active .strip-item-body .strip-item-price-value,
-.strip-item:active .strip-item-body .strip-item-price-currency {
-  cursor: grabbing !important;
-}
-
-.strip-item .strip-item-action,
-.strip-item .strip-item-action * {
-  cursor: pointer !important;
-  user-select: none !important;
-  -webkit-user-select: none !important;
-}
-
 /* ================================================================
    واکنش‌گرایی
    ================================================================ */
+@media (max-width: 1100px) {
+  .products-strip .product-card {
+    flex: 0 0 calc((100% - 2rem) / 3);
+  }
+}
+
 @media (max-width: 900px) {
+  .section-title {
+    font-size: 1.5rem;
+  }
+  .store-name {
+    font-size: 1.35rem;
+  }
   .products-strip .product-card {
     flex: 0 0 calc((100% - 2rem) / 3);
   }
   .products-strip-wrapper {
     padding: 0 2.75rem;
   }
-  .section-title {
-    font-size: 1.5rem;
+}
+
+@media (max-width: 800px) {
+  .products-strip .product-card {
+    flex: 0 0 calc((100% - 1rem) / 2);
   }
-  .store-name {
-    font-size: 1.35rem;
+  .products-strip-wrapper {
+    padding: 0 2.5rem;
+  }
+  .grid-nav {
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 1rem;
   }
 }
 
@@ -1741,16 +1909,14 @@ a img,
   .btn-add {
     width: 100%;
   }
-  .products-strip .product-card {
-    flex: 0 0 calc((100% - 1rem) / 2);
+  .item-chip {
+    font-size: 0.813rem;
+    padding: 0.4rem 0.75rem;
   }
-  .products-strip-wrapper {
-    padding: 0 2.25rem;
-  }
-  .grid-nav {
-    width: 2rem;
-    height: 2rem;
-    font-size: 1rem;
+  .item-chip-status {
+    width: 14px;
+    height: 14px;
+    font-size: 9px;
   }
   .product-image-icon {
     font-size: 3rem;
@@ -1810,8 +1976,14 @@ a img,
   .store-logo {
     padding: 0.25rem;
   }
+  .products-strip .product-card {
+    flex: 0 0 calc((100% - 0.5rem) / 1.5);
+  }
+  .products-strip-wrapper {
+    padding: 0 2.25rem;
+  }
   .strip-item {
-    width: 160px;
+    width: 200px;
   }
   .strip-item-title {
     font-size: 0.7rem;
@@ -1851,78 +2023,57 @@ a img,
     width: 2.5rem;
     height: 2.5rem;
   }
+  .missing-label {
+    font-size: 0.75rem;
+  }
   .missing-item-card {
     font-size: 0.75rem;
-    padding: 0.375rem 0.625rem;
+    padding: 0.3rem 0.6rem;
   }
   .missing-item-text {
-    max-width: 150px;
+    font-size: 0.75rem;
+  }
+  .search-label {
+    font-size: 0.75rem;
+  }
+  .slot {
+    height: 1.625rem;
+    padding: 0 0.625rem;
+    min-width: 4.5rem;
+  }
+  .slot-item {
+    min-width: 4.5rem;
+    max-width: 8rem;
+  }
+  .slot-store {
+    min-width: 5rem;
+    max-width: 7rem;
+  }
+  .slot-text {
+    font-size: 0.813rem;
+  }
+  .search-spinner {
+    width: 0.875rem;
+    height: 0.875rem;
+    border-width: 2px;
   }
 }
 /* ================================================================
-   🎯 مخفی کردن دکمه‌های ناوبری grid هنگام باز بودن کارت
+   🎯 چیپ محصول در حال جستجو — بنفش ملایم
    ================================================================ */
-.products-strip-wrapper:has(.product-card.expanded) .grid-nav {
-  display: none !important;
-}
-/* ================================================================
-   🎯 نوار پیشرفت داخل دکمه جستجو
-   ================================================================ */
-.btn-search {
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-search-fill {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 0%;
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.35) 0%,
-    rgba(255, 255, 255, 0.15) 100%
-  );
-  transition: width 0.4s ease;
-  pointer-events: none;
-  z-index: 0;
+.item-chip.active {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+  transform: scale(1.05);
+  z-index: 2;
+  transition: all 0.3s ease;
 }
 
-/* 🎯 افکت درخشش روی نوار */
-.btn-search-fill::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.3) 50%,
-    transparent 100%
-  );
-  animation: btnProgressShine 1.8s ease-in-out infinite;
-}
-
-@keyframes btnProgressShine {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-.btn-search-content {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-/* 🎯 وقتی در حال جستجو است، متن کمی کوچک‌تر شود */
-.btn-search.searching #search-btn-text {
-  font-size: 0.9375rem;
-  font-weight: 600;
+/* 🎯 دارک مود */
+:root[data-theme="dark"] .item-chip.active {
+  background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+  color: #0f172a;
+  box-shadow: 0 4px 14px rgba(129, 140, 248, 0.4);
 }
