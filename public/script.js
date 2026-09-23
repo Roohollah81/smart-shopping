@@ -148,6 +148,7 @@ function renderResults(data) {
   storesContainer.innerHTML = html;
   requestAnimationFrame(() => {
     document.querySelectorAll("[data-strip-track]").forEach(initStripDrag);
+    document.querySelectorAll("[data-grid-track]").forEach(initGridDrag);
     disableAllDraggable();
   });
   resultsSection.classList.remove("hidden");
@@ -160,6 +161,8 @@ function renderStoreSection(store, isBest) {
   const cards = store.items
     .map((it) => renderProductCard(it, store, storeColor))
     .join("");
+  const hasOverflow = store.items.length > 4;
+
   const missingHtml =
     store.missing && store.missing.length > 0
       ? `
@@ -181,6 +184,7 @@ function renderStoreSection(store, isBest) {
       </div>
     `
       : "";
+
   const bestTitle = isBest
     ? `<h2 class="section-title best-title">✨ به صرفه ترین فروشگاه</h2>`
     : "";
@@ -189,6 +193,7 @@ function renderStoreSection(store, isBest) {
   const iconHtml = iconUrl
     ? `<img src="${escapeHtml(iconUrl)}" alt="" class="store-logo" draggable="false" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';" /><span class="store-icon-fallback" style="display:none;">${fallback}</span>`
     : `<span class="store-icon-fallback" style="display:flex;">${fallback}</span>`;
+
   return `
     <section class="store-section ${isBest ? "best-store" : ""}" style="--store-color: ${storeColor};">
       ${bestTitle}
@@ -202,7 +207,23 @@ function renderStoreSection(store, isBest) {
           <span class="total-value">${formatPrice(store.total)} تومان</span>
         </div>
       </div>
-      <div class="products-grid">${cards}</div>
+
+      <div class="products-strip-wrapper">
+        ${
+          hasOverflow
+            ? `<button class="grid-nav grid-nav-right" type="button" aria-label="قبلی" draggable="false">‹</button>`
+            : ""
+        }
+        <div class="products-strip" data-grid-track>
+          ${cards}
+        </div>
+        ${
+          hasOverflow
+            ? `<button class="grid-nav grid-nav-left" type="button" aria-label="بعدی" draggable="false">›</button>`
+            : ""
+        }
+      </div>
+
       ${missingHtml}
     </section>
   `;
@@ -225,13 +246,11 @@ function renderProductCard(item, store, storeColor) {
     ? `<img src="${escapeHtml(img)}" alt="" class="product-image-real" draggable="false" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<span class=&quot;product-image-icon&quot;>${icon}</span>';" />`
     : `<span class="product-image-icon">${icon}</span>`;
 
-  // 🎯 پشته‌های Filmo
   const stackHtml = hasOthers
     ? `<div class="product-stack-layer stack-layer-2"></div>
        <div class="product-stack-layer stack-layer-1"></div>`
     : "";
 
-  // 🎯 دکمه بازکردن — زیر قیمت و بالای دکمه مشاهده
   const expandButtonHtml = hasOthers
     ? `<button class="product-expand-button" type="button" draggable="false">
          <svg class="product-expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -337,26 +356,37 @@ function smoothScrollTo(track, target, duration = 1200) {
 // ---------- باز/بسته ----------
 function toggleCardExpand(card, expand) {
   if (!card) return;
-  const grid = card.closest(".products-grid");
+  const grid =
+    card.closest(".products-strip") || card.closest(".products-grid");
+  if (!grid) return;
   const allCards = Array.from(grid.querySelectorAll(".product-card"));
   const collapsed = card.querySelector(".product-collapsed");
   const expanded = card.querySelector(".product-expanded");
   if (!collapsed || !expanded) return;
 
   if (expand) {
+    // بستن سایر کارت‌های باز
     allCards.forEach((c) => {
       if (c !== card && c.classList.contains("expanded"))
         toggleCardExpand(c, false);
     });
-    const cardRect = card.getBoundingClientRect();
+
+    // 🎯 مخفی کردن همه‌ی کارت‌های دیگر در همان strip/grid
     allCards.forEach((c) => {
-      if (c === card) return;
-      const r = c.getBoundingClientRect();
-      if (Math.abs(r.top - cardRect.top) < 5) c.classList.add("hidden-sibling");
+      if (c !== card) c.classList.add("hidden-sibling");
     });
+
     card.classList.add("expanded");
     collapsed.classList.add("hidden");
     expanded.classList.remove("hidden");
+
+    // 🎯 اسکرول به ابتدای strip تا کارت بازشده کامل دیده شود
+    const wrapper = card.closest(".products-strip-wrapper");
+    const parentTrack = wrapper?.querySelector("[data-grid-track]");
+    if (parentTrack) {
+      parentTrack.scrollTo({ left: 0, behavior: "smooth" });
+    }
+
     requestAnimationFrame(() => {
       const track = card.querySelector("[data-strip-track]");
       if (track) {
@@ -451,9 +481,80 @@ function initStripDrag(track) {
   });
 }
 
+// ================================================================
+// 🎯 درگ و ناوبری گرید محصولات
+// ================================================================
+function initGridDrag(track) {
+  if (!track || track.dataset.gridDragInit === "true") return;
+  track.dataset.gridDragInit = "true";
+
+  let dragging = false;
+  let moved = false;
+  let startX = 0;
+  let startScroll = 0;
+
+  track.addEventListener("mousedown", (e) => {
+    if (e.button !== 0) return;
+    if (e.target.closest("a, button")) return;
+    if (e.target.closest(".product-expand-button")) return;
+    e.preventDefault();
+    dragging = true;
+    moved = false;
+    startX = e.clientX;
+    startScroll = track.scrollLeft;
+    track.style.cursor = "grabbing";
+    track.style.userSelect = "none";
+    track.style.scrollBehavior = "auto";
+  });
+
+  document.addEventListener("mousemove", (e) => {
+    if (!dragging) return;
+    e.preventDefault();
+    const dx = e.clientX - startX;
+    if (Math.abs(dx) > 3) moved = true;
+    track.scrollLeft = startScroll - dx;
+  });
+
+  document.addEventListener("mouseup", () => {
+    if (!dragging) return;
+    dragging = false;
+    track.style.cursor = "";
+    track.style.userSelect = "";
+    track.style.scrollBehavior = "";
+    if (moved) updateGridButtons(track);
+  });
+
+  track.addEventListener(
+    "click",
+    (e) => {
+      if (moved) {
+        e.preventDefault();
+        e.stopPropagation();
+        moved = false;
+      }
+    },
+    true,
+  );
+
+  track.addEventListener("scroll", () => updateGridButtons(track));
+}
+
+function updateGridButtons(track) {
+  const wrapper = track.closest(".products-strip-wrapper");
+  const right = wrapper?.querySelector(".grid-nav-right");
+  const left = wrapper?.querySelector(".grid-nav-left");
+  if (!right || !left) return;
+
+  const cur = track.scrollLeft;
+  const max = track.scrollWidth - track.clientWidth;
+
+  right.disabled = cur > -2;
+  left.disabled = cur < -max + 2;
+}
+
 // ---------- رویدادها ----------
 document.addEventListener("click", (e) => {
-  // 🎯 دکمه بازکردن (زیر قیمت)
+  // 🎯 دکمه بازکردن
   const expandBtn = e.target.closest(".product-expand-button");
   if (expandBtn) {
     e.preventDefault();
@@ -470,7 +571,31 @@ document.addEventListener("click", (e) => {
     return;
   }
 
-  // ناوبری چپ/راست
+  // 🎯 ناوبری گرید محصولات
+  const gridNav = e.target.closest(".grid-nav");
+  if (gridNav) {
+    e.preventDefault();
+    const wrapper = gridNav.closest(".products-strip-wrapper");
+    const track = wrapper?.querySelector("[data-grid-track]");
+    if (!track) return;
+
+    const firstCard = track.querySelector(".product-card");
+    if (!firstCard) return;
+
+    const cardWidth =
+      firstCard.getBoundingClientRect().width +
+      parseFloat(getComputedStyle(track).gap || 16);
+
+    const isLeft = gridNav.classList.contains("grid-nav-left");
+    track.scrollBy({
+      left: isLeft ? -cardWidth : cardWidth,
+      behavior: "smooth",
+    });
+    setTimeout(() => updateGridButtons(track), 350);
+    return;
+  }
+
+  // ناوبری strip
   const nav = e.target.closest(".strip-nav");
   if (nav) {
     e.preventDefault();
@@ -538,7 +663,6 @@ document.addEventListener(
 document.addEventListener(
   "mousedown",
   (e) => {
-    // 🎯 روی strip item: فقط روی دکمه‌ها/لینک‌ها اجازه بده
     const stripItem = e.target.closest(".strip-item");
     if (stripItem) {
       if (e.target.closest("a, button")) return;
@@ -547,7 +671,7 @@ document.addEventListener(
     }
 
     const interactive = e.target.closest(
-      "a, button, .product-action, .product-expand-button, .store-strip-card, .strip-nav, .strip-close",
+      "a, button, .product-action, .product-expand-button, .store-strip-card, .strip-nav, .strip-close, .grid-nav",
     );
     if (interactive && e.detail > 1) {
       e.preventDefault();

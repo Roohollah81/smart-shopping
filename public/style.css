@@ -609,12 +609,90 @@ body {
 }
 
 /* ================================================================
-   شبکه محصولات
+   🎯 گرید محصولات — strip افقی با اسکرول
    ================================================================ */
-.products-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+.products-strip-wrapper {
+  position: relative;
+  padding: 0 3rem;
+}
+
+.products-strip {
+  display: flex;
   gap: 1rem;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  direction: rtl;
+  padding: 0.5rem 0.25rem;
+  scroll-padding-inline: 0.25rem;
+  cursor: grab;
+  scroll-behavior: smooth;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.products-strip:active {
+  cursor: grabbing;
+}
+
+.products-strip::-webkit-scrollbar {
+  display: none;
+}
+
+/* 🎯 هر کارت در strip: به‌طور پیش‌فرض ۴ کارت در سطر */
+.products-strip .product-card {
+  flex: 0 0 calc((100% - 3rem) / 4);
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* 🎯 دکمه‌های ناوبری */
+.grid-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--surface), var(--bg));
+  border: 2px solid var(--primary-light);
+  color: var(--primary);
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.18);
+  font-family: inherit;
+  padding: 0;
+  z-index: 10;
+}
+
+.grid-nav-right {
+  right: 0;
+}
+.grid-nav-left {
+  left: 0;
+}
+
+.grid-nav:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: white;
+  border-color: var(--primary);
+  transform: translateY(-50%) scale(1.1);
+  box-shadow: 0 8px 22px rgba(99, 102, 241, 0.5);
+}
+
+.grid-nav:disabled {
+  background: var(--bg);
+  color: var(--text-muted);
+  border-color: var(--border);
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 /* ================================================================
@@ -949,11 +1027,15 @@ body {
 /* ================================================================
    کارت باز شده
    ================================================================ */
+/* 🎯 کارت مخفی‌شده در همان ردیف */
 .product-card.hidden-sibling {
-  display: none;
+  display: none !important;
 }
-.product-card.expanded {
-  grid-column: 1 / -1;
+/* 🎯 کارت بازشده در strip: تمام عرض */
+.products-strip .product-card.expanded {
+  flex: 0 0 calc(100% - 0.25rem);
+  min-width: calc(100% - 0.25rem);
+  max-width: calc(100% - 0.25rem);
 }
 .product-card.expanded .product-collapsed {
   display: none;
@@ -1632,8 +1714,11 @@ a img,
    واکنش‌گرایی
    ================================================================ */
 @media (max-width: 900px) {
-  .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  .products-strip .product-card {
+    flex: 0 0 calc((100% - 2rem) / 3);
+  }
+  .products-strip-wrapper {
+    padding: 0 2.75rem;
   }
   .section-title {
     font-size: 1.5rem;
@@ -1656,9 +1741,16 @@ a img,
   .btn-add {
     width: 100%;
   }
-  .products-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.75rem;
+  .products-strip .product-card {
+    flex: 0 0 calc((100% - 1rem) / 2);
+  }
+  .products-strip-wrapper {
+    padding: 0 2.25rem;
+  }
+  .grid-nav {
+    width: 2rem;
+    height: 2rem;
+    font-size: 1rem;
   }
   .product-image-icon {
     font-size: 3rem;
@@ -1766,4 +1858,10 @@ a img,
   .missing-item-text {
     max-width: 150px;
   }
+}
+/* ================================================================
+   🎯 مخفی کردن دکمه‌های ناوبری grid هنگام باز بودن کارت
+   ================================================================ */
+.products-strip-wrapper:has(.product-card.expanded) .grid-nav {
+  display: none !important;
 }
