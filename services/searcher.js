@@ -570,12 +570,25 @@ function extractFromNextData(data, storeName, domain) {
 function parsePriceText(text, currency) {
   if (!text) return 0;
 
-  let cleaned = text
+  const cleaned = text
     .replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
-    .replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d))
-    .replace(/[^\d]/g, "");
+    .replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d));
 
-  let price = parseInt(cleaned, 10);
+  // 🎯 فقط اعدادی که با فرمت قیمت (کاما دار) نوشته شده‌اند
+  // این الگو: عدد ۱ تا ۳ رقمی، سپس یک یا چند گروه «,XXX»
+  const priceMatches = cleaned.match(/\d{1,3}(?:,\d{3})+/g);
+
+  let price = 0;
+
+  if (priceMatches && priceMatches.length > 0) {
+    // اگر چند عدد با فرمت قیمت هست، بزرگ‌ترین (که معمولاً قیمت واقعی است) را انتخاب کن
+    const values = priceMatches.map((m) => parseInt(m.replace(/,/g, ""), 10));
+    price = Math.max(...values);
+  } else {
+    // اگر فرمت کاما نداشت (قیمت‌های زیر ۱۰۰۰ تومان)، از روش قدیمی استفاده کن
+    price = parseInt(cleaned.replace(/[^\d]/g, ""), 10);
+  }
+
   if (isNaN(price) || price === 0) return 0;
 
   if (currency === "rial") price = Math.round(price / 10);

@@ -2100,3 +2100,31 @@ a img,
 .product-card.has-others .product-price-section {
   margin-top: auto;
 }
+
+/* ================================================================
+   🎯 قفل کردن لیست آیتم‌ها در حین جستجو
+   ================================================================ */
+.items-list.locked .item-chip {
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+/* مخفی کردن دکمه حذف */
+.items-list.locked .item-chip .remove {
+  display: none !important;
+}
+
+/* 🎯 تغییر نشانگر موس روی چیپ‌ها در حالت قفل */
+.items-list.locked .item-chip.active {
+  opacity: 1;
+  cursor: default;
+}
+
+/* 🎯 در دارک مود */
+:root[data-theme="dark"] .items-list.locked .item-chip {
+  opacity: 0.75;
+}
+
+:root[data-theme="dark"] .items-list.locked .item-chip.active {
+  opacity: 1;
+}

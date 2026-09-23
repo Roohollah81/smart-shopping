@@ -84,6 +84,8 @@ function addItem() {
 }
 
 function removeItem(i) {
+  // 🎯 اگر در حال جستجو هستیم، اجازه حذف نده
+  if (itemsList.classList.contains("locked")) return;
   items.splice(i, 1);
   renderItems();
 }
@@ -211,6 +213,9 @@ async function search() {
   searchBtn.classList.add("searching");
   startStoreCycle();
 
+  // 🎯 قفل کردن لیست آیتم‌ها در حین جستجو
+  itemsList.classList.add("locked");
+
   try {
     const queryResults = [];
 
@@ -259,6 +264,8 @@ async function search() {
     stopStoreCycle();
     searchBtn.classList.remove("searching");
     setLoading(false);
+    // 🎯 باز کردن قفل لیست آیتم‌ها
+    itemsList.classList.remove("locked");
     // 🎯 پاک کردن active از همه چیپ‌ها
     document.querySelectorAll(".item-chip.active").forEach((chip) => {
       chip.classList.remove("active");
