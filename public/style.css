@@ -1865,3 +1865,64 @@ a img,
 .products-strip-wrapper:has(.product-card.expanded) .grid-nav {
   display: none !important;
 }
+/* ================================================================
+   🎯 نوار پیشرفت داخل دکمه جستجو
+   ================================================================ */
+.btn-search {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-search-fill {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 0%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.35) 0%,
+    rgba(255, 255, 255, 0.15) 100%
+  );
+  transition: width 0.4s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 🎯 افکت درخشش روی نوار */
+.btn-search-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%
+  );
+  animation: btnProgressShine 1.8s ease-in-out infinite;
+}
+
+@keyframes btnProgressShine {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.btn-search-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+/* 🎯 وقتی در حال جستجو است، متن کمی کوچک‌تر شود */
+.btn-search.searching #search-btn-text {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}

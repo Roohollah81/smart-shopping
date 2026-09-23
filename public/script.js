@@ -65,6 +65,113 @@ function getStoreColor(storeName) {
   return s ? s.color : "#6366f1";
 }
 
+// ================================================================
+// 🎯 نوار پیشرفت داخل دکمه جستجو
+// ================================================================
+let progressInterval = null;
+let progressStartTime = null;
+let currentProgress = 0;
+let estimatedDuration = 25000;
+
+function toPersianNumber(num) {
+  const persian = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
+  return String(num).replace(/\d/g, (d) => persian[parseInt(d, 10)]);
+}
+
+function startProgress(itemsCount) {
+  const btn = document.getElementById("search-btn");
+  const fill = document.getElementById("search-btn-fill");
+  const textEl = document.getElementById("search-btn-text");
+  if (!btn || !fill || !textEl) return;
+
+  estimatedDuration = Math.max(itemsCount * 15000, 12000);
+  progressStartTime = performance.now();
+  currentProgress = 0;
+
+  btn.classList.add("searching");
+  fill.style.width = "0%";
+
+  progressInterval = setInterval(() => {
+    const elapsed = performance.now() - progressStartTime;
+
+    let targetProgress;
+    if (elapsed < 3000) {
+      targetProgress = (elapsed / 3000) * 25;
+    } else if (elapsed < 10000) {
+      targetProgress = 25 + ((elapsed - 3000) / 7000) * 30;
+    } else if (elapsed < 20000) {
+      targetProgress = 55 + ((elapsed - 10000) / 10000) * 20;
+    } else {
+      targetProgress = 75 + Math.min(((elapsed - 20000) / 30000) * 15, 15);
+    }
+    targetProgress = Math.min(targetProgress, 90);
+
+    currentProgress += (targetProgress - currentProgress) * 0.18;
+    fill.style.width = currentProgress + "%";
+
+    const remaining = Math.max(
+      0,
+      Math.ceil((estimatedDuration - elapsed) / 1000),
+    );
+    if (remaining > 0) {
+      textEl.textContent = `در حال جستجو... ${toPersianNumber(remaining)} ثانیه`;
+    } else {
+      textEl.textContent = "در حال دریافت نتایج...";
+    }
+  }, 200);
+
+  window.__searchSafetyTimeout = setTimeout(() => {
+    if (progressInterval) {
+      cancelProgress();
+      showError("جستجو بیش از حد طول کشید. لطفاً دوباره تلاش کنید.");
+      setLoading(false);
+    }
+  }, 90000);
+}
+
+function completeProgress() {
+  if (progressInterval) {
+    clearInterval(progressInterval);
+    progressInterval = null;
+  }
+  if (window.__searchSafetyTimeout) {
+    clearTimeout(window.__searchSafetyTimeout);
+    window.__searchSafetyTimeout = null;
+  }
+
+  const btn = document.getElementById("search-btn");
+  const fill = document.getElementById("search-btn-fill");
+  const textEl = document.getElementById("search-btn-text");
+
+  if (fill) fill.style.width = "100%";
+  if (textEl) textEl.textContent = "✓ نتایج آماده شد";
+  if (btn) btn.classList.remove("searching");
+
+  setTimeout(() => {
+    if (fill) fill.style.width = "0%";
+    if (textEl) textEl.textContent = "🔍 جستجو و مقایسه";
+  }, 800);
+}
+
+function cancelProgress() {
+  if (progressInterval) {
+    clearInterval(progressInterval);
+    progressInterval = null;
+  }
+  if (window.__searchSafetyTimeout) {
+    clearTimeout(window.__searchSafetyTimeout);
+    window.__searchSafetyTimeout = null;
+  }
+
+  const btn = document.getElementById("search-btn");
+  const fill = document.getElementById("search-btn-fill");
+  const textEl = document.getElementById("search-btn-text");
+
+  if (fill) fill.style.width = "0%";
+  if (textEl) textEl.textContent = "🔍 جستجو و مقایسه";
+  if (btn) btn.classList.remove("searching");
+}
+
 // ---------- آیتم‌ها ----------
 function addItem() {
   const value = itemInput.value.trim();
@@ -104,26 +211,49 @@ function clearAll() {
   renderItems();
   resultsSection.classList.add("hidden");
   hideError();
+  cancelProgress();
 }
 
+// ---------- جستجو ----------
 async function search() {
   if (items.length === 0) return;
   hideError();
   setLoading(true);
+  startProgress(items.length);
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 90000);
+
   try {
     const r = await fetch("/api/compare", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ items }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+
     const data = await r.json();
+
     if (!data.success) {
+      cancelProgress();
       showError(data.error || "خطایی رخ داد.");
       return;
     }
+
+    completeProgress();
     renderResults(data.data);
   } catch (e) {
-    showError("ارتباط با سرور برقرار نشد.");
+    clearTimeout(timeoutId);
+    cancelProgress();
+
+    if (e.name === "AbortError") {
+      showError("جستجو بیش از حد طول کشید. لطفاً دوباره تلاش کنید.");
+    } else {
+      showError("ارتباط با سرور برقرار نشد: " + (e.message || "خطای نامشخص"));
+    }
     console.error(e);
   } finally {
     setLoading(false);
@@ -365,13 +495,11 @@ function toggleCardExpand(card, expand) {
   if (!collapsed || !expanded) return;
 
   if (expand) {
-    // بستن سایر کارت‌های باز
     allCards.forEach((c) => {
       if (c !== card && c.classList.contains("expanded"))
         toggleCardExpand(c, false);
     });
 
-    // 🎯 مخفی کردن همه‌ی کارت‌های دیگر در همان strip/grid
     allCards.forEach((c) => {
       if (c !== card) c.classList.add("hidden-sibling");
     });
@@ -380,11 +508,16 @@ function toggleCardExpand(card, expand) {
     collapsed.classList.add("hidden");
     expanded.classList.remove("hidden");
 
-    // 🎯 اسکرول به ابتدای strip تا کارت بازشده کامل دیده شود
     const wrapper = card.closest(".products-strip-wrapper");
     const parentTrack = wrapper?.querySelector("[data-grid-track]");
     if (parentTrack) {
       parentTrack.scrollTo({ left: 0, behavior: "smooth" });
+    }
+
+    if (wrapper) {
+      wrapper.querySelectorAll(".grid-nav").forEach((btn) => {
+        btn.style.display = "none";
+      });
     }
 
     requestAnimationFrame(() => {
@@ -401,14 +534,12 @@ function toggleCardExpand(card, expand) {
     collapsed.classList.remove("hidden");
     expanded.classList.add("hidden");
 
-    // 🎯 بازگرداندن دکمه‌های ناوبری grid
     const wrapper = card.closest(".products-strip-wrapper");
     if (wrapper) {
       wrapper.querySelectorAll(".grid-nav").forEach((btn) => {
         btn.style.display = "flex";
       });
 
-      // 🎯 به‌روزرسانی وضعیت disabled دکمه‌ها
       requestAnimationFrame(() => {
         const parentTrack = wrapper.querySelector("[data-grid-track]");
         if (parentTrack) {
@@ -571,7 +702,6 @@ function updateGridButtons(track) {
 
 // ---------- رویدادها ----------
 document.addEventListener("click", (e) => {
-  // 🎯 دکمه بازکردن
   const expandBtn = e.target.closest(".product-expand-button");
   if (expandBtn) {
     e.preventDefault();
@@ -580,7 +710,6 @@ document.addEventListener("click", (e) => {
     return;
   }
 
-  // بستن کارت
   const closeBtn = e.target.closest(".strip-close");
   if (closeBtn) {
     e.preventDefault();
@@ -588,21 +717,17 @@ document.addEventListener("click", (e) => {
     return;
   }
 
-  // 🎯 ناوبری گرید محصولات
   const gridNav = e.target.closest(".grid-nav");
   if (gridNav) {
     e.preventDefault();
     const wrapper = gridNav.closest(".products-strip-wrapper");
     const track = wrapper?.querySelector("[data-grid-track]");
     if (!track) return;
-
     const firstCard = track.querySelector(".product-card");
     if (!firstCard) return;
-
     const cardWidth =
       firstCard.getBoundingClientRect().width +
       parseFloat(getComputedStyle(track).gap || 16);
-
     const isLeft = gridNav.classList.contains("grid-nav-left");
     track.scrollBy({
       left: isLeft ? -cardWidth : cardWidth,
@@ -612,7 +737,6 @@ document.addEventListener("click", (e) => {
     return;
   }
 
-  // ناوبری strip
   const nav = e.target.closest(".strip-nav");
   if (nav) {
     e.preventDefault();
@@ -630,7 +754,6 @@ document.addEventListener("click", (e) => {
     return;
   }
 
-  // کلیک روی تصویر strip (lightbox)
   const stripImg = e.target.closest(
     ".strip-item-image-wrapper.clickable-image",
   );
@@ -647,7 +770,6 @@ document.addEventListener("click", (e) => {
     }
   }
 
-  // کلیک روی تصویر کارت اصلی (lightbox)
   const prodImg = e.target.closest(".product-image-wrapper.clickable-image");
   if (prodImg) {
     const img = prodImg.querySelector(".product-image-real");
@@ -686,7 +808,6 @@ document.addEventListener(
       e.preventDefault();
       return;
     }
-
     const interactive = e.target.closest(
       "a, button, .product-action, .product-expand-button, .store-strip-card, .strip-nav, .strip-close, .grid-nav",
     );
@@ -909,8 +1030,9 @@ document.addEventListener("keydown", (e) => {
 function setLoading(v) {
   searchBtn.disabled = v;
   spinner.classList.toggle("active", v);
-  searchBtnText.textContent = v ? "در حال جستجو..." : "🔍 جستجو و مقایسه";
+  // متن و progress توسط startProgress / completeProgress مدیریت می‌شوند
 }
+
 function showError(m) {
   errorBox.textContent = "⚠️ " + m;
   errorBox.classList.remove("hidden");
