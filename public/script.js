@@ -400,6 +400,23 @@ function toggleCardExpand(card, expand) {
     allCards.forEach((c) => c.classList.remove("hidden-sibling"));
     collapsed.classList.remove("hidden");
     expanded.classList.add("hidden");
+
+    // 🎯 بازگرداندن دکمه‌های ناوبری grid
+    const wrapper = card.closest(".products-strip-wrapper");
+    if (wrapper) {
+      wrapper.querySelectorAll(".grid-nav").forEach((btn) => {
+        btn.style.display = "flex";
+      });
+
+      // 🎯 به‌روزرسانی وضعیت disabled دکمه‌ها
+      requestAnimationFrame(() => {
+        const parentTrack = wrapper.querySelector("[data-grid-track]");
+        if (parentTrack) {
+          parentTrack.scrollTo({ left: 0, behavior: "smooth" });
+          setTimeout(() => updateGridButtons(parentTrack), 350);
+        }
+      });
+    }
   }
 }
 
