@@ -65,6 +65,69 @@ function getStoreColor(storeName) {
   return s ? s.color : "#6366f1";
 }
 
+// ================================================================
+// 🎯 اسلات‌های چرخان (slot machine)
+// ================================================================
+let slotStoreInterval = null;
+let currentStoreIndex = 0;
+
+function animateSlot(slotId, newText, color = null) {
+  const slotEl = document.getElementById(slotId);
+  if (!slotEl) return;
+
+  const currentTextEl = slotEl.querySelector(".slot-text");
+  const currentText = currentTextEl ? currentTextEl.textContent : "";
+
+  // 🎯 فقط برای slot-store رنگ برند اعمال می‌شود
+  if (color && slotId === "slot-store") {
+    slotEl.style.setProperty("--slot-color-bg", hexToRgba(color, 0.85));
+    slotEl.style.setProperty("--slot-color-border", hexToRgba(color, 0.95));
+  } else if (slotId === "slot-store") {
+    slotEl.style.removeProperty("--slot-color-bg");
+    slotEl.style.removeProperty("--slot-color-border");
+  }
+
+  if (currentText === newText) return;
+
+  slotEl.innerHTML = `
+    <span class="slot-text slot-out">${escapeHtml(currentText || "—")}</span>
+    <span class="slot-text slot-in">${escapeHtml(newText)}</span>
+  `;
+
+  setTimeout(() => {
+    slotEl.innerHTML = `<span class="slot-text">${escapeHtml(newText)}</span>`;
+  }, 380);
+}
+
+function startStoreCycle() {
+  stopStoreCycle();
+  currentStoreIndex = 0;
+
+  const firstStore = SUPPORTED_STORES[0];
+  animateSlot("slot-store", firstStore.name, firstStore.color);
+
+  slotStoreInterval = setInterval(() => {
+    currentStoreIndex = (currentStoreIndex + 1) % SUPPORTED_STORES.length;
+    const store = SUPPORTED_STORES[currentStoreIndex];
+    animateSlot("slot-store", store.name, store.color);
+  }, 1800);
+}
+
+function stopStoreCycle() {
+  if (slotStoreInterval) {
+    clearInterval(slotStoreInterval);
+    slotStoreInterval = null;
+  }
+}
+
+function hexToRgba(hex, alpha = 1) {
+  if (!hex || !hex.startsWith("#")) return hex;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 // ---------- آیتم‌ها ----------
 function addItem() {
   const value = itemInput.value.trim();
@@ -106,6 +169,7 @@ function renderItems() {
 }
 
 function clearAll() {
+  if (itemsList.classList.contains("locked")) return;
   items = [];
   renderItems();
   resultsSection.classList.add("hidden");
@@ -116,10 +180,18 @@ function clearAll() {
 }
 
 // 🎯 علامت‌گذاری چیپ‌ها
+function markChipActive(index) {
+  document.querySelectorAll(".item-chip.active").forEach((chip) => {
+    chip.classList.remove("active");
+  });
+  const chip = document.querySelector(`.item-chip[data-index="${index}"]`);
+  if (chip) chip.classList.add("active");
+}
+
 function markChipDone(index) {
   const chip = document.querySelector(`.item-chip[data-index="${index}"]`);
   if (chip) {
-    chip.classList.remove("error");
+    chip.classList.remove("active", "error");
     chip.classList.add("done");
   }
 }
@@ -127,94 +199,26 @@ function markChipDone(index) {
 function markChipError(index) {
   const chip = document.querySelector(`.item-chip[data-index="${index}"]`);
   if (chip) {
-    chip.classList.remove("done");
+    chip.classList.remove("active", "done");
     chip.classList.add("error");
   }
 }
 
-// ================================================================
-// 🎯 متغیرهای انیمیشن slot
-// ================================================================
-let slotStoreInterval = null;
-let currentStoreIndex = 0;
-
-function animateSlot(slotId, newText, color = null) {
-  const slotEl = document.getElementById(slotId);
-  if (!slotEl) return;
-
-  const currentTextEl = slotEl.querySelector(".slot-text");
-  const currentText = currentTextEl ? currentTextEl.textContent : "";
-
-  // 🎯 فقط برای slot فروشگاه، رنگ برند اعمال شود
-  // slot آیتم از CSS پیش‌فرض (هم‌رنگ چیپ‌ها) استفاده می‌کند
-  if (color && slotId === "slot-store") {
-    slotEl.style.setProperty("--slot-color-bg", hexToRgba(color, 0.85));
-    slotEl.style.setProperty("--slot-color-border", hexToRgba(color, 0.95));
-  } else if (slotId === "slot-store") {
-    slotEl.style.removeProperty("--slot-color-bg");
-    slotEl.style.removeProperty("--slot-color-border");
-  }
-  // برای slot-item هیچ inline style اعمال نمی‌شود
-
-  if (currentText === newText) return;
-
-  slotEl.innerHTML = `
-    <span class="slot-text slot-out">${escapeHtml(currentText || "—")}</span>
-    <span class="slot-text slot-in">${escapeHtml(newText)}</span>
-  `;
-
-  setTimeout(() => {
-    slotEl.innerHTML = `<span class="slot-text">${escapeHtml(newText)}</span>`;
-  }, 380);
-}
-
-// 🎯 تبدیل HEX به RGBA
-function hexToRgba(hex, alpha = 1) {
-  if (!hex || !hex.startsWith("#")) return hex;
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-function startStoreCycle() {
-  stopStoreCycle();
-  currentStoreIndex = 0;
-
-  const firstStore = SUPPORTED_STORES[0];
-  animateSlot("slot-store", firstStore.name, firstStore.color);
-
-  slotStoreInterval = setInterval(() => {
-    currentStoreIndex = (currentStoreIndex + 1) % SUPPORTED_STORES.length;
-    const store = SUPPORTED_STORES[currentStoreIndex];
-    animateSlot("slot-store", store.name, store.color);
-  }, 1800);
-}
-
-function stopStoreCycle() {
-  if (slotStoreInterval) {
-    clearInterval(slotStoreInterval);
-    slotStoreInterval = null;
-  }
-}
-
-// ---------- جستجو ----------
+// ---------- جستجو (سری) ----------
 async function search() {
   if (items.length === 0) return;
   hideError();
   setLoading(true);
 
-  // 🎯 پاک کردن حالت قبلی چیپ‌ها
+  // 🎯 پاک کردن حالت قبلی
   document.querySelectorAll(".item-chip").forEach((chip) => {
     chip.classList.remove("done", "error", "active");
   });
 
-  // 🎯 ورود به حالت جستجو
+  // 🎯 ورود به حالت جستجو + قفل لیست
   searchBtn.classList.add("searching");
-  startStoreCycle();
-
-  // 🎯 قفل کردن لیست آیتم‌ها در حین جستجو
   itemsList.classList.add("locked");
+  startStoreCycle();
 
   try {
     const queryResults = [];
@@ -222,7 +226,6 @@ async function search() {
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
 
-      // 🎯 هایلایت چیپ فعلی
       markChipActive(i);
       animateSlot("slot-item", item);
 
@@ -264,38 +267,16 @@ async function search() {
     stopStoreCycle();
     searchBtn.classList.remove("searching");
     setLoading(false);
-    // 🎯 باز کردن قفل لیست آیتم‌ها
     itemsList.classList.remove("locked");
-    // 🎯 پاک کردن active از همه چیپ‌ها
     document.querySelectorAll(".item-chip.active").forEach((chip) => {
       chip.classList.remove("active");
     });
-  }
-}
-
-// 🎯 علامت‌گذاری چیپ‌ها
-function markChipActive(index) {
-  // پاک کردن active قبلی
-  document.querySelectorAll(".item-chip.active").forEach((chip) => {
-    chip.classList.remove("active");
-  });
-  const chip = document.querySelector(`.item-chip[data-index="${index}"]`);
-  if (chip) chip.classList.add("active");
-}
-
-function markChipDone(index) {
-  const chip = document.querySelector(`.item-chip[data-index="${index}"]`);
-  if (chip) {
-    chip.classList.remove("active", "error");
-    chip.classList.add("done");
-  }
-}
-
-function markChipError(index) {
-  const chip = document.querySelector(`.item-chip[data-index="${index}"]`);
-  if (chip) {
-    chip.classList.remove("active", "done");
-    chip.classList.add("error");
+    // 🎯 پاک کردن رنگ slot-store
+    const slotStore = document.getElementById("slot-store");
+    if (slotStore) {
+      slotStore.style.removeProperty("--slot-color-bg");
+      slotStore.style.removeProperty("--slot-color-border");
+    }
   }
 }
 
@@ -379,6 +360,8 @@ function renderResults(data) {
     document.querySelectorAll("[data-strip-track]").forEach(initStripDrag);
     document.querySelectorAll("[data-grid-track]").forEach(initGridDrag);
     disableAllDraggable();
+    // 🎯 بررسی overflow پس از رندر
+    setTimeout(checkAllGridOverflows, 100);
   });
   resultsSection.classList.remove("hidden");
   resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -390,7 +373,6 @@ function renderStoreSection(store, isBest) {
   const cards = store.items
     .map((it) => renderProductCard(it, store, storeColor))
     .join("");
-  const hasOverflow = store.items.length > 4;
 
   const missingHtml =
     store.missing && store.missing.length > 0
@@ -438,19 +420,11 @@ function renderStoreSection(store, isBest) {
       </div>
 
       <div class="products-strip-wrapper">
-        ${
-          hasOverflow
-            ? `<button class="grid-nav grid-nav-right" type="button" aria-label="قبلی" draggable="false">‹</button>`
-            : ""
-        }
+        <button class="grid-nav grid-nav-right hidden" type="button" aria-label="قبلی" draggable="false">‹</button>
         <div class="products-strip" data-grid-track>
           ${cards}
         </div>
-        ${
-          hasOverflow
-            ? `<button class="grid-nav grid-nav-left" type="button" aria-label="بعدی" draggable="false">›</button>`
-            : ""
-        }
+        <button class="grid-nav grid-nav-left hidden" type="button" aria-label="بعدی" draggable="false">›</button>
       </div>
 
       ${missingHtml}
@@ -480,7 +454,7 @@ function renderProductCard(item, store, storeColor) {
        <div class="product-stack-layer stack-layer-1"></div>`
     : "";
 
-  // 🎯 اگر زیرمجموعه دارد، دکمه واقعی — وگرنه placeholder خالی
+  // 🎯 دکمه بازکردن یا placeholder
   const expandButtonHtml = hasOthers
     ? `<button class="product-expand-button" type="button" draggable="false">
          <svg class="product-expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -635,18 +609,24 @@ function toggleCardExpand(card, expand) {
     const wrapper = card.closest(".products-strip-wrapper");
     if (wrapper) {
       wrapper.querySelectorAll(".grid-nav").forEach((btn) => {
-        btn.style.display = "flex";
+        btn.style.display = "";
       });
 
       requestAnimationFrame(() => {
         const parentTrack = wrapper.querySelector("[data-grid-track]");
         if (parentTrack) {
           parentTrack.scrollTo({ left: 0, behavior: "smooth" });
-          setTimeout(() => updateGridButtons(parentTrack), 350);
+          setTimeout(() => {
+            checkGridOverflow(parentTrack);
+            updateGridButtons(parentTrack);
+          }, 350);
         }
       });
     }
   }
+
+  // 🎯 بررسی overflow پس از تغییر
+  setTimeout(checkAllGridOverflows, 400);
 }
 
 function updateNavButtons(card) {
@@ -654,11 +634,20 @@ function updateNavButtons(card) {
   const right = card.querySelector(".strip-nav-right");
   const left = card.querySelector(".strip-nav-left");
   if (!track || !right || !left) return;
+
+  // 🎯 در موبایل، دکمه‌ها را نمایش نده
+  if (window.innerWidth <= 640) {
+    right.style.display = "none";
+    left.style.display = "none";
+    return;
+  }
+
   if (track.scrollWidth <= track.clientWidth + 2) {
     right.style.display = "none";
     left.style.display = "none";
     return;
   }
+
   right.style.display = "flex";
   left.style.display = "flex";
   const cur = track.scrollLeft;
@@ -785,11 +774,45 @@ function initGridDrag(track) {
   track.addEventListener("scroll", () => updateGridButtons(track));
 }
 
+// 🎯 بررسی overflow یک track
+function checkGridOverflow(track) {
+  if (!track) return;
+  const wrapper = track.closest(".products-strip-wrapper");
+  const right = wrapper?.querySelector(".grid-nav-right");
+  const left = wrapper?.querySelector(".grid-nav-left");
+  if (!right || !left) return;
+
+  // 🎯 بررسی واقعی overflow
+  const hasOverflow = track.scrollWidth > track.clientWidth + 2;
+
+  if (hasOverflow) {
+    right.classList.remove("hidden");
+    left.classList.remove("hidden");
+    wrapper.classList.add("scrollable");
+  } else {
+    right.classList.add("hidden");
+    left.classList.add("hidden");
+    wrapper.classList.remove("scrollable");
+    // 🎯 اگر اسکرول شده بود، به ابتدا برگردان
+    track.scrollLeft = 0;
+  }
+
+  updateGridButtons(track);
+}
+
+function checkAllGridOverflows() {
+  document.querySelectorAll("[data-grid-track]").forEach(checkGridOverflow);
+}
+
 function updateGridButtons(track) {
   const wrapper = track.closest(".products-strip-wrapper");
   const right = wrapper?.querySelector(".grid-nav-right");
   const left = wrapper?.querySelector(".grid-nav-left");
   if (!right || !left) return;
+
+  // 🎯 اگر دکمه‌ها مخفی هستند، وضعیت disabled را تغییر نده
+  if (right.classList.contains("hidden") || left.classList.contains("hidden"))
+    return;
 
   const cur = track.scrollLeft;
   const max = track.scrollWidth - track.clientWidth;
@@ -797,6 +820,12 @@ function updateGridButtons(track) {
   right.disabled = cur > -2;
   left.disabled = cur < -max + 2;
 }
+
+// 🎯 بررسی overflow هنگام تغییر اندازه صفحه
+window.addEventListener("resize", () => {
+  clearTimeout(window.__resizeTimer);
+  window.__resizeTimer = setTimeout(checkAllGridOverflows, 200);
+});
 
 // ---------- رویدادها ----------
 document.addEventListener("click", (e) => {
@@ -1127,6 +1156,7 @@ document.addEventListener("keydown", (e) => {
 // ---------- کمکی ----------
 function setLoading(v) {
   searchBtn.disabled = v;
+  spinner.classList.toggle("active", v);
 }
 function showError(m) {
   errorBox.textContent = "⚠️ " + m;

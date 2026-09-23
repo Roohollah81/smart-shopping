@@ -863,14 +863,14 @@ body {
   direction: rtl;
   padding: 0.5rem 0.25rem;
   scroll-padding-inline: 0.25rem;
-  cursor: grab;
   scroll-behavior: smooth;
   user-select: none;
   -webkit-user-select: none;
 }
+
 .products-strip:active {
-  cursor: grabbing;
 }
+
 .products-strip::-webkit-scrollbar {
   display: none;
 }
@@ -1285,7 +1285,7 @@ body {
   background: var(--surface);
   border: 2px solid var(--border);
   border-radius: 1rem;
-  overflow: hidden;
+  overflow: hidden; /* 🎯 دکمه‌ها داخل padding می‌مانند، نیازی به visible نیست */
 }
 @keyframes stripExpandIn {
   from {
@@ -1326,7 +1326,8 @@ body {
 
 .strip-viewport {
   position: relative;
-  padding: 0.75rem 3.5rem;
+  /* 🎯 دقیقاً مثل .products-strip-wrapper */
+  padding: 0.75rem 3rem;
 }
 
 .strip-track {
@@ -1350,7 +1351,8 @@ body {
   display: none;
 }
 
-.strip-nav {
+.strip-nav,
+.grid-nav {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
@@ -1370,26 +1372,37 @@ body {
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.18);
   font-family: inherit;
   padding: 0;
-  z-index: 5;
+  z-index: 10;
 }
-.strip-nav-right {
-  right: 10px;
+
+/* 🎯 موقعیت یکسان برای هر دو */
+.strip-nav-right,
+.grid-nav-right {
+  right: 0;
 }
-.strip-nav-left {
-  left: 10px;
+
+.strip-nav-left,
+.grid-nav-left {
+  left: 0;
 }
-.strip-nav:hover:not(:disabled) {
+
+/* 🎯 hover یکسان */
+.strip-nav:hover:not(:disabled),
+.grid-nav:hover:not(:disabled) {
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: white;
   border-color: var(--primary);
   transform: translateY(-50%) scale(1.1);
   box-shadow: 0 8px 22px rgba(99, 102, 241, 0.5);
 }
-.strip-nav:disabled {
+
+/* 🎯 disabled یکسان */
+.strip-nav:disabled,
+.grid-nav:disabled {
   background: var(--bg);
   color: var(--text-muted);
   border-color: var(--border);
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: not-allowed;
   box-shadow: none;
 }
@@ -1398,8 +1411,10 @@ body {
    آیتم strip
    ================================================================ */
 .strip-item {
-  flex-shrink: 0;
-  width: 260px;
+  /* 🎯 هم‌اندازه با کارت‌های اصلی */
+  flex: 0 0 calc((100% - 3rem) / 4);
+  min-width: 0;
+  max-width: calc((100% - 3rem) / 4);
   background: var(--surface);
   border: 2px solid var(--border);
   border-radius: 1rem;
@@ -1983,7 +1998,8 @@ a img,
     padding: 0 2.25rem;
   }
   .strip-item {
-    width: 200px;
+    flex: 0 0 calc((100% - 0.5rem) / 1.5);
+    max-width: calc((100% - 0.5rem) / 1.5);
   }
   .strip-item-title {
     font-size: 0.7rem;
@@ -2127,4 +2143,102 @@ a img,
 
 :root[data-theme="dark"] .items-list.locked .item-chip.active {
   opacity: 1;
+}
+
+/* ================================================================
+   🎯 cursor فقط زمانی که overflow وجود دارد
+   ================================================================ */
+
+/* حالت عادی — بدون اسکرول */
+.products-strip-wrapper:not(.scrollable) .products-strip {
+  cursor: default;
+}
+
+/* حالت scrollable — قابل کشیدن */
+.products-strip-wrapper.scrollable .products-strip {
+  cursor: grab;
+}
+
+.products-strip-wrapper.scrollable .products-strip:active {
+  cursor: grabbing;
+}
+
+/* 🎯 همه‌ی عناصر داخل strip در حالت scrollable، grab بگیرند */
+.products-strip-wrapper.scrollable .products-strip .product-card {
+  cursor: grab;
+}
+
+.products-strip-wrapper.scrollable .products-strip:active .product-card {
+  cursor: grabbing;
+}
+
+/* 🎯 اما دکمه‌ها و لینک‌ها همیشه pointer */
+.products-strip-wrapper.scrollable .products-strip .product-action,
+.products-strip-wrapper.scrollable .products-strip .product-expand-button,
+.products-strip-wrapper.scrollable
+  .products-strip
+  .product-image-wrapper.clickable-image,
+.products-strip-wrapper.scrollable
+  .products-strip
+  .product-image-wrapper.clickable-image
+  * {
+  cursor: pointer;
+}
+
+/* 🎯 مخفی کردن دکمه‌های grid-nav */
+.grid-nav.hidden {
+  display: none !important;
+}
+
+/* ================================================================
+   🎯 مخفی کردن دکمه‌های ناوبری در موبایل
+   (کاربر با انگشت اسکرول می‌کند، نیازی به دکمه نیست)
+   ================================================================ */
+@media (max-width: 640px) {
+  .grid-nav {
+    display: none !important;
+  }
+
+  /* 🎯 در موبایل، padding کنار strip را حذف کن تا فضای بیشتری برای کارت‌ها باشد */
+  .products-strip-wrapper {
+    padding: 0 0.5rem;
+  }
+}
+
+/* 🎯 در تبلت (۶۴۱ تا ۸۰۰) دکمه‌ها کوچک‌تر شوند ولی نمایش داده شوند */
+@media (min-width: 641px) and (max-width: 800px) {
+  .grid-nav {
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 1rem;
+  }
+}
+
+/* ================================================================
+   🎯 واکنش‌گرایی strip-item — هم‌اندازه با کارت‌های اصلی
+   ================================================================ */
+@media (max-width: 1100px) {
+  .strip-item {
+    flex: 0 0 calc((100% - 2rem) / 3);
+    max-width: calc((100% - 2rem) / 3);
+  }
+}
+
+@media (max-width: 800px) {
+  .strip-item {
+    flex: 0 0 calc((100% - 1rem) / 2);
+    max-width: calc((100% - 1rem) / 2);
+  }
+}
+
+/* 🎯 مخفی کردن دکمه‌های ناوبری strip در موبایل */
+@media (max-width: 640px) {
+  .strip-nav {
+    display: none !important;
+  }
+
+  /* 🎯 در موبایل، padding کنار strip داخلی کمتر شود */
+  .strip-viewport {
+    padding: 0.75rem 0.5rem;
+  }
 }
