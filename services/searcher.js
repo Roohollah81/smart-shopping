@@ -1,8 +1,22 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
+const puppeteer = require("puppeteer");
 
 const PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
 const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
+
+// ================================================================
+// LOGGER — timestamp + clean output
+// ================================================================
+function log(icon, message) {
+  const now = new Date();
+  const time = now.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  console.log(`[${time}] ${icon} ${message}`);
+}
 
 const STOPWORDS = new Set([
   "مدل",
@@ -44,7 +58,7 @@ const STOPWORDS = new Set([
   "درجه",
 ]);
 
-const NEGATIVE_MODIFIERS = new Set([
+const ALWAYS_NEGATIVE = new Set([
   "یدک",
   "یدکی",
   "قطعه",
@@ -57,22 +71,6 @@ const NEGATIVE_MODIFIERS = new Set([
   "بدل",
   "مشابه",
   "نمونه",
-  "شارژر",
-  "باتری",
-  "کابل",
-  "آداپتور",
-  "محافظ",
-  "قاب",
-  "کیف",
-  "جعبه",
-  "سیم",
-  "مبدل",
-  "برچسب",
-  "فیلتر",
-  "نوک",
-  "تیغ",
-  "سوزن",
-  "کارتریج",
   "تعمیر",
   "سرویس",
   "نصب",
@@ -83,14 +81,29 @@ const NEGATIVE_MODIFIERS = new Set([
   "بجای",
 ]);
 
-// ---------------------------------------------------------------
-// 🚫 تداخل دسته‌بندی
-// ---------------------------------------------------------------
+const ACCESSORY_WORDS = new Set([
+  "کیف",
+  "جعبه",
+  "قاب",
+  "محافظ",
+  "شارژر",
+  "باتری",
+  "کابل",
+  "آداپتور",
+  "سیم",
+  "مبدل",
+  "برچسب",
+  "فیلتر",
+  "نوک",
+  "تیغ",
+  "سوزن",
+  "کارتریج",
+]);
+
 const CATEGORY_CONFLICTS = [
   { query: ["اتود"], title: ["پاک کن", "پاک‌کن", "پاکن"] },
   { query: ["تراش"], title: ["دفتر", "قلمتراش", "قلم تراش"] },
   { query: ["قیچی"], title: ["دفتر", "کاغذ", "مقوا"] },
-  // 🎯 اگر کاربر «جلد» خواست، عنوانی که نشانه‌های «دفتر بودن» دارد رد شود
   { query: ["جلد"], title: ["کاغذ", "مقوا", "برگ", "صفحه", "صفحات"] },
 ];
 
@@ -127,9 +140,6 @@ function isCriticalIdentifier(token) {
   return false;
 }
 
-// ---------------------------------------------------------------
-// 🎯 تطبیق دو توکن (نسخه سخت‌گیرانه برای توکن‌های کوتاه)
-// ---------------------------------------------------------------
 function tokensMatch(queryToken, titleToken) {
   if (queryToken === titleToken) return true;
   if (isCriticalIdentifier(queryToken)) return false;
@@ -141,7 +151,6 @@ function tokensMatch(queryToken, titleToken) {
 
   if (shorter.length < 3) return false;
 
-  // 🎯 توکن‌های کوتاه (≤۴ حرف): فقط تطبیق کامل یا با پسوند ساده
   if (shorter.length <= 4) {
     const suffixes = ["ی", "ها", "های", "تر", "ترین", "و"];
     for (const s of suffixes) {
@@ -150,78 +159,25 @@ function tokensMatch(queryToken, titleToken) {
     return false;
   }
 
-  // 🎯 توکن‌های بلند (≥۵ حرف): substring مجاز
   return longer.includes(shorter);
 }
-
-// ---------------------------------------------------------------
-// 🚫 کلمات ناخواسته — تفکیک سخت‌گیرانه و نرم
-// ---------------------------------------------------------------
-// این‌ها همیشه رد می‌شوند (هر جای عنوان که باشند)
-const ALWAYS_NEGATIVE = new Set([
-  "یدک",
-  "یدکی",
-  "قطعه",
-  "قطعات",
-  "لوازم",
-  "جانبی",
-  "متعلقات",
-  "متعلق",
-  "جایگزین",
-  "بدل",
-  "مشابه",
-  "نمونه",
-  "تعمیر",
-  "سرویس",
-  "نصب",
-  "آموزش",
-  "راهنما",
-  "کتاب",
-  "دفترچه",
-]);
-
-// این‌ها فقط اگر قبل از کلمات query بیایند رد می‌شوند
-// (یعنی وقتی محصول جانبی است، نه توضیح بسته‌بندی)
-const ACCESSORY_WORDS = new Set([
-  "کیف",
-  "جعبه",
-  "قاب",
-  "محافظ",
-  "شارژر",
-  "باتری",
-  "کابل",
-  "آداپتور",
-  "سیم",
-  "مبدل",
-  "برچسب",
-  "فیلتر",
-  "نوک",
-  "تیغ",
-  "سوزن",
-  "کارتریج",
-]);
 
 function findUnwantedModifier(query, title) {
   const qTokens = new Set(tokenize(query));
   const tTokens = tokenize(title);
   if (tTokens.length === 0) return null;
 
-  // مرحله ۱: بررسی کلمات «همیشه منفی»
   for (const token of tTokens) {
     if (ALWAYS_NEGATIVE.has(token) && !qTokens.has(token)) {
       return token;
     }
   }
 
-  // مرحله ۲: بررسی کلمات جانبی با ترتیب
   for (let i = 0; i < tTokens.length; i++) {
     const token = tTokens[i];
     if (!ACCESSORY_WORDS.has(token)) continue;
     if (qTokens.has(token)) continue;
 
-    // آیا این کلمه قبل از هر کلمه‌ی query در عنوان آمده؟
-    // اگر بله → احتمالاً محصول جانبی است (مثل «کیف مداد»)
-    // اگر نه → توضیح بسته‌بندی است (مثل «مداد با جعبه»)
     let comesBeforeQueryWord = false;
     for (let j = 0; j < tTokens.length; j++) {
       if (qTokens.has(tTokens[j])) {
@@ -230,8 +186,6 @@ function findUnwantedModifier(query, title) {
       }
     }
 
-    // فقط اگر کلمه جانبی «در ابتدای عنوان» باشد، رد می‌کنیم
-    // مگر اینکه هیچ کلمه‌ی query در عنوان نباشد (که آن‌وقت رد می‌شود)
     if (i === 0 || comesBeforeQueryWord) {
       return token;
     }
@@ -274,11 +228,10 @@ function queryMatchScore(query, title) {
       ratio: 0,
       matchedTokens: [],
       missedTokens: [unwanted],
-      reason: `کلمه ناخواسته در عنوان: «${unwanted}» (در query نیست)`,
+      reason: `unwanted word: "${unwanted}"`,
     };
   }
 
-  // 🎯 چک تداخل دسته‌بندی
   const conflict = hasCategoryConflict(query, title);
   if (conflict) {
     return {
@@ -286,7 +239,7 @@ function queryMatchScore(query, title) {
       ratio: 0,
       matchedTokens: [],
       missedTokens: [conflict],
-      reason: `تداخل دسته‌بندی: «${conflict}» در عنوان (query نمی‌خواهد)`,
+      reason: `category conflict: "${conflict}"`,
     };
   }
 
@@ -301,7 +254,7 @@ function queryMatchScore(query, title) {
       ratio: 0,
       matchedTokens: [],
       missedTokens: missedIdentifiers,
-      reason: `شناسه حیاتی مطابقت ندارد: ${missedIdentifiers.join("، ")}`,
+      reason: `missing identifiers: ${missedIdentifiers.join(", ")}`,
     };
   }
 
@@ -390,9 +343,9 @@ function clusterProducts(products, threshold = 0.6) {
   return clusters;
 }
 
-// ---------------------------------------------------------------
-// 🖼️ استخراج URL تصویر با کیفیت بالا
-// ---------------------------------------------------------------
+// ================================================================
+// IMAGE EXTRACTION
+// ================================================================
 function extractProductImage($, element, domain) {
   const imageSelectors = [
     "img.attachment-woocommerce_thumbnail",
@@ -500,9 +453,9 @@ function upgradeWooCommerceImageUrl(url) {
   }
 }
 
-// ---------------------------------------------------------------
-// 🖼️ استخراج محصولات از __NEXT_DATA__
-// ---------------------------------------------------------------
+// ================================================================
+// NEXT_DATA EXTRACTION
+// ================================================================
 function extractFromNextData(data, storeName, domain) {
   const products = [];
   const seen = new Set();
@@ -564,29 +517,31 @@ function extractFromNextData(data, storeName, domain) {
   return products;
 }
 
-// ---------------------------------------------------------------
-// 💰 استخراج قیمت از متن (با حداقل ۱۰۰۰ تومان)
-// ---------------------------------------------------------------
+// ================================================================
+// PRICE PARSING
+// ================================================================
 function parsePriceText(text, currency) {
   if (!text) return 0;
 
   const cleaned = text
-    .replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
-    .replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d));
+    .replace(/[۰-۹]/g, (d) => PERSIAN_DIGITS.indexOf(d))
+    .replace(/[٠-٩]/g, (d) => ARABIC_DIGITS.indexOf(d));
 
-  // 🎯 فقط اعدادی که با فرمت قیمت (کاما دار) نوشته شده‌اند
-  // این الگو: عدد ۱ تا ۳ رقمی، سپس یک یا چند گروه «,XXX»
   const priceMatches = cleaned.match(/\d{1,3}(?:,\d{3})+/g);
 
   let price = 0;
 
   if (priceMatches && priceMatches.length > 0) {
-    // اگر چند عدد با فرمت قیمت هست، بزرگ‌ترین (که معمولاً قیمت واقعی است) را انتخاب کن
     const values = priceMatches.map((m) => parseInt(m.replace(/,/g, ""), 10));
     price = Math.max(...values);
   } else {
-    // اگر فرمت کاما نداشت (قیمت‌های زیر ۱۰۰۰ تومان)، از روش قدیمی استفاده کن
-    price = parseInt(cleaned.replace(/[^\d]/g, ""), 10);
+    const numMatches = cleaned.match(/\d{5,}/g);
+    if (numMatches) {
+      const values = numMatches.map((m) => parseInt(m, 10));
+      price = Math.max(...values);
+    } else {
+      price = parseInt(cleaned.replace(/[^\d]/g, ""), 10);
+    }
   }
 
   if (isNaN(price) || price === 0) return 0;
@@ -599,7 +554,7 @@ function parsePriceText(text, currency) {
 }
 
 // ================================================================
-// 🌐 پیکربندی فروشگاه‌ها
+// STORES CONFIG
 // ================================================================
 const NEW_STORES_CONFIG = [
   {
@@ -619,14 +574,15 @@ const NEW_STORES_CONFIG = [
       `https://armanartstore.com/?s=${encodeURIComponent(q)}&post_type=product`,
     itemSelector: "li.product",
     titleSelector: ".woocommerce-loop-product__title, h2, h3",
-    priceSelector: ".price ins .amount, .price .amount, .price",
+    priceSelector:
+      ".item-price, .price ins .amount, .price .amount, .price, .woocommerce-Price-amount",
     currency: "toman",
   },
   {
     name: "عالم‌زاده",
     domain: "alemzadeh.ir",
     searchUrl: (q) =>
-      `https://alemzadeh.ir/?s=${encodeURIComponent(q)}&post_type=product`,
+      `https://alemzadeh.ir/products?q=${encodeURIComponent(q)}`,
     itemSelector: ".product-card",
     titleSelector: "h3, h2, .product-card-title",
     priceSelector: ".product-card-price, .price",
@@ -637,9 +593,10 @@ const NEW_STORES_CONFIG = [
     domain: "mahestanart.com",
     searchUrl: (q) =>
       `https://mahestanart.com/?s=${encodeURIComponent(q)}&post_type=product`,
-    itemSelector: ".product-card, .product-item, li.product",
-    titleSelector: "h3, h2, .product-title",
-    priceSelector: ".product-price, .price",
+    itemSelector: "article",
+    titleSelector: ".title, h3, h2, .v-product-item-content .title",
+    priceSelector:
+      '.product-price-container, .product-price-container *, [class*="price"]',
     currency: "toman",
   },
   {
@@ -656,7 +613,7 @@ const NEW_STORES_CONFIG = [
 ];
 
 // ================================================================
-// 🌐 جستجو در ووکامرس
+// WOOCOMMERCE SEARCH
 // ================================================================
 async function searchWooCommerceStore(storeConfig, query, limit = 20) {
   const {
@@ -679,12 +636,12 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
         Accept: "text/html,application/xhtml+xml",
         "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
       },
-      timeout: 20000,
+      timeout: 30000,
       validateStatus: () => true,
     });
 
     if (response.status !== 200 || !response.data) {
-      console.log(`  ⚠️ ${name}: HTTP ${response.status}`);
+      log("WARN", `[${name}] HTTP ${response.status}`);
       return [];
     }
 
@@ -692,7 +649,7 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
     const products = [];
     const seen = new Set();
 
-    // تلاش برای __NEXT_DATA__
+    // Try __NEXT_DATA__
     const nextDataMatch = response.data.match(
       /<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/,
     );
@@ -701,9 +658,7 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
         const nextData = JSON.parse(nextDataMatch[1]);
         const nextProducts = extractFromNextData(nextData, name, domain);
         if (nextProducts.length > 0) {
-          console.log(
-            `  ✔ ${name}: ${nextProducts.length} محصول از __NEXT_DATA__`,
-          );
+          log("OK", `[${name}] ${nextProducts.length} products (NEXT_DATA)`);
           return nextProducts.slice(0, limit);
         }
       } catch (e) {}
@@ -729,7 +684,6 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
           link = `https://${domain}${link.startsWith("/") ? "" : "/"}${link}`;
         }
 
-        // 🎯 اولویت ۱: قیمت فروش (ins) — قیمت خط‌خورده (del) بزرگ‌تر است
         let priceText = "";
         const salePrice = $(el)
           .find(".price ins .amount, .price ins, ins .amount")
@@ -764,16 +718,20 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
         });
       });
 
-    console.log(`  ✔ ${name}: ${products.length} محصول استخراج شد`);
+    if (products.length === 0) {
+      log("WARN", `[${name}] 0 products found`);
+    } else {
+      log("OK", `[${name}] ${products.length} products`);
+    }
     return products;
   } catch (error) {
-    console.log(`  ⚠️ ${name}: خطا (${error.message})`);
+    log("ERR", `[${name}] ${error.message}`);
     return [];
   }
 }
 
 // ================================================================
-// 🏪 دیجی‌کالا
+// DIGIKALA
 // ================================================================
 function extractDigikalaImage(p) {
   if (!p || !p.images) return null;
@@ -811,6 +769,9 @@ async function searchDigikala(query, limit = 20) {
       timeout: 15000,
     });
     const products = response.data?.data?.products || [];
+
+    log("OK", `[دیجی‌کالا] ${products.length} products`);
+
     return products.slice(0, limit).map((p) => ({
       storeName: "دیجی‌کالا",
       productTitle: p.title_fa || "—",
@@ -826,13 +787,13 @@ async function searchDigikala(query, limit = 20) {
       image: extractDigikalaImage(p),
     }));
   } catch (error) {
-    console.warn(`⚠️ خطا در جستجوی دیجی‌کالا:`, error.message);
+    log("ERR", `[دیجی‌کالا] ${error.message}`);
     return [];
   }
 }
 
 // ================================================================
-// 🏪 ترب
+// TOROB
 // ================================================================
 async function searchTorob(query, limit = 20) {
   try {
@@ -846,13 +807,18 @@ async function searchTorob(query, limit = 20) {
             "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
           Accept: "application/json, text/plain, */*",
           "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
+          "Accept-Encoding": "gzip, deflate, br",
           Referer: "https://torob.com/",
           Origin: "https://torob.com",
+          "Sec-Fetch-Dest": "empty",
+          "Sec-Fetch-Mode": "cors",
+          "Sec-Fetch-Site": "same-site",
         },
         timeout: 15000,
       },
     );
     const products = response.data?.results || [];
+    log("OK", `[ترب] ${products.length} products`);
     return products.slice(0, limit).map((p) => ({
       storeName: "ترب",
       productTitle: p.name1 || p.name || "—",
@@ -866,111 +832,236 @@ async function searchTorob(query, limit = 20) {
         null,
     }));
   } catch (error) {
-    console.warn(`⚠️ خطا در جستجوی ترب:`, error.message);
+    log("ERR", `[ترب] ${error.message}`);
     return [];
   }
 }
 
 // ================================================================
-// 🎯 تابع اصلی
+// MAJD MARKET — Puppeteer (Vue SPA)
+// ================================================================
+async function searchMadjMarket(query, limit = 20) {
+  let browser = null;
+  try {
+    browser = await puppeteer.launch({
+      headless: "new",
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      // 🎯 اگر Chrome دانلودی کار نکرد، مسیر زیر را باز کنید:
+      executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    });
+
+    const page = await browser.newPage();
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    );
+
+    const url = `https://majdmarket.com/products?search=${encodeURIComponent(query)}`;
+    log("INFO", `[مجد مارکت] Loading page...`);
+
+    await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
+    await new Promise((r) => setTimeout(r, 3500));
+
+    await page.evaluate(() => window.scrollTo(0, 500));
+    await new Promise((r) => setTimeout(r, 1000));
+
+    const products = await page.evaluate(() => {
+      const result = [];
+      const seen = new Set();
+
+      document.querySelectorAll("a[href]").forEach((a) => {
+        const href = a.getAttribute("href") || "";
+        if (!href.includes("/products/")) return;
+        if (href.includes("/products?") || href === "/products") return;
+
+        let card = a;
+        for (let i = 0; i < 5; i++) {
+          if (!card.parentElement) break;
+          card = card.parentElement;
+          const txt = card.textContent || "";
+          if (/\d{3,}/.test(txt) && txt.length < 800) break;
+        }
+
+        const fullText = card.textContent || "";
+        const priceMatch = fullText.match(/([\d۰-۹]{1,3}(?:[،,][\d۰-۹]{3})+)/);
+        if (!priceMatch) return;
+
+        let priceStr = priceMatch[1]
+          .replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
+          .replace(/[،,]/g, "");
+        const price = parseInt(priceStr, 10);
+        if (isNaN(price) || price < 1000 || price > 500000000) return;
+
+        let title = "";
+        const titleEl = card.querySelector(
+          'h1, h2, h3, h4, h5, .title, [class*="title"], [class*="name"]',
+        );
+        if (titleEl) {
+          title = titleEl.textContent.trim();
+        } else {
+          title = a.textContent.trim();
+        }
+        title = title.replace(/\s+/g, " ").substring(0, 150);
+        if (!title || title.length < 5) return;
+        if (seen.has(title)) return;
+        seen.add(title);
+
+        const img = card.querySelector("img");
+        let image = null;
+        if (img) {
+          image =
+            img.getAttribute("data-src") ||
+            img.getAttribute("src") ||
+            img.getAttribute("data-lazy-src") ||
+            null;
+          if (image && image.startsWith("data:")) image = null;
+          if (image && !image.startsWith("http")) {
+            image = new URL(image, location.origin).href;
+          }
+        }
+
+        const fullLink = a.href.startsWith("http")
+          ? a.href
+          : new URL(a.href, location.origin).href;
+
+        result.push({ title, price, link: fullLink, image });
+      });
+
+      return result;
+    });
+
+    log("OK", `[مجد مارکت] ${products.length} products (Puppeteer)`);
+
+    return products.slice(0, limit).map((p) => ({
+      storeName: "مجد مارکت",
+      productTitle: p.title,
+      price: p.price,
+      link: p.link,
+      image: p.image,
+    }));
+  } catch (error) {
+    log("ERR", `[مجد مارکت] ${error.message.split("\n")[0]}`);
+    return [];
+  } finally {
+    if (browser) await browser.close();
+  }
+}
+
+// ================================================================
+// MAIN FUNCTION
 // ================================================================
 async function compareBasket(shoppingList) {
   const MIN_QUERY_MATCH = 0.6;
   const MIN_TOKEN_RATIO = 0.75;
-  const SEP = "─".repeat(70);
-  const THICK_SEP = "═".repeat(70);
 
-  // 🎯 اجرای موازی همه‌ی queryها
-  const queryResults = await Promise.all(
-    shoppingList.map(async (query) => {
-      console.log("\n\n");
-      console.log(THICK_SEP);
-      console.log(`🔍 جستجو: «${query}»`);
-      console.log(THICK_SEP);
+  const queries = [];
+  let queryIndex = 0;
 
-      const allResults = await Promise.all([
-        searchDigikala(query, 20),
-        searchTorob(query, 20),
-        ...NEW_STORES_CONFIG.map((s) => searchWooCommerceStore(s, query, 20)),
-        // searchAlemzadehWithPuppeteer(query, 20), // اگر Chrome نداری، کامنت کن
-      ]);
-      const allProducts = allResults.flat();
+  for (const query of shoppingList) {
+    queryIndex++;
+    console.log("");
+    console.log("━".repeat(60));
+    log("SEARCH", `(${queryIndex}/${shoppingList.length}) Query: "${query}"`);
+    console.log("━".repeat(60));
 
-      const queryTokens = tokenize(query);
-      const queryIds = queryTokens.filter(isCriticalIdentifier);
+    const otherStores = NEW_STORES_CONFIG.filter((s) => s.name !== "مجد مارکت");
 
-      console.log(`   تعداد کل محصولات دریافتی: ${allProducts.length}`);
+    const allResults = await Promise.all([
+      searchDigikala(query, 20),
+      searchTorob(query, 20),
+      ...otherStores.map((s) => searchWooCommerceStore(s, query, 20)),
+      searchMadjMarket(query, 20),
+    ]);
+    const allProducts = allResults.flat();
 
-      const relevantProducts = [];
-      let acceptedCount = 0,
-        rejectedCount = 0,
-        zeroPriceRejected = 0;
+    const queryTokens = tokenize(query);
+    const queryIds = queryTokens.filter(isCriticalIdentifier);
 
-      for (const p of allProducts) {
-        const matchInfo = queryMatchScore(query, p.productTitle);
-        const passesScore = matchInfo.score >= 0.6;
-        const passesRatio = matchInfo.ratio >= 0.75;
-        const isAccepted = passesScore && passesRatio;
+    console.log("");
+    log("INFO", `Total products received: ${allProducts.length}`);
+    if (queryIds.length > 0) {
+      log("INFO", `Critical identifiers: ${queryIds.join(", ")}`);
+    }
+    console.log("");
 
-        if (isAccepted) {
-          if (p.price === 0) zeroPriceRejected++;
-          else {
-            acceptedCount++;
-            relevantProducts.push(p);
-          }
-        } else rejectedCount++;
-      }
+    const relevantProducts = [];
+    let acceptedCount = 0,
+      rejectedCount = 0,
+      zeroPriceRejected = 0;
 
-      const clusters = clusterProducts(relevantProducts, 0.5);
+    for (const p of allProducts) {
+      const matchInfo = queryMatchScore(query, p.productTitle);
+      const passesScore = matchInfo.score >= MIN_QUERY_MATCH;
+      const passesRatio = matchInfo.ratio >= MIN_TOKEN_RATIO;
+      const isAccepted = passesScore && passesRatio;
 
-      const matches = clusters
-        .map((cluster) => {
-          const byStore = {};
-          for (const offer of cluster.offers) {
-            if (
-              !byStore[offer.storeName] ||
-              offer.price < byStore[offer.storeName].price
-            ) {
-              byStore[offer.storeName] = offer;
-            }
-          }
-          const offers = Object.values(byStore).sort(
-            (a, b) => a.price - b.price,
+      if (isAccepted) {
+        if (p.price === 0) {
+          zeroPriceRejected++;
+          log(
+            "WARN",
+            `[${p.storeName}] Zero price: "${p.productTitle.substring(0, 50)}"`,
           );
-          const cheapest = offers[0];
-          const mostExpensive = offers[offers.length - 1];
-          const savings = mostExpensive.price - cheapest.price;
-          const savingsPercent =
-            mostExpensive.price > 0
-              ? Math.round((savings / mostExpensive.price) * 100)
-              : 0;
-          return {
-            productName: cluster.representative.productTitle,
-            offers,
-            cheapest,
-            savings,
-            savingsPercent,
-            storeCount: offers.length,
-          };
-        })
-        .filter((m) => m.offers.length > 0 && m.cheapest.price > 0)
-        .sort((a, b) => {
-          if (b.storeCount !== a.storeCount) return b.storeCount - a.storeCount;
-          return a.cheapest.price - b.cheapest.price;
-        });
+        } else {
+          acceptedCount++;
+          relevantProducts.push(p);
+        }
+      } else {
+        rejectedCount++;
+        log(
+          "SKIP",
+          `[${p.storeName}] "${p.productTitle.substring(0, 45)}..." | score: ${matchInfo.score.toFixed(2)} | ratio: ${matchInfo.ratio.toFixed(2)} | ${matchInfo.reason || "low match"}`,
+        );
+      }
+    }
 
-      console.log(
-        `   ✅ ${acceptedCount} تأیید │ ❌ ${rejectedCount} رد │ 🎯 ${matches.length} خوشه`,
-      );
-      return { query, matches };
-    }),
-  );
+    console.log("");
+    log(
+      "STAT",
+      `Accepted: ${acceptedCount} | Rejected: ${rejectedCount} | Zero-price: ${zeroPriceRejected}`,
+    );
 
-  const queries = queryResults;
+    const clusters = clusterProducts(relevantProducts, 0.5);
 
-  // ===============================================================
-  // ساخت basketComparison (گروه‌بندی بر اساس فروشگاه)
-  // ===============================================================
+    const matches = clusters
+      .map((cluster) => {
+        const byStore = {};
+        for (const offer of cluster.offers) {
+          if (
+            !byStore[offer.storeName] ||
+            offer.price < byStore[offer.storeName].price
+          ) {
+            byStore[offer.storeName] = offer;
+          }
+        }
+        const offers = Object.values(byStore).sort((a, b) => a.price - b.price);
+        const cheapest = offers[0];
+        const mostExpensive = offers[offers.length - 1];
+        const savings = mostExpensive.price - cheapest.price;
+        const savingsPercent =
+          mostExpensive.price > 0
+            ? Math.round((savings / mostExpensive.price) * 100)
+            : 0;
+        return {
+          productName: cluster.representative.productTitle,
+          offers,
+          cheapest,
+          savings,
+          savingsPercent,
+          storeCount: offers.length,
+        };
+      })
+      .filter((m) => m.offers.length > 0 && m.cheapest.price > 0)
+      .sort((a, b) => {
+        if (b.storeCount !== a.storeCount) return b.storeCount - a.storeCount;
+        return a.cheapest.price - b.cheapest.price;
+      });
+
+    log("DONE", `Query "${query}" → ${matches.length} clusters`);
+    queries.push({ query, matches });
+    await new Promise((r) => setTimeout(r, 800));
+  }
+
+  // Build basketComparison
   const storeNames = new Set();
   for (const { matches } of queries) {
     for (const match of matches) {
@@ -986,7 +1077,6 @@ async function compareBasket(shoppingList) {
         pickedItems = [];
 
       for (const { query, matches } of queries) {
-        // 🎯 جمع‌آوری همه پیشنهادهای این فروشگاه برای این query
         const offersForStore = [];
         for (const match of matches) {
           const offer = match.offers.find((o) => o.storeName === storeName);
@@ -998,9 +1088,7 @@ async function compareBasket(shoppingList) {
           continue;
         }
 
-        // 🎯 مرتب‌سازی بر اساس قیمت (کمترین اول)
         offersForStore.sort((a, b) => a.price - b.price);
-
         const cheapest = offersForStore[0];
         const others = offersForStore.slice(1);
 
@@ -1012,7 +1100,6 @@ async function compareBasket(shoppingList) {
           price: cheapest.price,
           link: cheapest.link,
           image: cheapest.image || null,
-          // 🎯 سایر محصولات این فروشگاه برای این query
           otherItems: others.map((o) => ({
             title: o.productTitle,
             price: o.price,
@@ -1026,192 +1113,20 @@ async function compareBasket(shoppingList) {
     })
     .filter((b) => b.itemCount > 0)
     .sort((a, b) => {
-      // 🎯 اولویت اول: مجموع سبد (کمترین → بیشترین)
       if (a.total !== b.total) return a.total - b.total;
-      // 🎯 اولویت دوم: در صورت تساوی قیمت، فروشگاه با آیتم بیشتر بالاتر
       return b.itemCount - a.itemCount;
     });
 
+  console.log("");
+  console.log("━".repeat(60));
+  log(
+    "DONE",
+    `All queries finished. ${basketComparison.length} stores with results.`,
+  );
+  console.log("━".repeat(60));
+  console.log("");
+
   return { queries, basketComparison };
-}
-
-// ================================================================
-// 🌐 اسکرپر اختصاصی عالم‌زاده با Puppeteer (برای جستجوی داینامیک)
-// ================================================================
-const puppeteer = require("puppeteer");
-
-async function searchAlemzadehWithPuppeteer(query, limit = 20) {
-  const browser = await puppeteer.launch({
-    headless: "new",
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    executablePath:
-      "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", // مسیر Chrome خود را اینجا بگذارید
-  });
-
-  try {
-    const page = await browser.newPage();
-    await page.setUserAgent(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    );
-
-    const url = `https://alemzadeh.ir/products?q=${encodeURIComponent(query)}`;
-    console.log(`  ⏳ عالم‌زاده: بارگذاری صفحه با Puppeteer...`);
-
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
-
-    // صبر کن تا کارت‌های محصول ظاهر شوند
-    await page
-      .waitForSelector(".product-card, li.product, .products .product", {
-        timeout: 10000,
-      })
-      .catch(() => {});
-
-    // اسکرول به پایین برای لود شدن تصاویر lazy
-    await page.evaluate(() => {
-      window.scrollTo(0, document.body.scrollHeight / 2);
-    });
-    await new Promise((r) => setTimeout(r, 800));
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await new Promise((r) => setTimeout(r, 300));
-
-    const products = await page.evaluate(() => {
-      const items = document.querySelectorAll(
-        ".product-card, li.product, .products .product",
-      );
-      const result = [];
-
-      items.forEach((el) => {
-        // 🎯 عنوان
-        const titleEl = el.querySelector(
-          "h3, h2, .product-card-title, .product-title, .woocommerce-loop-product__title",
-        );
-        if (!titleEl) return;
-        const title = titleEl.textContent.trim();
-
-        // 🎯 قیمت — سعی می‌کنیم عنصر خاص قیمت را بگیریم
-        let priceText = "";
-        const priceCandidates = [
-          ".product-card-price",
-          '[class*="price"]',
-          ".price",
-          ".amount",
-        ];
-        for (const sel of priceCandidates) {
-          const el2 = el.querySelector(sel);
-          if (el2) {
-            const t = el2.textContent.trim();
-            // باید حداقل یک عدد داشته باشد
-            if (/\d/.test(t)) {
-              priceText = t;
-              break;
-            }
-          }
-        }
-        if (!priceText) return;
-
-        // 🎯 لینک — چند روش
-        let link = "";
-        // ۱. اگر خود کارت anchor است
-        if (el.tagName === "A" && el.href) {
-          link = el.href;
-        } else {
-          // ۲. اولین anchor داخل کارت
-          const a = el.querySelector("a[href]");
-          if (a && a.href) link = a.href;
-
-          // ۳. اگر عنوان داخل anchor باشد
-          if (!link) {
-            const titleLink = titleEl.closest("a");
-            if (titleLink && titleLink.href) link = titleLink.href;
-          }
-        }
-
-        // 🎯 تصویر — با پشتیبانی از lazy-load
-        let image = null;
-        const imgEl = el.querySelector("img");
-        if (imgEl) {
-          image =
-            imgEl.getAttribute("data-src") ||
-            imgEl.getAttribute("data-lazy-src") ||
-            imgEl.getAttribute("data-original") ||
-            imgEl.getAttribute("data-srcset") ||
-            imgEl.src ||
-            null;
-
-          // اگر srcset بود، اولین URL را بگیر
-          if (image && image.includes(",")) {
-            image = image.split(",")[0].trim().split(" ")[0];
-          }
-
-          // اگر data URI یا placeholder بود، رد کن
-          if (
-            image &&
-            (image.startsWith("data:") || image.includes("placeholder"))
-          ) {
-            image = null;
-          }
-
-          // تبدیل به URL مطلق
-          if (image && !image.startsWith("http")) {
-            try {
-              image = new URL(image, window.location.origin).href;
-            } catch (e) {
-              image = null;
-            }
-          }
-        }
-
-        // 🎯 قیمت — تبدیل به عدد
-        const cleanPrice = priceText
-          .replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
-          .replace(/[^\d]/g, "");
-        const price = parseInt(cleanPrice, 10);
-
-        if (!isNaN(price) && price > 0 && title) {
-          result.push({
-            storeName: "عالم‌زاده",
-            productTitle: title,
-            price: price,
-            link: link,
-            image: image,
-          });
-        }
-      });
-
-      return result;
-    });
-
-    // 🎯 لاگ دیباگ: نمایش وضعیت لینک و تصویر
-    const withLink = products.filter((p) => p.link).length;
-    const withImage = products.filter((p) => p.image).length;
-    console.log(
-      `  ✔ عالم‌زاده: ${products.length} محصول | ${withLink} لینک | ${withImage} تصویر`,
-    );
-
-    // اگر مشکل داشت، ساختار اولین کارت را چاپ کن
-    if (products.length > 0 && (withLink === 0 || withImage === 0)) {
-      console.log("  🔍 دیباگ عالم‌زاده — نمونه محصول اول:");
-      console.log("     عنوان:", products[0].productTitle);
-      console.log("     لینک:", products[0].link || "(خالی)");
-      console.log("     تصویر:", products[0].image || "(خالی)");
-
-      // چاپ ساختار HTML اولین کارت
-      const debugHtml = await page.evaluate(() => {
-        const first = document.querySelector(
-          ".product-card, li.product, .products .product",
-        );
-        return first ? first.outerHTML.substring(0, 1500) : "not found";
-      });
-      console.log("     HTML نمونه:", debugHtml);
-    }
-
-    return products.slice(0, limit);
-  } catch (error) {
-    console.log(`  ⚠️ عالم‌زاده: خطا در Puppeteer (${error.message})`);
-    return [];
-  } finally {
-    await browser.close();
-  }
 }
 
 module.exports = { compareBasket };
