@@ -2242,3 +2242,1791 @@ a img,
     padding: 0.75rem 0.5rem;
   }
 }
+/* ================================================================
+   🎯 گروه دکمه‌های ترتیب نمایش
+   ================================================================ */
+.sort-toggle-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.sort-toggle-label {
+  font-size: 0.813rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-left: 0.25rem;
+}
+
+.sort-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 0.625rem;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.813rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sort-option:hover {
+  border-color: var(--primary-light);
+  color: var(--primary-dark);
+}
+
+.sort-option.active {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: white;
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+:root[data-theme="dark"] .sort-toggle-group {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* ================================================================
+   🎯 دکمه قلب روی کارت محصول
+   ================================================================ */
+.product-wishlist-btn {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  color: #64748b;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  transition: all 0.25s ease;
+  padding: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.product-wishlist-btn:hover {
+  transform: scale(1.15);
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.product-wishlist-btn.active {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  border-color: #ef4444;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.5);
+  animation: heartBeat 0.4s ease;
+}
+
+@keyframes heartBeat {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.3);
+  }
+  60% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+:root[data-theme="dark"] .product-wishlist-btn {
+  background: rgba(30, 41, 59, 0.95);
+  color: #94a3b8;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme="dark"] .product-wishlist-btn:hover {
+  background: #1e293b;
+  color: #f87171;
+}
+
+/* ================================================================
+   🎯 دکمه شناور علاقه‌مندی‌ها
+   ================================================================ */
+.wishlist-float-btn {
+  position: fixed;
+  bottom: 2rem;
+  left: 2rem;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  border: 3px solid var(--surface);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.45);
+  transition: all 0.3s ease;
+  padding: 0;
+  animation: wishlistFloatIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes wishlistFloatIn {
+  from {
+    opacity: 0;
+    transform: scale(0.5) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.wishlist-float-btn:hover {
+  transform: translateY(-4px) scale(1.08);
+  box-shadow: 0 12px 32px rgba(239, 68, 68, 0.6);
+}
+
+.wishlist-float-btn:active {
+  transform: translateY(-2px) scale(1);
+}
+
+.wishlist-float-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.wishlist-float-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.375rem;
+  background: #0f172a;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 800;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--surface);
+  font-family: "Vazirmatn", sans-serif;
+}
+
+:root[data-theme="dark"] .wishlist-float-btn {
+  border-color: #1e293b;
+}
+
+:root[data-theme="dark"] .wishlist-float-count {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #1e293b;
+}
+
+/* ================================================================
+   🎯 مودال علاقه‌مندی‌ها
+   ================================================================ */
+.wishlist-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  animation: wishlistModalFadeIn 0.25s ease;
+}
+
+@keyframes wishlistModalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.wishlist-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+
+.wishlist-modal-content {
+  position: relative;
+  z-index: 1;
+  background: var(--surface);
+  border-radius: 1.5rem;
+  padding: 1.75rem;
+  width: 100%;
+  max-width: 700px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+  animation: wishlistModalZoomIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+}
+
+@keyframes wishlistModalZoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.wishlist-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px dashed var(--border);
+}
+
+.wishlist-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.wishlist-modal-icon {
+  font-size: 1.5rem;
+}
+
+.wishlist-modal-close {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.wishlist-modal-close:hover {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+  transform: rotate(90deg);
+}
+
+.wishlist-modal-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.875rem 1.25rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border-radius: 0.875rem;
+  font-weight: 700;
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.3);
+}
+
+.wishlist-modal-total .total-label {
+  font-size: 0.875rem;
+  opacity: 0.95;
+  color: white;
+}
+
+.wishlist-modal-total .total-value {
+  font-size: 1.25rem;
+  color: white;
+  font-weight: 800;
+}
+
+.wishlist-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+}
+
+.wishlist-modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.wishlist-modal-body::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.wishlist-item {
+  display: grid;
+  grid-template-columns: 70px 1fr auto auto;
+  gap: 0.875rem;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 0.875rem;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  color: inherit;
+}
+
+.wishlist-item.wishlist-item-link {
+  cursor: pointer;
+}
+
+.wishlist-item.wishlist-item-link:hover {
+  border-color: var(--primary-light);
+  background: var(--surface);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.12);
+  transform: translateX(-4px);
+}
+
+.wishlist-item.wishlist-item-link:hover .wishlist-item-title {
+  color: var(--primary-dark);
+}
+
+.wishlist-item:hover {
+  border-color: var(--primary-light);
+  background: var(--surface);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.1);
+}
+
+.wishlist-item-image {
+  width: 70px;
+  height: 70px;
+  background: #ffffff;
+  border-radius: 0.625rem;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+:root[data-theme="dark"] .wishlist-item-image {
+  background: #0f172a;
+}
+
+.wishlist-item-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 0.25rem;
+}
+
+.wishlist-item-image .wishlist-item-icon {
+  font-size: 2rem;
+}
+
+.wishlist-item-info {
+  min-width: 0;
+}
+
+.wishlist-item-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 0.25rem;
+  line-height: 1.4;
+}
+
+.wishlist-item-store {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.wishlist-item-price {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+
+.wishlist-item-price-value {
+  font-size: 0.9375rem;
+  font-weight: 800;
+  color: var(--primary-dark);
+}
+
+.wishlist-item-price-currency {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.wishlist-item-remove {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  padding: 0;
+  flex-shrink: 0;
+  z-index: 2;
+}
+
+.wishlist-item-remove:hover {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+  transform: rotate(90deg);
+}
+
+.wishlist-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.wishlist-empty-icon {
+  font-size: 3rem;
+  opacity: 0.5;
+}
+
+.wishlist-empty-text {
+  font-size: 0.938rem;
+  font-weight: 500;
+}
+
+/* 🎯 موبایل */
+@media (max-width: 640px) {
+  .sort-toggle-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .sort-toggle-label {
+    margin-bottom: 0.25rem;
+  }
+  .sort-option {
+    justify-content: center;
+  }
+
+  .wishlist-float-btn {
+    bottom: 1.25rem;
+    left: 1.25rem;
+    width: 3rem;
+    height: 3rem;
+  }
+  .wishlist-float-icon {
+    font-size: 1.25rem;
+  }
+
+  .wishlist-modal {
+    padding: 1rem;
+  }
+  .wishlist-modal-content {
+    padding: 1.25rem;
+    max-height: 90vh;
+  }
+  .wishlist-modal-title {
+    font-size: 1.063rem;
+  }
+  .wishlist-item {
+    grid-template-columns: 60px 1fr auto;
+    gap: 0.625rem;
+    padding: 0.625rem;
+  }
+  .wishlist-item-image {
+    width: 60px;
+    height: 60px;
+  }
+  .wishlist-item-price {
+    grid-column: 2 / 3;
+    justify-content: flex-start;
+  }
+  .wishlist-item-remove {
+    grid-column: 3 / 4;
+    grid-row: 1 / 2;
+  }
+}
+/* ================================================================
+   🎯 دکمه سرچ — حالت slot machine (بازگردانی شده)
+   ================================================================ */
+.btn-search {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-search-idle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-search-active {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.btn-search.searching .btn-search-idle {
+  display: none;
+}
+.btn-search.searching .btn-search-active {
+  display: flex;
+}
+
+.search-label {
+  color: #ffffff;
+  font-size: 0.813rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.search-spinner {
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+.slot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.75rem;
+  min-width: 5rem;
+  padding: 0 0.75rem;
+  background: var(--slot-color-bg, rgba(255, 255, 255, 0.28));
+  border: 2px solid var(--slot-color-border, rgba(255, 255, 255, 0.55));
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.2),
+    0 2px 6px rgba(0, 0, 0, 0.15);
+  transition:
+    background 0.35s ease,
+    border-color 0.35s ease;
+}
+
+.slot-item {
+  min-width: 5rem;
+  max-width: 11rem;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
+  border-color: #818cf8 !important;
+}
+
+.slot-store {
+  min-width: 6rem;
+  max-width: 9rem;
+}
+
+.slot-text {
+  display: block;
+  color: #ffffff;
+  font-size: 0.813rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  text-align: center;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  letter-spacing: -0.2px;
+}
+
+.slot-text.slot-out {
+  animation: slotRollOut 0.35s cubic-bezier(0.55, 0.06, 0.68, 0.19) forwards;
+}
+
+.slot-text.slot-in {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: slotRollIn 0.35s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+@keyframes slotRollOut {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-120%);
+    opacity: 0;
+  }
+}
+
+@keyframes slotRollIn {
+  0% {
+    transform: translateY(120%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+:root[data-theme="dark"] .slot {
+  background: var(--slot-color-bg, rgba(0, 0, 0, 0.35));
+  border-color: var(--slot-color-border, rgba(255, 255, 255, 0.45));
+}
+
+/* ================================================================
+   🎯 دکمه قلب روی strip-item
+   ================================================================ */
+.strip-wishlist-btn {
+  top: 0.375rem !important;
+  left: 0.375rem !important;
+  width: 1.75rem !important;
+  height: 1.75rem !important;
+  font-size: 0.875rem !important;
+  z-index: 10 !important;
+}
+
+/* ================================================================
+   🎯 مخفی کردن دکمه‌های ناوبری در موبایل
+   ================================================================ */
+@media (max-width: 640px) {
+  .grid-nav {
+    display: none !important;
+  }
+  .products-strip-wrapper {
+    padding: 0 0.5rem;
+  }
+  .strip-nav {
+    display: none !important;
+  }
+  .strip-viewport {
+    padding: 0.75rem 0.5rem;
+  }
+}
+
+/* ================================================================
+   🎯 گزینه‌های ترتیب نمایش
+   ================================================================ */
+.sort-toggle-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.sort-toggle-label {
+  font-size: 0.813rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-left: 0.25rem;
+}
+
+.sort-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 0.625rem;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.813rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sort-option:hover {
+  border-color: var(--primary-light);
+  color: var(--primary-dark);
+}
+
+.sort-option.active {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: white;
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+:root[data-theme="dark"] .sort-toggle-group {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* ================================================================
+   🎯 دکمه قلب روی کارت اصلی
+   ================================================================ */
+.product-wishlist-btn {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  color: #64748b;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  transition: all 0.25s ease;
+  padding: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.product-wishlist-btn:hover {
+  transform: scale(1.15);
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.product-wishlist-btn.active {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  border-color: #ef4444;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.5);
+  animation: heartBeat 0.4s ease;
+}
+
+@keyframes heartBeat {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.3);
+  }
+  60% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+:root[data-theme="dark"] .product-wishlist-btn {
+  background: rgba(30, 41, 59, 0.95);
+  color: #94a3b8;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme="dark"] .product-wishlist-btn:hover {
+  background: #1e293b;
+  color: #f87171;
+}
+
+/* ================================================================
+   🎯 دکمه شناور علاقه‌مندی‌ها
+   ================================================================ */
+.wishlist-float-btn {
+  position: fixed;
+  bottom: 2rem;
+  left: 2rem;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  border: 3px solid var(--surface);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.45);
+  transition: all 0.3s ease;
+  padding: 0;
+  animation: wishlistFloatIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes wishlistFloatIn {
+  from {
+    opacity: 0;
+    transform: scale(0.5) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.wishlist-float-btn:hover {
+  transform: translateY(-4px) scale(1.08);
+  box-shadow: 0 12px 32px rgba(239, 68, 68, 0.6);
+}
+
+.wishlist-float-btn:active {
+  transform: translateY(-2px) scale(1);
+}
+
+.wishlist-float-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.wishlist-float-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.375rem;
+  background: #0f172a;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 800;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--surface);
+  font-family: "Vazirmatn", sans-serif;
+}
+
+:root[data-theme="dark"] .wishlist-float-btn {
+  border-color: #1e293b;
+}
+
+:root[data-theme="dark"] .wishlist-float-count {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #1e293b;
+}
+
+/* ================================================================
+   🎯 مودال علاقه‌مندی‌ها
+   ================================================================ */
+.wishlist-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  animation: wishlistModalFadeIn 0.25s ease;
+}
+
+@keyframes wishlistModalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.wishlist-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+
+.wishlist-modal-content {
+  position: relative;
+  z-index: 1;
+  background: var(--surface);
+  border-radius: 1.5rem;
+  padding: 1.75rem;
+  width: 100%;
+  max-width: 700px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+  animation: wishlistModalZoomIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+}
+
+@keyframes wishlistModalZoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.wishlist-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px dashed var(--border);
+}
+
+.wishlist-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.wishlist-modal-icon {
+  font-size: 1.5rem;
+}
+
+.wishlist-modal-close {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.wishlist-modal-close:hover {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+  transform: rotate(90deg);
+}
+
+.wishlist-modal-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.875rem 1.25rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border-radius: 0.875rem;
+  font-weight: 700;
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.3);
+}
+
+.wishlist-modal-total .total-label {
+  font-size: 0.875rem;
+  opacity: 0.95;
+  color: white;
+}
+
+.wishlist-modal-total .total-value {
+  font-size: 1.25rem;
+  color: white;
+  font-weight: 800;
+}
+
+.wishlist-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+}
+
+.wishlist-modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+.wishlist-modal-body::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.wishlist-item {
+  display: grid;
+  grid-template-columns: 70px 1fr auto auto;
+  gap: 0.875rem;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.wishlist-item:hover {
+  border-color: var(--primary-light);
+  background: var(--surface);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.1);
+}
+
+.wishlist-item-image {
+  width: 70px;
+  height: 70px;
+  background: #ffffff;
+  border-radius: 0.625rem;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+:root[data-theme="dark"] .wishlist-item-image {
+  background: #0f172a;
+}
+
+.wishlist-item-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 0.25rem;
+}
+
+.wishlist-item-image .wishlist-item-icon {
+  font-size: 2rem;
+}
+
+.wishlist-item-info {
+  min-width: 0;
+}
+
+.wishlist-item-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 0.25rem;
+  line-height: 1.4;
+}
+
+.wishlist-item-store {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.wishlist-item-price {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+
+.wishlist-item-price-value {
+  font-size: 0.9375rem;
+  font-weight: 800;
+  color: var(--primary-dark);
+}
+
+.wishlist-item-price-currency {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.wishlist-item-remove {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  padding: 0;
+}
+
+.wishlist-item-remove:hover {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+}
+
+.wishlist-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.wishlist-empty-icon {
+  font-size: 3rem;
+  opacity: 0.5;
+}
+.wishlist-empty-text {
+  font-size: 0.938rem;
+  font-weight: 500;
+}
+
+/* موبایل */
+@media (max-width: 640px) {
+  .sort-toggle-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .sort-option {
+    justify-content: center;
+  }
+
+  .wishlist-float-btn {
+    bottom: 1.25rem;
+    left: 1.25rem;
+    width: 3rem;
+    height: 3rem;
+  }
+  .wishlist-float-icon {
+    font-size: 1.25rem;
+  }
+
+  .wishlist-modal {
+    padding: 1rem;
+  }
+  .wishlist-modal-content {
+    padding: 1.25rem;
+    max-height: 90vh;
+  }
+  .wishlist-modal-title {
+    font-size: 1.063rem;
+  }
+  .wishlist-item {
+    grid-template-columns: 60px 1fr auto;
+    gap: 0.625rem;
+    padding: 0.625rem;
+  }
+  .wishlist-item-image {
+    width: 60px;
+    height: 60px;
+  }
+  .wishlist-item-price {
+    grid-column: 2 / 3;
+    justify-content: flex-start;
+  }
+  .wishlist-item-actions {
+    grid-column: 3 / 4;
+    grid-row: 1 / 2;
+  }
+  .wishlist-item-price-value {
+    font-size: 0.875rem;
+  }
+
+  .search-label {
+    font-size: 0.688rem;
+  }
+  .slot {
+    height: 1.5rem;
+    padding: 0 0.5rem;
+    min-width: 4rem;
+  }
+  .slot-item {
+    min-width: 4rem;
+    max-width: 7rem;
+  }
+  .slot-store {
+    min-width: 4rem;
+    max-width: 6rem;
+  }
+  .slot-text {
+    font-size: 0.688rem;
+  }
+  .search-spinner {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+}
+/* ================================================================
+   🎯 نمایش فروشگاه در آیتم علاقه‌مندی (هم‌سبک با صفحه اصلی)
+   ================================================================ */
+.wishlist-item-store {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  background: var(--bg);
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+  max-width: fit-content;
+}
+
+.wishlist-item-store-logo {
+  width: 1.125rem;
+  height: 1.125rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border-radius: 0.3rem;
+  padding: 0.1rem;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme="dark"] .wishlist-item-store-logo {
+  background: #ffffff;
+}
+
+.wishlist-item-store-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  border-radius: 0.2rem;
+}
+
+.wishlist-item-store-fallback {
+  font-size: 0.75rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wishlist-item-store-name {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+/* ================================================================
+   🎯 اعلان Toast
+   ================================================================ */
+.toast-container {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  pointer-events: none;
+}
+
+.toast {
+  position: relative;
+  min-width: 280px;
+  max-width: 360px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 1rem;
+  padding: 1rem 1.25rem 1.5rem;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  pointer-events: auto;
+  overflow: hidden;
+  animation: toastSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.3s ease;
+}
+
+.toast.toast-out {
+  animation: toastSlideOut 0.3s ease forwards;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-100%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) translateY(0);
+  }
+}
+
+@keyframes toastSlideOut {
+  to {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+}
+
+/* 🎯 آیکن */
+.toast-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+}
+
+.toast.toast-success .toast-icon {
+  background: linear-gradient(135deg, #10b981, #059669);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+}
+
+.toast.toast-remove .toast-icon {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+}
+
+.toast.toast-info .toast-icon {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+}
+
+/* 🎯 محتوا */
+.toast-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-title {
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 0.125rem;
+}
+
+.toast-message {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.4;
+}
+
+/* 🎯 نوار پیشرفت */
+.toast-progress {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  left: 0;
+  height: 4px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.toast-progress-bar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #6366f1, #4f46e5);
+  transform-origin: right center;
+  /* 🎯 duration از JS می‌آید */
+  animation-name: toastProgress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.toast.toast-success .toast-progress-bar {
+  background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.toast.toast-remove .toast-progress-bar {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+.toast.toast-info .toast-progress-bar {
+  background: linear-gradient(90deg, #6366f1, #4f46e5);
+}
+
+@keyframes toastProgress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* 🎯 دارک مود */
+:root[data-theme="dark"] .toast {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme="dark"] .toast-progress {
+  background: #0f172a;
+}
+
+/* 🎯 موبایل */
+@media (max-width: 640px) {
+  .toast-container {
+    bottom: 1rem;
+    right: 1rem;
+    left: 1rem;
+  }
+  .toast {
+    min-width: 0;
+    max-width: none;
+  }
+}
+
+/* ================================================================
+   🎯 نوار ابزار مودال علاقه‌مندی
+   ================================================================ */
+.wishlist-modal-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px dashed var(--border);
+  flex-wrap: wrap;
+}
+
+.wishlist-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.625rem;
+  font-family: inherit;
+  font-size: 0.813rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1.5px solid;
+  flex: 1;
+  justify-content: center;
+  min-width: 140px;
+}
+
+.wishlist-tool-open {
+  background: var(--bg);
+  border-color: var(--primary-light);
+  color: var(--primary);
+}
+
+.wishlist-tool-open:hover {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  border-color: var(--primary);
+  color: white;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+  transform: translateY(-1px);
+}
+
+.wishlist-tool-clear {
+  background: var(--bg);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.wishlist-tool-clear:hover {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border-color: #ef4444;
+  color: white;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+  transform: translateY(-1px);
+}
+
+.wishlist-tool-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.wishlist-tool-btn svg {
+  flex-shrink: 0;
+}
+
+:root[data-theme="dark"] .wishlist-tool-open {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+:root[data-theme="dark"] .wishlist-tool-clear {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* 🎯 موبایل */
+@media (max-width: 640px) {
+  .wishlist-tool-btn {
+    font-size: 0.75rem;
+    padding: 0.5rem 0.625rem;
+    min-width: 0;
+  }
+  .wishlist-tool-btn span {
+    display: none;
+  }
+  .wishlist-tool-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* ================================================================
+   🎯 دیالوگ تأیید اختصاصی
+   ================================================================ */
+.confirm-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 9500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  animation: confirmFadeIn 0.2s ease;
+}
+
+@keyframes confirmFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.confirm-dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+}
+
+.confirm-dialog-content {
+  position: relative;
+  z-index: 1;
+  background: var(--surface);
+  border-radius: 1.5rem;
+  padding: 2rem 1.75rem 1.75rem;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+  animation: confirmZoomIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border: 2px solid var(--border);
+}
+
+@keyframes confirmZoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.confirm-dialog-icon {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border: 3px solid rgba(251, 191, 36, 0.3);
+  box-shadow: 0 6px 20px rgba(251, 191, 36, 0.25);
+  margin-top: -3rem;
+  animation: confirmIconPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+}
+
+@keyframes confirmIconPop {
+  from {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* 🎯 انواع آیکن */
+.confirm-dialog.danger .confirm-dialog-icon {
+  background: linear-gradient(135deg, #fee2e2, #fecaca);
+  border-color: rgba(239, 68, 68, 0.3);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.25);
+}
+
+.confirm-dialog.info .confirm-dialog-icon {
+  background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.25);
+}
+
+.confirm-dialog-title {
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-top: 0.25rem;
+}
+
+.confirm-dialog-message {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  line-height: 1.7;
+  margin-bottom: 0.5rem;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  gap: 0.625rem;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.confirm-dialog-btn {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  font-family: inherit;
+  font-size: 0.938rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+}
+
+.confirm-dialog-cancel {
+  background: var(--bg);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+.confirm-dialog-cancel:hover {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+
+.confirm-dialog-ok {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: white;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+}
+
+.confirm-dialog-ok:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+}
+
+.confirm-dialog.danger .confirm-dialog-ok {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+}
+
+.confirm-dialog.danger .confirm-dialog-ok:hover {
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
+}
+
+.confirm-dialog-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* 🎯 دارک مود */
+:root[data-theme="dark"] .confirm-dialog-icon {
+  background: linear-gradient(135deg, #78350f, #92400e);
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
+:root[data-theme="dark"] .confirm-dialog.danger .confirm-dialog-icon {
+  background: linear-gradient(135deg, #7f1d1d, #991b1b);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+:root[data-theme="dark"] .confirm-dialog.info .confirm-dialog-icon {
+  background: linear-gradient(135deg, #312e81, #3730a3);
+  border-color: rgba(129, 140, 248, 0.4);
+}
+
+/* 🎯 موبایل */
+@media (max-width: 640px) {
+  .confirm-dialog {
+    padding: 1rem;
+  }
+  .confirm-dialog-content {
+    padding: 1.75rem 1.25rem 1.25rem;
+    max-width: none;
+  }
+  .confirm-dialog-icon {
+    width: 3.5rem;
+    height: 3.5rem;
+    font-size: 1.75rem;
+  }
+  .confirm-dialog-actions {
+    flex-direction: column-reverse;
+  }
+}

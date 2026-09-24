@@ -14,6 +14,9 @@ const errorBox = document.getElementById("error-box");
 const spinner = document.getElementById("spinner");
 
 let items = [];
+let currentSort = localStorage.getItem("sortOrder") || "price";
+let lastBasketComparison = null;
+let wishlist = JSON.parse(localStorage.getItem("wishlist") || "[]");
 
 const SUPPORTED_STORES = [
   {
@@ -66,7 +69,7 @@ function getStoreColor(storeName) {
 }
 
 // ================================================================
-// 🎯 اسلات‌های چرخان (slot machine)
+// 🎯 SLOT MACHINE
 // ================================================================
 let slotStoreInterval = null;
 let currentStoreIndex = 0;
@@ -78,7 +81,6 @@ function animateSlot(slotId, newText, color = null) {
   const currentTextEl = slotEl.querySelector(".slot-text");
   const currentText = currentTextEl ? currentTextEl.textContent : "";
 
-  // 🎯 فقط برای slot-store رنگ برند اعمال می‌شود
   if (color && slotId === "slot-store") {
     slotEl.style.setProperty("--slot-color-bg", hexToRgba(color, 0.85));
     slotEl.style.setProperty("--slot-color-border", hexToRgba(color, 0.95));
@@ -102,10 +104,8 @@ function animateSlot(slotId, newText, color = null) {
 function startStoreCycle() {
   stopStoreCycle();
   currentStoreIndex = 0;
-
   const firstStore = SUPPORTED_STORES[0];
   animateSlot("slot-store", firstStore.name, firstStore.color);
-
   slotStoreInterval = setInterval(() => {
     currentStoreIndex = (currentStoreIndex + 1) % SUPPORTED_STORES.length;
     const store = SUPPORTED_STORES[currentStoreIndex];
@@ -128,6 +128,358 @@ function hexToRgba(hex, alpha = 1) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+function toPersianNum(num) {
+  const persian = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
+  return String(num).replace(/\d/g, (d) => persian[parseInt(d, 10)]);
+}
+
+// ================================================================
+// 🎯 TOAST NOTIFICATIONS
+// ================================================================
+function showToast(title, message, type = "success", duration = 5000) {
+  const container = document.getElementById("toast-container");
+  if (!container) return;
+
+  const icons = {
+    success: "✓",
+    remove: "✕",
+    info: "❤️",
+  };
+
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+
+  toast.innerHTML = `
+    <div class="toast-icon">${icons[type] || "✓"}</div>
+    <div class="toast-content">
+      <div class="toast-title">${escapeHtml(title)}</div>
+      <div class="toast-message">${escapeHtml(message)}</div>
+    </div>
+    <div class="toast-progress">
+      <div class="toast-progress-bar" style="animation-duration: ${duration}ms;"></div>
+    </div>
+  `;
+
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.classList.add("toast-out");
+    setTimeout(() => toast.remove(), 350);
+  }, duration);
+}
+
+// ================================================================
+// 🎯 CONFIRM DIALOG
+// ================================================================
+function showConfirmDialog({
+  title = "تأیید عملیات",
+  message = "",
+  icon = "⚠️",
+  confirmText = "تأیید",
+  cancelText = "انصراف",
+  variant = "danger",
+} = {}) {
+  return new Promise((resolve) => {
+    const dialog = document.getElementById("confirm-dialog");
+    const iconEl = document.getElementById("confirm-dialog-icon");
+    const titleEl = document.getElementById("confirm-dialog-title");
+    const msgEl = document.getElementById("confirm-dialog-message");
+    const okBtn = document.getElementById("confirm-dialog-ok");
+    const cancelBtn = document.getElementById("confirm-dialog-cancel");
+    const backdrop = dialog.querySelector(".confirm-dialog-backdrop");
+
+    dialog.classList.remove("danger", "info");
+
+    iconEl.textContent = icon;
+    titleEl.textContent = title;
+    msgEl.textContent = message;
+    okBtn.textContent = confirmText;
+    cancelBtn.textContent = cancelText;
+
+    if (variant === "danger") dialog.classList.add("danger");
+    else if (variant === "info") dialog.classList.add("info");
+
+    dialog.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+
+    setTimeout(() => okBtn.focus(), 100);
+
+    const newOk = okBtn.cloneNode(true);
+    const newCancel = cancelBtn.cloneNode(true);
+    const newBackdrop = backdrop.cloneNode(true);
+    okBtn.parentNode.replaceChild(newOk, okBtn);
+    cancelBtn.parentNode.replaceChild(newCancel, cancelBtn);
+    backdrop.parentNode.replaceChild(newBackdrop, backdrop);
+
+    function close(result) {
+      dialog.classList.add("hidden");
+      document.body.style.overflow = "";
+      document.removeEventListener("keydown", handleKey);
+      resolve(result);
+    }
+
+    function handleKey(e) {
+      if (e.key === "Escape") close(false);
+      else if (e.key === "Enter") close(true);
+    }
+
+    newOk.addEventListener("click", () => close(true));
+    newCancel.addEventListener("click", () => close(false));
+    newBackdrop.addEventListener("click", () => close(false));
+    document.addEventListener("keydown", handleKey);
+  });
+}
+
+// ================================================================
+// 🎯 WISHLIST
+// ================================================================
+function getWishlistKey(item) {
+  return `${item.storeName}::${item.title}`;
+}
+
+function isInWishlist(item) {
+  const key = getWishlistKey(item);
+  return wishlist.some((w) => getWishlistKey(w) === key);
+}
+
+function saveWishlist() {
+  localStorage.setItem("wishlist", JSON.stringify(wishlist));
+  updateWishlistFloatBtn();
+}
+
+function updateWishlistFloatBtn() {
+  const btn = document.getElementById("wishlist-float-btn");
+  const countEl = document.getElementById("wishlist-float-count");
+  if (!btn || !countEl) return;
+
+  if (wishlist.length > 0) {
+    btn.classList.remove("hidden");
+    countEl.textContent = toPersianNum(wishlist.length);
+  } else {
+    btn.classList.add("hidden");
+  }
+}
+
+function toggleWishlist(item) {
+  const key = getWishlistKey(item);
+  const index = wishlist.findIndex((w) => getWishlistKey(w) === key);
+
+  if (index >= 0) {
+    wishlist.splice(index, 1);
+    showToast("از علاقه‌مندی‌ها حذف شد", item.title, "remove", 4500);
+  } else {
+    wishlist.push({
+      title: item.title,
+      price: item.price,
+      link: item.link,
+      image: item.image || null,
+      storeName: item.storeName,
+    });
+    showToast("به علاقه‌مندی‌ها اضافه شد ❤️", item.title, "success", 5000);
+  }
+
+  saveWishlist();
+  updateAllWishlistButtons();
+  const modal = document.getElementById("wishlist-modal");
+  if (modal && !modal.classList.contains("hidden")) renderWishlistModal();
+}
+
+function removeFromWishlist(item) {
+  const key = getWishlistKey(item);
+  wishlist = wishlist.filter((w) => getWishlistKey(w) !== key);
+  saveWishlist();
+  updateAllWishlistButtons();
+  renderWishlistModal();
+}
+
+function updateAllWishlistButtons() {
+  document.querySelectorAll(".product-wishlist-btn").forEach((btn) => {
+    const item = {
+      storeName: btn.dataset.store,
+      title: btn.dataset.title,
+      price: parseInt(btn.dataset.price, 10),
+      link: btn.dataset.link,
+      image: btn.dataset.image || null,
+    };
+    if (isInWishlist(item)) {
+      btn.classList.add("active");
+      btn.innerHTML = "❤️";
+      btn.title = "حذف از علاقه‌مندی‌ها";
+    } else {
+      btn.classList.remove("active");
+      btn.innerHTML = "🤍";
+      btn.title = "افزودن به علاقه‌مندی‌ها";
+    }
+  });
+}
+
+function openWishlistModal() {
+  const modal = document.getElementById("wishlist-modal");
+  if (!modal) return;
+  renderWishlistModal();
+  modal.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+}
+
+function closeWishlistModal() {
+  const modal = document.getElementById("wishlist-modal");
+  modal.classList.add("hidden");
+  document.body.style.overflow = "";
+}
+
+function renderWishlistModal() {
+  const body = document.getElementById("wishlist-modal-body");
+  const totalEl = document.getElementById("wishlist-modal-total");
+  const toolbar = document.getElementById("wishlist-modal-toolbar");
+
+  if (wishlist.length === 0) {
+    if (totalEl) {
+      totalEl.classList.add("hidden");
+      totalEl.innerHTML = "";
+    }
+    if (toolbar) toolbar.classList.add("hidden");
+    body.innerHTML = `
+      <div class="wishlist-empty">
+        <div class="wishlist-empty-icon">💔</div>
+        <div class="wishlist-empty-text">هنوز چیزی به علاقه‌مندی‌ها اضافه نکرده‌اید</div>
+      </div>
+    `;
+    return;
+  }
+
+  if (totalEl) totalEl.classList.remove("hidden");
+  if (toolbar) toolbar.classList.remove("hidden");
+
+  const total = wishlist.reduce((sum, item) => sum + (item.price || 0), 0);
+
+  if (totalEl) {
+    totalEl.innerHTML = `
+      <span class="total-label">💰 جمع کل (${toPersianNum(wishlist.length)} آیتم)</span>
+      <span class="total-value">${formatPrice(total)} تومان</span>
+    `;
+  }
+
+  body.innerHTML = wishlist
+    .map((item, index) => {
+      const icon = getProductIcon(item.title);
+      const hasImg =
+        item.image &&
+        typeof item.image === "string" &&
+        item.image.startsWith("http");
+      const imgHtml = hasImg
+        ? `<img src="${escapeHtml(item.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\\'wishlist-item-icon\\'>${icon}</span>';" />`
+        : `<span class="wishlist-item-icon">${icon}</span>`;
+
+      const storeColor = getStoreColor(item.storeName);
+      const storeIconUrl = getStoreIconUrl(item.storeName);
+      const storeIconHtml = storeIconUrl
+        ? `<img src="${escapeHtml(storeIconUrl)}" alt="" class="wishlist-item-store-icon" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';" /><span class="wishlist-item-store-fallback" style="display:none;">🏪</span>`
+        : `<span class="wishlist-item-store-fallback">🏪</span>`;
+
+      const hasLink = item.link && item.link !== "#";
+      const tag = hasLink ? "a" : "div";
+      const linkAttrs = hasLink
+        ? `href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer"`
+        : "";
+
+      return `
+        <${tag} class="wishlist-item ${hasLink ? "wishlist-item-link" : ""}" ${linkAttrs} draggable="false">
+          <div class="wishlist-item-image">${imgHtml}</div>
+          <div class="wishlist-item-info">
+            <div class="wishlist-item-title">${escapeHtml(item.title)}</div>
+            <div class="wishlist-item-store" style="color: ${storeColor};">
+              <span class="wishlist-item-store-logo">${storeIconHtml}</span>
+              <span class="wishlist-item-store-name">${escapeHtml(item.storeName)}</span>
+            </div>
+          </div>
+          <div class="wishlist-item-price">
+            <span class="wishlist-item-price-value">${formatPrice(item.price)}</span>
+            <span class="wishlist-item-price-currency">تومان</span>
+          </div>
+          <button class="wishlist-item-remove" data-index="${index}" title="حذف از علاقه‌مندی‌ها" type="button">✕</button>
+        </${tag}>
+      `;
+    })
+    .join("");
+
+  body.querySelectorAll(".wishlist-item-remove").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.index, 10);
+      const item = wishlist[idx];
+      if (item) removeFromWishlist(item);
+    });
+  });
+}
+
+async function clearAllWishlist() {
+  if (wishlist.length === 0) return;
+
+  const confirmed = await showConfirmDialog({
+    title: "حذف همه علاقه‌مندی‌ها",
+    message: `آیا مطمئن هستید که می‌خواهید همه ${toPersianNum(wishlist.length)} آیتم را از علاقه‌مندی‌ها حذف کنید؟ این عملیات قابل بازگشت نیست.`,
+    icon: "🗑️",
+    confirmText: "بله، حذف کن",
+    cancelText: "انصراف",
+    variant: "danger",
+  });
+
+  if (!confirmed) return;
+
+  const count = wishlist.length;
+  wishlist = [];
+  saveWishlist();
+  updateAllWishlistButtons();
+  renderWishlistModal();
+
+  showToast(
+    "همه آیتم‌ها حذف شدند",
+    `${toPersianNum(count)} آیتم از علاقه‌مندی‌ها پاک شد`,
+    "remove",
+    4500,
+  );
+}
+
+// ================================================================
+// 🎯 SORTING
+// ================================================================
+function applySorting(basketComparison) {
+  if (!basketComparison || basketComparison.length === 0) return [];
+  const sorted = [...basketComparison];
+  if (currentSort === "price") {
+    sorted.sort((a, b) => {
+      if (a.total !== b.total) return a.total - b.total;
+      return b.itemCount - a.itemCount;
+    });
+  } else if (currentSort === "count") {
+    sorted.sort((a, b) => {
+      if (b.itemCount !== a.itemCount) return b.itemCount - a.itemCount;
+      return a.total - b.total;
+    });
+  }
+  return sorted;
+}
+
+function setSortOrder(order) {
+  currentSort = order;
+  localStorage.setItem("sortOrder", order);
+  document.querySelectorAll(".sort-option").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.sort === order);
+  });
+  if (lastBasketComparison && lastBasketComparison.length > 0) {
+    const sorted = applySorting(lastBasketComparison);
+    renderStoreSections(sorted);
+  }
+}
+
+function initSortToggle() {
+  document.querySelectorAll(".sort-option").forEach((btn) => {
+    btn.addEventListener("click", () => setSortOrder(btn.dataset.sort));
+    btn.classList.toggle("active", btn.dataset.sort === currentSort);
+  });
+}
+
 // ---------- آیتم‌ها ----------
 function addItem() {
   const value = itemInput.value.trim();
@@ -147,7 +499,6 @@ function addItem() {
 }
 
 function removeItem(i) {
-  // 🎯 اگر در حال جستجو هستیم، اجازه حذف نده
   if (itemsList.classList.contains("locked")) return;
   items.splice(i, 1);
   renderItems();
@@ -177,13 +528,13 @@ function clearAll() {
   stopStoreCycle();
   searchBtn.classList.remove("searching");
   setLoading(false);
+  lastBasketComparison = null;
 }
 
-// 🎯 علامت‌گذاری چیپ‌ها
 function markChipActive(index) {
-  document.querySelectorAll(".item-chip.active").forEach((chip) => {
-    chip.classList.remove("active");
-  });
+  document
+    .querySelectorAll(".item-chip.active")
+    .forEach((chip) => chip.classList.remove("active"));
   const chip = document.querySelector(`.item-chip[data-index="${index}"]`);
   if (chip) chip.classList.add("active");
 }
@@ -204,18 +555,16 @@ function markChipError(index) {
   }
 }
 
-// ---------- جستجو (سری) ----------
+// ---------- جستجو ----------
 async function search() {
   if (items.length === 0) return;
   hideError();
   setLoading(true);
 
-  // 🎯 پاک کردن حالت قبلی
   document.querySelectorAll(".item-chip").forEach((chip) => {
     chip.classList.remove("done", "error", "active");
   });
 
-  // 🎯 ورود به حالت جستجو + قفل لیست
   searchBtn.classList.add("searching");
   itemsList.classList.add("locked");
   startStoreCycle();
@@ -225,7 +574,6 @@ async function search() {
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-
       markChipActive(i);
       animateSlot("slot-item", item);
 
@@ -235,7 +583,6 @@ async function search() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ items: [item] }),
         });
-
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
 
@@ -246,7 +593,7 @@ async function search() {
           markChipError(i);
         }
       } catch (e) {
-        console.error(`خطا در جستجوی «${item}»:`, e);
+        console.error(`Error searching "${item}":`, e);
         markChipError(i);
       }
     }
@@ -268,10 +615,9 @@ async function search() {
     searchBtn.classList.remove("searching");
     setLoading(false);
     itemsList.classList.remove("locked");
-    document.querySelectorAll(".item-chip.active").forEach((chip) => {
-      chip.classList.remove("active");
-    });
-    // 🎯 پاک کردن رنگ slot-store
+    document
+      .querySelectorAll(".item-chip.active")
+      .forEach((chip) => chip.classList.remove("active"));
     const slotStore = document.getElementById("slot-store");
     if (slotStore) {
       slotStore.style.removeProperty("--slot-color-bg");
@@ -280,14 +626,11 @@ async function search() {
   }
 }
 
-// 🎯 محاسبه‌ی سبد خرید روی کلاینت
 function computeBasketComparison(queries) {
   const storeNames = new Set();
   for (const { matches } of queries) {
     for (const match of matches) {
-      for (const offer of match.offers) {
-        storeNames.add(offer.storeName);
-      }
+      for (const offer of match.offers) storeNames.add(offer.storeName);
     }
   }
 
@@ -348,26 +691,32 @@ function renderResults(data) {
     resultsSection.classList.add("hidden");
     return;
   }
-  const best = basketComparison[0];
+  lastBasketComparison = basketComparison;
+  const sorted = applySorting(basketComparison);
+  renderStoreSections(sorted);
+  resultsSection.classList.remove("hidden");
+  resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderStoreSections(sortedStores) {
+  const best = sortedStores[0];
   let html = renderStoreSection(best, true);
-  const others = basketComparison.slice(1);
+  const others = sortedStores.slice(1);
   if (others.length > 0) {
     html += `<h2 class="section-title others-title">فروشگاه های دیگر</h2>`;
     for (const s of others) html += renderStoreSection(s, false);
   }
   storesContainer.innerHTML = html;
+
   requestAnimationFrame(() => {
     document.querySelectorAll("[data-strip-track]").forEach(initStripDrag);
     document.querySelectorAll("[data-grid-track]").forEach(initGridDrag);
     disableAllDraggable();
-    // 🎯 بررسی overflow پس از رندر
+    updateAllWishlistButtons();
     setTimeout(checkAllGridOverflows, 100);
   });
-  resultsSection.classList.remove("hidden");
-  resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-// ---------- بخش فروشگاه ----------
 function renderStoreSection(store, isBest) {
   const storeColor = getStoreColor(store.storeName);
   const cards = store.items
@@ -396,9 +745,16 @@ function renderStoreSection(store, isBest) {
     `
       : "";
 
-  const bestTitle = isBest
-    ? `<h2 class="section-title best-title">✨ به صرفه ترین فروشگاه</h2>`
-    : "";
+  // 🎯 عنوان پویا بر اساس حالت مرتب‌سازی
+  let bestTitle = "";
+  if (isBest) {
+    const titleText =
+      currentSort === "count"
+        ? "🎨 متنوع ترین فروشگاه"
+        : "✨ به صرفه ترین فروشگاه";
+    bestTitle = `<h2 class="section-title best-title">${titleText}</h2>`;
+  }
+
   const iconUrl = getStoreIconUrl(store.storeName);
   const fallback = isBest ? "🥇" : "🏪";
   const iconHtml = iconUrl
@@ -432,7 +788,6 @@ function renderStoreSection(store, isBest) {
   `;
 }
 
-// ---------- کارت محصول ----------
 function renderProductCard(item, store, storeColor) {
   const icon = getProductIcon(item.title);
   const hasLink = item.link && item.link !== "#";
@@ -454,15 +809,36 @@ function renderProductCard(item, store, storeColor) {
        <div class="product-stack-layer stack-layer-1"></div>`
     : "";
 
-  // 🎯 دکمه بازکردن یا placeholder
   const expandButtonHtml = hasOthers
     ? `<button class="product-expand-button" type="button" draggable="false">
          <svg class="product-expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
            <polyline points="15 18 9 12 15 6"></polyline>
          </svg>
-         <span>مشاهده ${others.length} آیتم دیگر</span>
+         <span>مشاهده ${toPersianNum(others.length)} آیتم دیگر</span>
        </button>`
     : `<div class="product-expand-placeholder" aria-hidden="true"></div>`;
+
+  const wishlistItem = {
+    storeName: store.storeName,
+    title: item.title,
+    price: item.price,
+    link: item.link,
+    image: item.image,
+  };
+  const inWishlist = isInWishlist(wishlistItem);
+  const wishlistBtn = `
+    <button class="product-wishlist-btn ${inWishlist ? "active" : ""}"
+            type="button"
+            draggable="false"
+            data-store="${escapeHtml(store.storeName)}"
+            data-title="${escapeHtml(item.title)}"
+            data-price="${item.price}"
+            data-link="${escapeHtml(item.link || "")}"
+            data-image="${escapeHtml(typeof item.image === "string" ? item.image : "")}"
+            title="${inWishlist ? "حذف از علاقه‌مندی‌ها" : "افزودن به علاقه‌مندی‌ها"}">
+      ${inWishlist ? "❤️" : "🤍"}
+    </button>
+  `;
 
   let expandedHtml = "";
   if (hasOthers) {
@@ -483,11 +859,11 @@ function renderProductCard(item, store, storeColor) {
         <div class="strip-viewport">
           <button class="strip-nav strip-nav-right" type="button" aria-label="قبلی" draggable="false">‹</button>
           <div class="strip-track" data-strip-track data-strip-rtl="true">
-            ${allItems.map((it) => renderStripItem(it, storeColor)).join("")}
+            ${allItems.map((it) => renderStripItem(it, storeColor, store.storeName)).join("")}
           </div>
           <button class="strip-nav strip-nav-left" type="button" aria-label="بعدی" draggable="false">›</button>
         </div>
-        <div class="strip-counter">${totalCount} آیتم · مرتب شده به ترتیب قیمت</div>
+        <div class="strip-counter">${toPersianNum(totalCount)} آیتم · مرتب شده به ترتیب قیمت</div>
       </div>
     `;
   }
@@ -498,6 +874,7 @@ function renderProductCard(item, store, storeColor) {
       <div class="product-collapsed">
         <div class="product-image-wrapper ${hasImg ? "has-real-image clickable-image" : ""}">
           ${imgContent}
+          ${wishlistBtn}
         </div>
         <div class="product-body">
           <div class="product-query">${escapeHtml(item.query)}</div>
@@ -515,8 +892,7 @@ function renderProductCard(item, store, storeColor) {
   `;
 }
 
-// ---------- آیتم strip ----------
-function renderStripItem(it, storeColor) {
+function renderStripItem(it, storeColor, storeName) {
   const icon = getProductIcon(it.title);
   const hasLink = it.link && it.link !== "#";
   let img = it.image;
@@ -526,10 +902,36 @@ function renderStripItem(it, storeColor) {
   const imgContent = hasImg
     ? `<img src="${escapeHtml(img)}" alt="" class="strip-item-image" draggable="false" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';" /><span class="strip-item-icon" style="display:none;">${icon}</span>`
     : `<span class="strip-item-icon">${icon}</span>`;
+
+  const wishlistItem = {
+    storeName,
+    title: it.title,
+    price: it.price,
+    link: it.link,
+    image: it.image,
+  };
+  const inWishlist = isInWishlist(wishlistItem);
+  const wishlistBtn = `
+    <button class="product-wishlist-btn strip-wishlist-btn ${inWishlist ? "active" : ""}"
+            type="button"
+            draggable="false"
+            data-store="${escapeHtml(storeName)}"
+            data-title="${escapeHtml(it.title)}"
+            data-price="${it.price}"
+            data-link="${escapeHtml(it.link || "")}"
+            data-image="${escapeHtml(typeof it.image === "string" ? it.image : "")}"
+            title="${inWishlist ? "حذف از علاقه‌مندی‌ها" : "افزودن به علاقه‌مندی‌ها"}">
+      ${inWishlist ? "❤️" : "🤍"}
+    </button>
+  `;
+
   return `
     <div class="strip-item ${it.isSelected ? "selected" : ""}" style="--store-color: ${storeColor};">
       ${it.isSelected ? '<span class="strip-item-badge">💰 کمترین قیمت</span>' : ""}
-      <div class="strip-item-image-wrapper ${hasImg ? "clickable-image" : ""}">${imgContent}</div>
+      <div class="strip-item-image-wrapper ${hasImg ? "clickable-image" : ""}">
+        ${imgContent}
+        ${wishlistBtn}
+      </div>
       <div class="strip-item-body">
         <div class="strip-item-title" title="${escapeHtml(it.title)}">${escapeHtml(it.title)}</div>
         <div class="strip-item-price">
@@ -542,7 +944,6 @@ function renderStripItem(it, storeColor) {
   `;
 }
 
-// ---------- اسکرول نرم ----------
 function smoothScrollTo(track, target, duration = 1200) {
   const start = track.scrollLeft;
   const dist = target - start;
@@ -557,7 +958,6 @@ function smoothScrollTo(track, target, duration = 1200) {
   requestAnimationFrame(step);
 }
 
-// ---------- باز/بسته ----------
 function toggleCardExpand(card, expand) {
   if (!card) return;
   const grid =
@@ -573,11 +973,9 @@ function toggleCardExpand(card, expand) {
       if (c !== card && c.classList.contains("expanded"))
         toggleCardExpand(c, false);
     });
-
     allCards.forEach((c) => {
       if (c !== card) c.classList.add("hidden-sibling");
     });
-
     card.classList.add("expanded");
     collapsed.classList.add("hidden");
     expanded.classList.remove("hidden");
@@ -585,13 +983,11 @@ function toggleCardExpand(card, expand) {
     const wrapper = card.closest(".products-strip-wrapper");
     const parentTrack = wrapper?.querySelector("[data-grid-track]");
     if (parentTrack) parentTrack.scrollTo({ left: 0, behavior: "smooth" });
-
     if (wrapper) {
       wrapper.querySelectorAll(".grid-nav").forEach((btn) => {
         btn.style.display = "none";
       });
     }
-
     requestAnimationFrame(() => {
       const track = card.querySelector("[data-strip-track]");
       if (track) {
@@ -599,6 +995,7 @@ function toggleCardExpand(card, expand) {
         smoothScrollTo(track, 0, 1200);
         setTimeout(() => updateNavButtons(card), 1300);
       }
+      updateAllWishlistButtons();
     });
   } else {
     card.classList.remove("expanded");
@@ -611,7 +1008,6 @@ function toggleCardExpand(card, expand) {
       wrapper.querySelectorAll(".grid-nav").forEach((btn) => {
         btn.style.display = "";
       });
-
       requestAnimationFrame(() => {
         const parentTrack = wrapper.querySelector("[data-grid-track]");
         if (parentTrack) {
@@ -624,8 +1020,6 @@ function toggleCardExpand(card, expand) {
       });
     }
   }
-
-  // 🎯 بررسی overflow پس از تغییر
   setTimeout(checkAllGridOverflows, 400);
 }
 
@@ -634,20 +1028,11 @@ function updateNavButtons(card) {
   const right = card.querySelector(".strip-nav-right");
   const left = card.querySelector(".strip-nav-left");
   if (!track || !right || !left) return;
-
-  // 🎯 در موبایل، دکمه‌ها را نمایش نده
-  if (window.innerWidth <= 640) {
-    right.style.display = "none";
-    left.style.display = "none";
-    return;
-  }
-
   if (track.scrollWidth <= track.clientWidth + 2) {
     right.style.display = "none";
     left.style.display = "none";
     return;
   }
-
   right.style.display = "flex";
   left.style.display = "flex";
   const cur = track.scrollLeft;
@@ -656,7 +1041,6 @@ function updateNavButtons(card) {
   left.disabled = cur < -max + 2;
 }
 
-// ---------- درگ strip ----------
 function initStripDrag(track) {
   if (!track || track.dataset.dragInit === "true") return;
   track.dataset.dragInit = "true";
@@ -716,17 +1100,13 @@ function initStripDrag(track) {
   });
 }
 
-// ================================================================
-// 🎯 درگ و ناوبری گرید محصولات
-// ================================================================
 function initGridDrag(track) {
   if (!track || track.dataset.gridDragInit === "true") return;
   track.dataset.gridDragInit = "true";
-
-  let dragging = false;
-  let moved = false;
-  let startX = 0;
-  let startScroll = 0;
+  let dragging = false,
+    moved = false,
+    startX = 0,
+    startScroll = 0;
 
   track.addEventListener("mousedown", (e) => {
     if (e.button !== 0) return;
@@ -774,7 +1154,6 @@ function initGridDrag(track) {
   track.addEventListener("scroll", () => updateGridButtons(track));
 }
 
-// 🎯 بررسی overflow یک track
 function checkGridOverflow(track) {
   if (!track) return;
   const wrapper = track.closest(".products-strip-wrapper");
@@ -782,9 +1161,7 @@ function checkGridOverflow(track) {
   const left = wrapper?.querySelector(".grid-nav-left");
   if (!right || !left) return;
 
-  // 🎯 بررسی واقعی overflow
   const hasOverflow = track.scrollWidth > track.clientWidth + 2;
-
   if (hasOverflow) {
     right.classList.remove("hidden");
     left.classList.remove("hidden");
@@ -793,10 +1170,8 @@ function checkGridOverflow(track) {
     right.classList.add("hidden");
     left.classList.add("hidden");
     wrapper.classList.remove("scrollable");
-    // 🎯 اگر اسکرول شده بود، به ابتدا برگردان
     track.scrollLeft = 0;
   }
-
   updateGridButtons(track);
 }
 
@@ -809,19 +1184,14 @@ function updateGridButtons(track) {
   const right = wrapper?.querySelector(".grid-nav-right");
   const left = wrapper?.querySelector(".grid-nav-left");
   if (!right || !left) return;
-
-  // 🎯 اگر دکمه‌ها مخفی هستند، وضعیت disabled را تغییر نده
   if (right.classList.contains("hidden") || left.classList.contains("hidden"))
     return;
-
   const cur = track.scrollLeft;
   const max = track.scrollWidth - track.clientWidth;
-
   right.disabled = cur > -2;
   left.disabled = cur < -max + 2;
 }
 
-// 🎯 بررسی overflow هنگام تغییر اندازه صفحه
 window.addEventListener("resize", () => {
   clearTimeout(window.__resizeTimer);
   window.__resizeTimer = setTimeout(checkAllGridOverflows, 200);
@@ -829,6 +1199,21 @@ window.addEventListener("resize", () => {
 
 // ---------- رویدادها ----------
 document.addEventListener("click", (e) => {
+  const wishlistBtn = e.target.closest(".product-wishlist-btn");
+  if (wishlistBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    const item = {
+      storeName: wishlistBtn.dataset.store,
+      title: wishlistBtn.dataset.title,
+      price: parseInt(wishlistBtn.dataset.price, 10),
+      link: wishlistBtn.dataset.link,
+      image: wishlistBtn.dataset.image || null,
+    };
+    toggleWishlist(item);
+    return;
+  }
+
   const expandBtn = e.target.closest(".product-expand-button");
   if (expandBtn) {
     e.preventDefault();
@@ -885,6 +1270,7 @@ document.addEventListener("click", (e) => {
     ".strip-item-image-wrapper.clickable-image",
   );
   if (stripImg) {
+    if (e.target.closest(".product-wishlist-btn")) return;
     const img = stripImg.querySelector(".strip-item-image");
     if (img?.src) {
       const title =
@@ -899,6 +1285,7 @@ document.addEventListener("click", (e) => {
 
   const prodImg = e.target.closest(".product-image-wrapper.clickable-image");
   if (prodImg) {
+    if (e.target.closest(".product-wishlist-btn")) return;
     const img = prodImg.querySelector(".product-image-real");
     if (img?.src) {
       const title =
@@ -912,14 +1299,28 @@ document.addEventListener("click", (e) => {
   }
 });
 
-// ================================================================
-// 🎯 جلوگیری سراسری از drag & drop متن و لینک
-// ================================================================
+document.addEventListener("click", (e) => {
+  const modal = document.getElementById("wishlist-modal");
+  if (!modal || modal.classList.contains("hidden")) return;
+  if (
+    e.target.closest(".wishlist-modal-close") ||
+    e.target.classList.contains("wishlist-modal-backdrop")
+  ) {
+    closeWishlistModal();
+  }
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    const modal = document.getElementById("wishlist-modal");
+    if (modal && !modal.classList.contains("hidden")) closeWishlistModal();
+  }
+});
+
 document.addEventListener(
   "dragstart",
   (e) => {
-    const target = e.target;
-    if (target.closest(".clickable-image img")) return;
+    if (e.target.closest(".clickable-image img")) return;
     e.preventDefault();
     return false;
   },
@@ -929,6 +1330,7 @@ document.addEventListener(
 document.addEventListener(
   "mousedown",
   (e) => {
+    if (e.target.closest(".product-wishlist-btn")) return;
     const stripItem = e.target.closest(".strip-item");
     if (stripItem) {
       if (e.target.closest("a, button")) return;
@@ -936,7 +1338,7 @@ document.addEventListener(
       return;
     }
     const interactive = e.target.closest(
-      "a, button, .product-action, .product-expand-button, .store-strip-card, .strip-nav, .strip-close, .grid-nav",
+      "a, button, .product-action, .product-expand-button, .store-strip-card, .strip-nav, .strip-close, .grid-nav, .product-wishlist-btn",
     );
     if (interactive && e.detail > 1) {
       e.preventDefault();
@@ -1120,7 +1522,7 @@ function initStripAutoScroll() {
   );
 }
 
-// ---------- مودال ----------
+// ---------- مودال تصویر ----------
 const imageModal = document.getElementById("image-modal");
 const imageModalImg = document.getElementById("image-modal-img");
 const imageModalCaption = imageModal?.querySelector(".image-modal-caption");
@@ -1144,14 +1546,6 @@ function closeImageModal() {
 if (imageModalClose) imageModalClose.addEventListener("click", closeImageModal);
 if (imageModalBackdrop)
   imageModalBackdrop.addEventListener("click", closeImageModal);
-document.addEventListener("keydown", (e) => {
-  if (
-    e.key === "Escape" &&
-    imageModal &&
-    !imageModal.classList.contains("hidden")
-  )
-    closeImageModal();
-});
 
 // ---------- کمکی ----------
 function setLoading(v) {
@@ -1181,6 +1575,14 @@ itemInput.addEventListener("keydown", (e) => {
 searchBtn.addEventListener("click", search);
 clearBtn.addEventListener("click", clearAll);
 
+const wishlistFloatBtn = document.getElementById("wishlist-float-btn");
+if (wishlistFloatBtn)
+  wishlistFloatBtn.addEventListener("click", openWishlistModal);
+
+const wishlistClearAllBtn = document.getElementById("wishlist-clear-all");
+if (wishlistClearAllBtn)
+  wishlistClearAllBtn.addEventListener("click", clearAllWishlist);
+
 // ---------- تم ----------
 const themeToggle = document.getElementById("theme-toggle");
 const themeIcon = themeToggle.querySelector(".theme-icon");
@@ -1207,3 +1609,5 @@ initTheme();
 
 renderSupportedStores();
 disableAllDraggable();
+initSortToggle();
+updateWishlistFloatBtn();

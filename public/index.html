@@ -59,15 +59,24 @@
 
         <div id="items-list" class="items-list"></div>
 
+        <!-- گزینه ترتیب نمایش -->
+        <div class="sort-toggle-group" id="sort-toggle-group">
+          <span class="sort-toggle-label">اولویت نمایش فروشگاه ها:</span>
+          <button class="sort-option active" data-sort="price" type="button">
+            💰 کمترین قیمت
+          </button>
+          <button class="sort-option" data-sort="count" type="button">
+            📦 بیشترین موجودی
+          </button>
+        </div>
+
         <div class="actions">
           <button id="search-btn" class="btn-search" disabled>
-            <!-- 🎯 حالت عادی -->
             <span class="btn-search-idle" id="btn-search-idle">
               <span class="spinner" id="spinner"></span>
               <span id="search-btn-text">🔍 جستجو و مقایسه</span>
             </span>
 
-            <!-- 🎯 حالت در حال جستجو (پنل شرط‌بندی) -->
             <span class="btn-search-active" id="btn-search-active">
               <span class="search-label">در حال جستجو</span>
               <span class="search-spinner"></span>
@@ -93,6 +102,89 @@
       <div id="error-box" class="error-box hidden"></div>
     </div>
 
+    <!-- دکمه شناور علاقه‌مندی‌ها -->
+    <button
+      id="wishlist-float-btn"
+      class="wishlist-float-btn hidden"
+      aria-label="علاقه‌مندی‌ها"
+    >
+      <span class="wishlist-float-icon">❤️</span>
+      <span class="wishlist-float-count" id="wishlist-float-count">0</span>
+    </button>
+
+    <!-- مودال علاقه‌مندی‌ها -->
+    <div id="wishlist-modal" class="wishlist-modal hidden">
+      <div class="wishlist-modal-backdrop"></div>
+      <div class="wishlist-modal-content">
+        <div class="wishlist-modal-header">
+          <div class="wishlist-modal-title">
+            <span class="wishlist-modal-icon">❤️</span>
+            <span>علاقه‌مندی‌های من</span>
+          </div>
+          <button class="wishlist-modal-close" aria-label="بستن">✕</button>
+        </div>
+
+        <div class="wishlist-modal-total" id="wishlist-modal-total"></div>
+
+        <div class="wishlist-modal-toolbar" id="wishlist-modal-toolbar">
+          <button
+            class="wishlist-tool-btn wishlist-tool-clear"
+            id="wishlist-clear-all"
+            type="button"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path
+                d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+              ></path>
+              <line x1="10" y1="11" x2="10" y2="17"></line>
+              <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+            <span>حذف همه</span>
+          </button>
+        </div>
+
+        <div class="wishlist-modal-body" id="wishlist-modal-body"></div>
+      </div>
+    </div>
+
+    <!-- دیالوگ تأیید اختصاصی -->
+    <div id="confirm-dialog" class="confirm-dialog hidden">
+      <div class="confirm-dialog-backdrop"></div>
+      <div class="confirm-dialog-content">
+        <div class="confirm-dialog-icon" id="confirm-dialog-icon">⚠️</div>
+        <div class="confirm-dialog-title" id="confirm-dialog-title">
+          تأیید عملیات
+        </div>
+        <div class="confirm-dialog-message" id="confirm-dialog-message"></div>
+        <div class="confirm-dialog-actions">
+          <button
+            class="confirm-dialog-btn confirm-dialog-cancel"
+            id="confirm-dialog-cancel"
+            type="button"
+          >
+            انصراف
+          </button>
+          <button
+            class="confirm-dialog-btn confirm-dialog-ok"
+            id="confirm-dialog-ok"
+            type="button"
+          >
+            تأیید
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- مودال تصویر -->
     <div id="image-modal" class="image-modal hidden">
       <div class="image-modal-backdrop"></div>
@@ -102,6 +194,9 @@
         <div class="image-modal-caption"></div>
       </div>
     </div>
+
+    <!-- کانتینر اعلان‌ها -->
+    <div id="toast-container" class="toast-container"></div>
 
     <script src="script.js"></script>
   </body>
