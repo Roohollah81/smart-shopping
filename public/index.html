@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>خرید هوشمند | مقایسه قیمت سبد خرید</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="stylesheet" href="style.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -13,8 +14,56 @@
     />
   </head>
   <body>
+    <!-- 🎯 نوار چسبان بالای صفحه -->
+    <div id="sticky-header" class="sticky-header">
+      <div class="sticky-header-inner">
+        <div class="sticky-right">
+          <div class="logo-mini">
+            <span class="logo-mini-icon">🛒</span>
+            <div class="logo-mini-text">
+              <span class="logo-mini-title">خرید هوشمند</span>
+              <span class="logo-mini-subtitle">مقایسه قیمت سبد خرید</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="sticky-center">
+          <!-- 🎯 ساعت و تاریخ شمسی -->
+          <div class="sticky-datetime" id="sticky-datetime">
+            <span class="datetime-date" id="datetime-date">—</span>
+            <span class="datetime-time" id="datetime-time">—</span>
+          </div>
+          <!-- 🎯 قیمت دلار -->
+          <div class="sticky-dollar" id="sticky-dollar">
+            <span class="dollar-label">دلار</span>
+            <span class="dollar-value" id="dollar-value">—</span>
+          </div>
+          <!-- 🎯 فیلتر ترتیب (کپی از پایین) -->
+          <div class="sticky-sort hidden" id="sticky-sort">
+            <span class="sort-toggle-label">اولویت نمایش فروشگاه‌ها:</span>
+            <button class="sort-option" data-sort="price" type="button">
+              کمترین قیمت
+            </button>
+            <button class="sort-option" data-sort="count" type="button">
+              بیشترین موجودی
+            </button>
+          </div>
+        </div>
+
+        <div class="sticky-left">
+          <button
+            id="theme-toggle"
+            class="theme-toggle"
+            aria-label="تغییر حالت روشن/تاریک"
+          >
+            <span class="theme-icon">🌙</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div class="container">
-      <!-- هدر -->
+      <!-- هدر اصلی -->
       <header class="header">
         <div class="logo">
           <span class="logo-icon">🛒</span>
@@ -23,15 +72,37 @@
             <p class="subtitle">مقایسه قیمت سبد خرید در فروشگاه‌های آنلاین</p>
           </div>
         </div>
-
-        <button
-          id="theme-toggle"
-          class="theme-toggle"
-          aria-label="تغییر حالت روشن/تاریک"
-        >
-          <span class="theme-icon">🌙</span>
-        </button>
       </header>
+
+      <!-- نوار اطلاعات بالای صفحه (تاریخ، ساعت، دلار) -->
+      <div class="top-info-bar" id="top-info-bar">
+        <div class="top-info-group">
+          <div class="sticky-datetime" id="top-datetime">
+            <span class="datetime-date" id="top-datetime-date">—</span>
+            <span class="datetime-time" id="top-datetime-time">—</span>
+          </div>
+          <div class="sticky-dollar" id="top-dollar">
+            <span class="dollar-label">دلار</span>
+            <span class="dollar-value" id="top-dollar-value">—</span>
+          </div>
+          <div class="sort-inline hidden" id="top-sort">
+            <span class="sort-toggle-label">اولویت نمایش فروشگاه‌ها:</span>
+            <button class="sort-option" data-sort="price" type="button">
+              کمترین قیمت
+            </button>
+            <button class="sort-option" data-sort="count" type="button">
+              بیشترین موجودی
+            </button>
+          </div>
+        </div>
+        <button
+          id="theme-toggle-top"
+          class="theme-toggle-inline"
+          aria-label="تغییر حالت"
+        >
+          <span class="theme-icon-top">🌙</span>
+        </button>
+      </div>
 
       <!-- نوار فروشگاه‌ها -->
       <section class="supported-stores">
@@ -42,9 +113,6 @@
       <section class="input-section">
         <div class="input-header">
           <h2>📝 لیست خرید خود را وارد کنید</h2>
-          <p class="hint">
-            هر آیتم را در یک خط جداگانه بنویسید یا با Enter اضافه کنید
-          </p>
         </div>
 
         <div class="input-wrapper">
@@ -65,33 +133,21 @@
               <span class="spinner" id="spinner"></span>
               <span id="search-btn-text">🔍 جستجو و مقایسه</span>
             </span>
-
             <span class="btn-search-active" id="btn-search-active">
               <span class="search-label">در حال جستجو</span>
               <span class="search-spinner"></span>
-              <span class="slot slot-item" id="slot-item">
-                <span class="slot-text">—</span>
-              </span>
+              <span class="slot slot-item" id="slot-item"
+                ><span class="slot-text">—</span></span
+              >
               <span class="search-label">در فروشگاه</span>
-              <span class="slot slot-store" id="slot-store">
-                <span class="slot-text">—</span>
-              </span>
+              <span class="slot slot-store" id="slot-store"
+                ><span class="slot-text">—</span></span
+              >
             </span>
           </button>
           <button id="clear-btn" class="btn-clear">پاک کردن همه</button>
         </div>
       </section>
-
-      <!-- 🎯 فیلتر ترتیب — فقط بعد از جستجو نمایش داده می‌شود -->
-      <div class="sort-toggle-group hidden" id="sort-toggle-group">
-        <span class="sort-toggle-label">اولویت نمایش فروشگاه ها:</span>
-        <button class="sort-option active" data-sort="price" type="button">
-          💰 کمترین قیمت
-        </button>
-        <button class="sort-option" data-sort="count" type="button">
-          📦 بیشترین موجودی
-        </button>
-      </div>
 
       <!-- نتایج -->
       <section id="results-section" class="results-section hidden">
@@ -119,13 +175,14 @@
         <div class="wishlist-modal-header">
           <div class="wishlist-modal-title">
             <span class="wishlist-modal-icon">❤️</span>
-            <span>علاقه‌مندی‌های من</span>
+            <div>
+              <div>علاقه‌مندی‌های من</div>
+              <div class="wishlist-modal-date" id="wishlist-modal-date"></div>
+            </div>
           </div>
           <button class="wishlist-modal-close" aria-label="بستن">✕</button>
         </div>
-
         <div class="wishlist-modal-total" id="wishlist-modal-total"></div>
-
         <div class="wishlist-modal-toolbar" id="wishlist-modal-toolbar">
           <button
             class="wishlist-tool-btn wishlist-tool-clear"
@@ -152,12 +209,11 @@
             <span>حذف همه</span>
           </button>
         </div>
-
         <div class="wishlist-modal-body" id="wishlist-modal-body"></div>
       </div>
     </div>
 
-    <!-- دیالوگ تأیید اختصاصی -->
+    <!-- دیالوگ تأیید -->
     <div id="confirm-dialog" class="confirm-dialog hidden">
       <div class="confirm-dialog-backdrop"></div>
       <div class="confirm-dialog-content">

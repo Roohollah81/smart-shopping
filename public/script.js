@@ -17,6 +17,7 @@ let items = [];
 let currentSort = localStorage.getItem("sortOrder") || "price";
 let lastBasketComparison = null;
 let wishlist = JSON.parse(localStorage.getItem("wishlist") || "[]");
+let wishlistLastChange = localStorage.getItem("wishlistLastChange") || null;
 
 const SUPPORTED_STORES = [
   {
@@ -64,7 +65,7 @@ const SUPPORTED_STORES = [
 ];
 
 // ================================================================
-// 🎯 اطلاعات تکمیلی فروشگاه‌ها با نشان‌های واقعی
+// 🎯 اطلاعات تکمیلی فروشگاه‌ها
 // ================================================================
 const STORE_META = {
   دیجی‌کالا: {
@@ -104,9 +105,10 @@ const STORE_META = {
     ],
   },
   ترب: {
-    shipping: "واسط خرید",
-    shippingIcon: "/badges/map-icon.png",
-    badges: [], // 🎯 حذف شد
+    shipping: null,
+    shippingIcon: null,
+    note: "ترب یک ارائه‌دهنده و مقایسه‌کننده قیمت است و خرید مستقیم این محصولات در آن انجام نمی‌شود.",
+    badges: [],
   },
   قلم‌تراش: {
     shipping: "شهرکرد",
@@ -167,7 +169,7 @@ const STORE_META = {
         alt: "اکسپرس",
       },
       {
-        category: "payment",
+        category: "trust",
         img: "/badges/zarinpal.png",
         link: "https://www.zarinpal.com/trustPage/armanartstore.com",
         alt: "زرین‌پال",
@@ -265,7 +267,7 @@ function getStoreMeta(storeName) {
   return (
     STORE_META[storeName] || {
       shipping: null,
-      shippingIcon: "/badges/map-icon.png",
+      shippingIcon: null,
       badges: [],
     }
   );
@@ -275,7 +277,8 @@ function getCategoryLabel(category) {
   const labels = {
     trust: "ضمانت و اعتماد",
     shipping: "ارسال",
-    payment: "پرداخت",
+    payment: "پرداخت اقساطی",
+    info: "اطلاعات",
   };
   return labels[category] || "نشان";
 }
@@ -294,10 +297,8 @@ let currentStoreIndex = 0;
 function animateSlot(slotId, newText, color = null) {
   const slotEl = document.getElementById(slotId);
   if (!slotEl) return;
-
   const currentTextEl = slotEl.querySelector(".slot-text");
   const currentText = currentTextEl ? currentTextEl.textContent : "";
-
   if (color && slotId === "slot-store") {
     slotEl.style.setProperty("--slot-color-bg", hexToRgba(color, 0.85));
     slotEl.style.setProperty("--slot-color-border", hexToRgba(color, 0.95));
@@ -305,14 +306,11 @@ function animateSlot(slotId, newText, color = null) {
     slotEl.style.removeProperty("--slot-color-bg");
     slotEl.style.removeProperty("--slot-color-border");
   }
-
   if (currentText === newText) return;
-
   slotEl.innerHTML = `
     <span class="slot-text slot-out">${escapeHtml(currentText || "—")}</span>
     <span class="slot-text slot-in">${escapeHtml(newText)}</span>
   `;
-
   setTimeout(() => {
     slotEl.innerHTML = `<span class="slot-text">${escapeHtml(newText)}</span>`;
   }, 380);
@@ -356,16 +354,9 @@ function toPersianNum(num) {
 function showToast(title, message, type = "success", duration = 5000) {
   const container = document.getElementById("toast-container");
   if (!container) return;
-
-  const icons = {
-    success: "✓",
-    remove: "✕",
-    info: "❤️",
-  };
-
+  const icons = { success: "✓", remove: "✕", info: "❤️" };
   const toast = document.createElement("div");
   toast.className = `toast toast-${type}`;
-
   toast.innerHTML = `
     <div class="toast-icon">${icons[type] || "✓"}</div>
     <div class="toast-content">
@@ -376,9 +367,7 @@ function showToast(title, message, type = "success", duration = 5000) {
       <div class="toast-progress-bar" style="animation-duration: ${duration}ms;"></div>
     </div>
   `;
-
   container.appendChild(toast);
-
   setTimeout(() => {
     toast.classList.add("toast-out");
     setTimeout(() => toast.remove(), 350);
@@ -404,42 +393,33 @@ function showConfirmDialog({
     const okBtn = document.getElementById("confirm-dialog-ok");
     const cancelBtn = document.getElementById("confirm-dialog-cancel");
     const backdrop = dialog.querySelector(".confirm-dialog-backdrop");
-
     dialog.classList.remove("danger", "info");
-
     iconEl.textContent = icon;
     titleEl.textContent = title;
     msgEl.textContent = message;
     okBtn.textContent = confirmText;
     cancelBtn.textContent = cancelText;
-
     if (variant === "danger") dialog.classList.add("danger");
     else if (variant === "info") dialog.classList.add("info");
-
     dialog.classList.remove("hidden");
     document.body.style.overflow = "hidden";
-
     setTimeout(() => okBtn.focus(), 100);
-
     const newOk = okBtn.cloneNode(true);
     const newCancel = cancelBtn.cloneNode(true);
     const newBackdrop = backdrop.cloneNode(true);
     okBtn.parentNode.replaceChild(newOk, okBtn);
     cancelBtn.parentNode.replaceChild(newCancel, cancelBtn);
     backdrop.parentNode.replaceChild(newBackdrop, backdrop);
-
     function close(result) {
       dialog.classList.add("hidden");
       document.body.style.overflow = "";
       document.removeEventListener("keydown", handleKey);
       resolve(result);
     }
-
     function handleKey(e) {
       if (e.key === "Escape") close(false);
       else if (e.key === "Enter") close(true);
     }
-
     newOk.addEventListener("click", () => close(true));
     newCancel.addEventListener("click", () => close(false));
     newBackdrop.addEventListener("click", () => close(false));
@@ -460,15 +440,20 @@ function isInWishlist(item) {
 }
 
 function saveWishlist() {
+  updateWishlistLastChange();
   localStorage.setItem("wishlist", JSON.stringify(wishlist));
   updateWishlistFloatBtn();
+}
+
+function updateWishlistLastChange() {
+  wishlistLastChange = new Date().toISOString();
+  localStorage.setItem("wishlistLastChange", wishlistLastChange);
 }
 
 function updateWishlistFloatBtn() {
   const btn = document.getElementById("wishlist-float-btn");
   const countEl = document.getElementById("wishlist-float-count");
   if (!btn || !countEl) return;
-
   if (wishlist.length > 0) {
     btn.classList.remove("hidden");
     countEl.textContent = toPersianNum(wishlist.length);
@@ -480,7 +465,6 @@ function updateWishlistFloatBtn() {
 function toggleWishlist(item) {
   const key = getWishlistKey(item);
   const index = wishlist.findIndex((w) => getWishlistKey(w) === key);
-
   if (index >= 0) {
     wishlist.splice(index, 1);
     showToast("از علاقه‌مندی‌ها حذف شد", item.title, "remove", 4500);
@@ -494,7 +478,6 @@ function toggleWishlist(item) {
     });
     showToast("به علاقه‌مندی‌ها اضافه شد ❤️", item.title, "success", 5000);
   }
-
   saveWishlist();
   updateAllWishlistButtons();
   const modal = document.getElementById("wishlist-modal");
@@ -544,17 +527,38 @@ function closeWishlistModal() {
   document.body.style.overflow = "";
 }
 
+function formatPersianDateTime(isoString) {
+  if (!isoString) return "";
+  try {
+    const date = new Date(isoString);
+    const dateFormatter = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    const timeFormatter = new Intl.DateTimeFormat("fa-IR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    return `آخرین تغییر: ${dateFormatter.format(date)} - ساعت ${timeFormatter.format(date)}`;
+  } catch (e) {
+    return "";
+  }
+}
+
 function renderWishlistModal() {
   const body = document.getElementById("wishlist-modal-body");
   const totalEl = document.getElementById("wishlist-modal-total");
   const toolbar = document.getElementById("wishlist-modal-toolbar");
-
+  const dateEl = document.getElementById("wishlist-modal-date");
   if (wishlist.length === 0) {
     if (totalEl) {
       totalEl.classList.add("hidden");
       totalEl.innerHTML = "";
     }
     if (toolbar) toolbar.classList.add("hidden");
+    if (dateEl) dateEl.textContent = "";
     body.innerHTML = `
       <div class="wishlist-empty">
         <div class="wishlist-empty-icon">💔</div>
@@ -563,19 +567,16 @@ function renderWishlistModal() {
     `;
     return;
   }
-
   if (totalEl) totalEl.classList.remove("hidden");
   if (toolbar) toolbar.classList.remove("hidden");
-
+  if (dateEl) dateEl.textContent = formatPersianDateTime(wishlistLastChange);
   const total = wishlist.reduce((sum, item) => sum + (item.price || 0), 0);
-
   if (totalEl) {
     totalEl.innerHTML = `
       <span class="total-label">💰 جمع کل (${toPersianNum(wishlist.length)} آیتم)</span>
       <span class="total-value">${formatPrice(total)} تومان</span>
     `;
   }
-
   body.innerHTML = wishlist
     .map((item, index) => {
       const icon = getProductIcon(item.title);
@@ -586,19 +587,16 @@ function renderWishlistModal() {
       const imgHtml = hasImg
         ? `<img src="${escapeHtml(item.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\\'wishlist-item-icon\\'>${icon}</span>';" />`
         : `<span class="wishlist-item-icon">${icon}</span>`;
-
       const storeColor = getStoreColor(item.storeName);
       const storeIconUrl = getStoreIconUrl(item.storeName);
       const storeIconHtml = storeIconUrl
         ? `<img src="${escapeHtml(storeIconUrl)}" alt="" class="wishlist-item-store-icon" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';" /><span class="wishlist-item-store-fallback" style="display:none;">🏪</span>`
         : `<span class="wishlist-item-store-fallback">🏪</span>`;
-
       const hasLink = item.link && item.link !== "#";
       const tag = hasLink ? "a" : "div";
       const linkAttrs = hasLink
         ? `href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer"`
         : "";
-
       return `
         <${tag} class="wishlist-item ${hasLink ? "wishlist-item-link" : ""}" ${linkAttrs} draggable="false">
           <div class="wishlist-item-image">${imgHtml}</div>
@@ -618,7 +616,6 @@ function renderWishlistModal() {
       `;
     })
     .join("");
-
   body.querySelectorAll(".wishlist-item-remove").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.preventDefault();
@@ -632,7 +629,6 @@ function renderWishlistModal() {
 
 async function clearAllWishlist() {
   if (wishlist.length === 0) return;
-
   const confirmed = await showConfirmDialog({
     title: "حذف همه علاقه‌مندی‌ها",
     message: `آیا مطمئن هستید که می‌خواهید همه ${toPersianNum(wishlist.length)} آیتم را از علاقه‌مندی‌ها حذف کنید؟ این عملیات قابل بازگشت نیست.`,
@@ -641,15 +637,12 @@ async function clearAllWishlist() {
     cancelText: "انصراف",
     variant: "danger",
   });
-
   if (!confirmed) return;
-
   const count = wishlist.length;
   wishlist = [];
   saveWishlist();
   updateAllWishlistButtons();
   renderWishlistModal();
-
   showToast(
     "همه آیتم‌ها حذف شدند",
     `${toPersianNum(count)} آیتم از علاقه‌مندی‌ها پاک شد`,
@@ -659,7 +652,7 @@ async function clearAllWishlist() {
 }
 
 // ================================================================
-// 🎯 SORTING
+// 🎯 SORTING — نسخه اصلاح شده
 // ================================================================
 function applySorting(basketComparison) {
   if (!basketComparison || basketComparison.length === 0) return [];
@@ -681,9 +674,12 @@ function applySorting(basketComparison) {
 function setSortOrder(order) {
   currentSort = order;
   localStorage.setItem("sortOrder", order);
+
+  // به‌روزرسانی همه دکمه‌های سورت (هم در پایین و هم در نوار چسبان)
   document.querySelectorAll(".sort-option").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.sort === order);
   });
+
   if (lastBasketComparison && lastBasketComparison.length > 0) {
     const sorted = applySorting(lastBasketComparison);
     renderStoreSections(sorted);
@@ -691,13 +687,190 @@ function setSortOrder(order) {
 }
 
 function initSortToggle() {
+  // رویداد کلیک برای همه دکمه‌های سورت
   document.querySelectorAll(".sort-option").forEach((btn) => {
-    btn.addEventListener("click", () => setSortOrder(btn.dataset.sort));
+    // حذف لیسنر قبلی برای جلوگیری از تکراری شدن
+    btn.removeEventListener("click", handleSortClick);
+    btn.addEventListener("click", handleSortClick);
     btn.classList.toggle("active", btn.dataset.sort === currentSort);
   });
 }
 
-// ---------- آیتم‌ها ----------
+function handleSortClick(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const order = e.currentTarget.dataset.sort;
+  if (order) setSortOrder(order);
+}
+
+// ================================================================
+// 🎯 DATE/TIME — نسخه اصلاح شده
+// ================================================================
+function updateDateTime() {
+  const now = new Date();
+  let dateStr = "—";
+  let timeStr = "—";
+
+  try {
+    const parts = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }).formatToParts(now);
+
+    const get = (t) => parts.find((p) => p.type === t)?.value || "";
+    // ترتیب دلخواه: جمعه ۳ مهر ۱۴۰۵
+    dateStr = `${get("weekday")} ${get("day")} ${get("month")} ${get("year")}`;
+
+    timeStr = new Intl.DateTimeFormat("fa-IR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }).format(now);
+  } catch (e) {}
+
+  const set = (id, txt) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = txt;
+  };
+  set("datetime-date", dateStr);
+  set("datetime-time", timeStr);
+  set("top-datetime-date", dateStr);
+  set("top-datetime-time", timeStr);
+}
+
+async function fetchDollarRate() {
+  const set = (id, txt) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = txt;
+  };
+
+  set("dollar-value", "...");
+  set("top-dollar-value", "...");
+
+  try {
+    const res = await fetch("/api/dollar");
+    const data = await res.json();
+    if (data?.success && data.price) {
+      const txt = Number(data.price).toLocaleString("fa-IR");
+      set("dollar-value", txt);
+      set("top-dollar-value", txt);
+    } else {
+      set("dollar-value", "—");
+      set("top-dollar-value", "—");
+    }
+  } catch {
+    set("dollar-value", "—");
+    set("top-dollar-value", "—");
+  }
+}
+// ================================================================
+// 🎯 STICKY HEADER — نسخه اصلاح شده
+// ================================================================
+function initStickyHeader() {
+  const stickyHeader = document.getElementById("sticky-header");
+  const stickySort = document.getElementById("sticky-sort");
+  const topInfoBar = document.getElementById("top-info-bar");
+  const topSort = document.getElementById("top-sort");
+
+  if (!stickyHeader) return;
+
+  let ticking = false;
+
+  function checkDollar() {
+    const center = stickyHeader.querySelector(".sticky-center");
+    const dollar = stickyHeader.querySelector(".sticky-dollar");
+    if (!center || !dollar) return;
+
+    // نمایش موقت برای اندازه‌گیری
+    stickyHeader.classList.remove("hide-dollar");
+    void stickyHeader.offsetWidth;
+
+    // اگر سرریز شد، دلار را مخفی کن
+    if (center.scrollWidth > center.clientWidth + 2) {
+      stickyHeader.classList.add("hide-dollar");
+    }
+  }
+
+  function updateSticky() {
+    const topInfoBarBottom = topInfoBar
+      ? topInfoBar.getBoundingClientRect().bottom
+      : 200;
+
+    if (topInfoBarBottom < 0) {
+      stickyHeader.classList.add("visible");
+      checkDollar();
+    } else {
+      stickyHeader.classList.remove("visible");
+    }
+
+    if (topSort && !topSort.classList.contains("hidden")) {
+      const r = topSort.getBoundingClientRect();
+      if (r.bottom < 0) {
+        stickySort.classList.remove("hidden");
+      } else {
+        stickySort.classList.add("hidden");
+      }
+    } else {
+      stickySort.classList.add("hidden");
+    }
+
+    ticking = false;
+  }
+
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (!ticking) {
+        window.requestAnimationFrame(updateSticky);
+        ticking = true;
+      }
+    },
+    { passive: true },
+  );
+
+  window.addEventListener("resize", () => {
+    setTimeout(checkDollar, 100);
+  });
+
+  updateSticky();
+}
+
+// ================================================================
+// 🎯 PRODUCT ICON
+// ================================================================
+function getProductIcon(title) {
+  const t = (title || "").toLowerCase();
+  if (t.includes("قلمو") || t.includes("قلم مو") || t.includes("brush"))
+    return "🖌️";
+  if (t.includes("مقوا") || t.includes("کاغذ") || t.includes("ورق"))
+    return "📄";
+  if (t.includes("دفتر") || t.includes("بلوک") || t.includes("اسکچ"))
+    return "📔";
+  if (t.includes("خودکار") || t.includes("روان")) return "🖊️";
+  if (t.includes("مداد") || t.includes("تراش")) return "✏️";
+  if (t.includes("آبرنگ") || t.includes("رنگ") || t.includes("گواش"))
+    return "🎨";
+  if (t.includes("ماوس")) return "🖱️";
+  if (t.includes("کیبورد")) return "⌨️";
+  if (t.includes("هدفون") || t.includes("هدست")) return "🎧";
+  if (t.includes("گوشی") || t.includes("موبایل")) return "📱";
+  if (t.includes("شارژر")) return "🔌";
+  if (t.includes("کابل")) return "🔗";
+  if (t.includes("پاک‌کن") || t.includes("پاکن")) return "🧽";
+  if (t.includes("خط‌کش") || t.includes("گونیا")) return "📐";
+  if (t.includes("چسب")) return "🧴";
+  if (t.includes("قیچی")) return "✂️";
+  if (t.includes("ماژیک")) return "🖍️";
+  if (t.includes("کوله") || t.includes("کیف")) return "🎒";
+  return "📦";
+}
+
+// ================================================================
+// 🎯 ITEMS
+// ================================================================
 function addItem() {
   const value = itemInput.value.trim();
   if (!value) return;
@@ -741,7 +914,8 @@ function clearAll() {
   items = [];
   renderItems();
   resultsSection.classList.add("hidden");
-  document.getElementById("sort-toggle-group").classList.add("hidden"); // 🎯
+  document.getElementById("top-sort")?.classList.add("hidden");
+  document.getElementById("sticky-sort")?.classList.add("hidden");
   hideError();
   stopStoreCycle();
   searchBtn.classList.remove("searching");
@@ -773,28 +947,26 @@ function markChipError(index) {
   }
 }
 
-// ---------- جستجو ----------
+// ================================================================
+// 🎯 SEARCH
+// ================================================================
 async function search() {
   if (items.length === 0) return;
   hideError();
   setLoading(true);
-
-  document.querySelectorAll(".item-chip").forEach((chip) => {
-    chip.classList.remove("done", "error", "active");
-  });
-
+  document
+    .querySelectorAll(".item-chip")
+    .forEach((chip) => chip.classList.remove("done", "error", "active"));
   searchBtn.classList.add("searching");
   itemsList.classList.add("locked");
   startStoreCycle();
-
   try {
+    addBtn.disabled = true;
     const queryResults = [];
-
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       markChipActive(i);
       animateSlot("slot-item", item);
-
       try {
         const r = await fetch("/api/compare", {
           method: "POST",
@@ -803,7 +975,6 @@ async function search() {
         });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
-
         if (data.success && data.data?.queries?.[0]) {
           queryResults.push(data.data.queries[0]);
           markChipDone(i);
@@ -815,20 +986,18 @@ async function search() {
         markChipError(i);
       }
     }
-
     const validQueries = queryResults.filter(Boolean);
-
     if (validQueries.length === 0) {
       showError("هیچ نتیجه‌ای یافت نشد.");
       return;
     }
-
     const basketComparison = computeBasketComparison(validQueries);
     renderResults({ queries: validQueries, basketComparison });
   } catch (e) {
     showError("خطا در جستجو: " + (e.message || "خطای نامشخص"));
     console.error(e);
   } finally {
+    addBtn.disabled = false;
     stopStoreCycle();
     searchBtn.classList.remove("searching");
     setLoading(false);
@@ -851,30 +1020,25 @@ function computeBasketComparison(queries) {
       for (const offer of match.offers) storeNames.add(offer.storeName);
     }
   }
-
   return Array.from(storeNames)
     .map((storeName) => {
       let total = 0,
         itemCount = 0;
       const missing = [],
         pickedItems = [];
-
       for (const { query, matches } of queries) {
         const offersForStore = [];
         for (const match of matches) {
           const offer = match.offers.find((o) => o.storeName === storeName);
           if (offer) offersForStore.push(offer);
         }
-
         if (offersForStore.length === 0) {
           missing.push(query);
           continue;
         }
-
         offersForStore.sort((a, b) => a.price - b.price);
         const cheapest = offersForStore[0];
         const others = offersForStore.slice(1);
-
         total += cheapest.price;
         itemCount++;
         pickedItems.push({
@@ -891,7 +1055,6 @@ function computeBasketComparison(queries) {
           })),
         });
       }
-
       return { storeName, total, itemCount, missing, items: pickedItems };
     })
     .filter((b) => b.itemCount > 0)
@@ -901,36 +1064,56 @@ function computeBasketComparison(queries) {
     });
 }
 
-// ---------- نمایش نتایج ----------
+// ================================================================
+// 🎯 RESULTS
+// ================================================================
 function renderResults(data) {
   const { basketComparison } = data;
   if (!basketComparison || basketComparison.length === 0) {
     showError("هیچ نتیجه‌ای یافت نشد.");
     resultsSection.classList.add("hidden");
-    document.getElementById("sort-toggle-group").classList.add("hidden");
     return;
   }
   lastBasketComparison = basketComparison;
   const sorted = applySorting(basketComparison);
   renderStoreSections(sorted);
 
-  // 🎯 نمایش فیلتر ترتیب
-  document.getElementById("sort-toggle-group").classList.remove("hidden");
+  // نمایش سورت کنار دلار
+  const topSort = document.getElementById("top-sort");
+  if (topSort) topSort.classList.remove("hidden");
 
   resultsSection.classList.remove("hidden");
   resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function renderStoreSections(sortedStores) {
-  const best = sortedStores[0];
-  let html = renderStoreSection(best, true);
-  const others = sortedStores.slice(1);
-  if (others.length > 0) {
-    html += `<h2 class="section-title others-title">فروشگاه های دیگر</h2>`;
-    for (const s of others) html += renderStoreSection(s, false);
-  }
-  storesContainer.innerHTML = html;
+  if (!sortedStores || sortedStores.length === 0) return;
 
+  // بررسی اینکه آیا فروشگاه برتری وجود دارد یا نه
+  let hasBest = true;
+  if (sortedStores.length > 1) {
+    const first = sortedStores[0];
+    const second = sortedStores[1];
+    // اگر قیمت و تعداد هر دو برابر بودند → برتری وجود ندارد
+    if (first.total === second.total && first.itemCount === second.itemCount) {
+      hasBest = false;
+    }
+  }
+
+  let html = "";
+  if (hasBest) {
+    html += renderStoreSection(sortedStores[0], true);
+    for (let i = 1; i < sortedStores.length; i++) {
+      html += renderStoreSection(sortedStores[i], false);
+    }
+  } else {
+    // همه فروشگاه‌ها بدون برتری
+    for (const s of sortedStores) {
+      html += renderStoreSection(s, false);
+    }
+  }
+
+  storesContainer.innerHTML = html;
   requestAnimationFrame(() => {
     document.querySelectorAll("[data-strip-track]").forEach(initStripDrag);
     document.querySelectorAll("[data-grid-track]").forEach(initGridDrag);
@@ -946,24 +1129,27 @@ function renderStoreSection(store, isBest) {
   const storeUrl = SUPPORTED_STORES.find(
     (s) => s.name === store.storeName,
   )?.url;
-
   const cards = store.items
     .map((it) => renderProductCard(it, store, storeColor))
     .join("");
 
-  // 🎯 نشان‌ها به‌صورت ستون عمودی
-  const badges = Array.isArray(storeMeta.badges) ? storeMeta.badges : [];
+  const noteHtml = storeMeta.note
+    ? `<aside class="store-note-vertical">
+       <img src="/badges/warning-icon.png" alt="" class="store-note-icon"
+            onerror="this.style.display='none';" />
+       <div class="store-note-text">${escapeHtml(storeMeta.note)}</div>
+     </aside>`
+    : "";
 
+  const badges = Array.isArray(storeMeta.badges) ? storeMeta.badges : [];
   const buildBadgeRow = (badge) => {
     const cat = badge.category || "trust";
     const inner = `<img src="${escapeHtml(badge.img)}" alt="${escapeHtml(badge.alt)}" class="store-badge-img" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.style.display='none';" />`;
     const title = `${getCategoryLabel(cat)} — ${badge.alt}`;
-
     const tag = badge.link ? "a" : "span";
     const attrs = badge.link
       ? `href="${escapeHtml(badge.link)}" target="_blank" rel="noopener noreferrer"`
       : "";
-
     return `
       <${tag} class="store-badge-row store-badge-row-${cat}" ${attrs} title="${escapeHtml(title)}">
         <span class="store-badge-thumb">${inner}</span>
@@ -972,44 +1158,64 @@ function renderStoreSection(store, isBest) {
     `;
   };
 
-  // 🎯 گروه‌بندی نشان‌ها بر اساس category
   const trustBadges = badges.filter((b) => b.category === "trust");
   const shippingBadges = badges.filter((b) => b.category === "shipping");
   const paymentBadges = badges.filter((b) => b.category === "payment");
+  const infoBadges = badges.filter((b) => b.category === "info");
+  const intermediaryBadges = badges.filter(
+    (b) => b.category === "intermediary",
+  );
+
+  // گروه واسط خرید — فقط متن طلایی، بدون گروه‌بندی و بدون آیکون
+  const intermediaryHtml =
+    intermediaryBadges.length > 0
+      ? `<div class="intermediary-box">
+       ${intermediaryBadges
+         .map(
+           (b) => `
+         <a class="intermediary-tag"
+            href="${escapeHtml(b.link || "#")}"
+            target="_blank" rel="noopener noreferrer"
+            title="واسط خرید">
+           ${escapeHtml(b.alt)}
+         </a>
+       `,
+         )
+         .join("")}
+     </div>`
+      : "";
 
   const buildGroup = (labelIcon, labelText, className, list) => {
     if (list.length === 0) return "";
     return `
-      <div class="store-badge-group ${className}">
-        <div class="store-badge-group-label">
-          <span>${labelIcon}</span>
-          <span>${labelText}</span>
-        </div>
-        <div class="store-badge-group-items">
-          ${list.map(buildBadgeRow).join("")}
-        </div>
+    <div class="store-badge-group ${className}">
+      <div class="store-badge-group-label">
+        ${labelIcon ? `<span>${labelIcon}</span>` : ""}
+        <span>${labelText}</span>
       </div>
-    `;
+      <div class="store-badge-group-items">
+        ${list.map(buildBadgeRow).join("")}
+      </div>
+    </div>
+  `;
   };
 
-  // 🎯 ستون نشان‌ها با شهر در ابتدای آن
   const cityRowHtml = storeMeta.shipping
     ? `
-      <div class="store-badge-group group-city">
-        <div class="store-badge-group-label">
-          <span>📍</span>
-          <span>ارسال از</span>
-        </div>
-        <div class="store-badge-group-items">
-          <span class="store-badge-row store-badge-row-city">
-            <span class="store-badge-thumb">
-              <img src="${storeMeta.shippingIcon}" alt="" class="store-badge-img" onerror="this.style.display='none';" />
-            </span>
-            <span class="store-badge-text">${escapeHtml(storeMeta.shipping)}</span>
+    <div class="store-badge-group group-city">
+      <div class="store-badge-group-label">
+        <span>ارسال از</span>
+      </div>
+      <div class="store-badge-group-items">
+        <div class="store-badge-row store-badge-row-city" title="ارسال از ${escapeHtml(storeMeta.shipping)}">
+          <span class="store-badge-thumb">
+            <img src="${storeMeta.shippingIcon}" alt="" class="store-badge-img" onerror="this.style.display='none';" />
           </span>
+          <span class="store-badge-text">${escapeHtml(storeMeta.shipping)}</span>
         </div>
       </div>
-    `
+    </div>
+  `
     : "";
 
   const badgesColumnHtml =
@@ -1017,9 +1223,11 @@ function renderStoreSection(store, isBest) {
       ? `
       <aside class="store-badges-column">
         ${cityRowHtml}
-        ${buildGroup("🛡️", "ضمانت و اعتماد", "group-trust", trustBadges)}
-        ${buildGroup("📦", "ارسال", "group-shipping", shippingBadges)}
-        ${buildGroup("💳", "پرداخت", "group-payment", paymentBadges)}
+        ${buildGroup("", "ضمانت و اعتماد", "group-trust", trustBadges)}
+        ${buildGroup("", "ارسال", "group-shipping", shippingBadges)}
+        ${buildGroup("", "پرداخت اقساطی", "group-payment", paymentBadges)}
+        ${buildGroup("", "اطلاعات", "group-info", infoBadges)}
+        ${intermediaryHtml}
       </aside>
     `
       : "";
@@ -1046,15 +1254,6 @@ function renderStoreSection(store, isBest) {
     `
       : "";
 
-  let bestTitle = "";
-  if (isBest) {
-    const titleText =
-      currentSort === "count"
-        ? "🎨 متنوع ترین فروشگاه"
-        : "✨ به صرفه ترین فروشگاه";
-    bestTitle = `<h2 class="section-title best-title">${titleText}</h2>`;
-  }
-
   const iconUrl = getStoreIconUrl(store.storeName);
   const fallback = isBest ? "🥇" : "🏪";
   const iconHtml = iconUrl
@@ -1073,23 +1272,18 @@ function renderStoreSection(store, isBest) {
 
   return `
     <section class="store-section ${isBest ? "best-store" : ""}" style="--store-color: ${storeColor};">
-      ${bestTitle}
-
       <div class="store-header-row">
         <div class="store-logo-wrapper">${iconHtml}</div>
         <div class="store-info">
-          <div class="store-name-row">
-            ${storeNameHtml}
-          </div>
+          <div class="store-name-row">${storeNameHtml}</div>
         </div>
         <div class="store-total">
           <span class="total-value">${formatPrice(store.total)}</span>
           <span class="total-currency">تومان</span>
         </div>
       </div>
-
       <div class="store-body">
-        ${badgesColumnHtml}
+        ${noteHtml || badgesColumnHtml || '<div class="store-badges-spacer"></div>'}
         <div class="products-strip-wrapper">
           <button class="grid-nav grid-nav-right hidden" type="button" aria-label="قبلی" draggable="false">‹</button>
           <div class="products-strip" data-grid-track>
@@ -1110,30 +1304,22 @@ function renderProductCard(item, store, storeColor) {
   const others = Array.isArray(item.otherItems) ? item.otherItems : [];
   const hasOthers = others.length > 0;
   const totalCount = 1 + others.length;
-
   let img = item.image;
   if (Array.isArray(img)) img = img[0];
   if (typeof img === "object" && img) img = img.url || img.src;
   const hasImg = img && typeof img === "string" && img.startsWith("http");
-
   const imgContent = hasImg
     ? `<img src="${escapeHtml(img)}" alt="" class="product-image-real" draggable="false" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<span class=&quot;product-image-icon&quot;>${icon}</span>';" />`
     : `<span class="product-image-icon">${icon}</span>`;
-
   const stackHtml = hasOthers
-    ? `<div class="product-stack-layer stack-layer-2"></div>
-       <div class="product-stack-layer stack-layer-1"></div>`
+    ? `<div class="product-stack-layer stack-layer-2"></div><div class="product-stack-layer stack-layer-1"></div>`
     : "";
-
   const expandButtonHtml = hasOthers
     ? `<button class="product-expand-button" type="button" draggable="false">
-         <svg class="product-expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-           <polyline points="15 18 9 12 15 6"></polyline>
-         </svg>
+         <svg class="product-expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
          <span>مشاهده ${toPersianNum(others.length)} آیتم دیگر</span>
        </button>`
     : `<div class="product-expand-placeholder" aria-hidden="true"></div>`;
-
   const wishlistItem = {
     storeName: store.storeName,
     title: item.title,
@@ -1143,19 +1329,14 @@ function renderProductCard(item, store, storeColor) {
   };
   const inWishlist = isInWishlist(wishlistItem);
   const wishlistBtn = `
-    <button class="product-wishlist-btn ${inWishlist ? "active" : ""}"
-            type="button"
-            draggable="false"
-            data-store="${escapeHtml(store.storeName)}"
-            data-title="${escapeHtml(item.title)}"
-            data-price="${item.price}"
-            data-link="${escapeHtml(item.link || "")}"
+    <button class="product-wishlist-btn ${inWishlist ? "active" : ""}" type="button" draggable="false"
+            data-store="${escapeHtml(store.storeName)}" data-title="${escapeHtml(item.title)}"
+            data-price="${item.price}" data-link="${escapeHtml(item.link || "")}"
             data-image="${escapeHtml(typeof item.image === "string" ? item.image : "")}"
             title="${inWishlist ? "حذف از علاقه‌مندی‌ها" : "افزودن به علاقه‌مندی‌ها"}">
       ${inWishlist ? "❤️" : "🤍"}
     </button>
   `;
-
   let expandedHtml = "";
   if (hasOthers) {
     const allItems = [
@@ -1168,7 +1349,6 @@ function renderProductCard(item, store, storeColor) {
       },
       ...others.map((o) => ({ ...o, isSelected: false })),
     ].sort((a, b) => a.price - b.price);
-
     expandedHtml = `
       <div class="product-expanded hidden">
         <button class="strip-close" type="button" aria-label="بستن" draggable="false">✕</button>
@@ -1183,7 +1363,6 @@ function renderProductCard(item, store, storeColor) {
       </div>
     `;
   }
-
   return `
     <div class="product-card ${hasOthers ? "has-others" : ""}">
       ${stackHtml}
@@ -1218,7 +1397,6 @@ function renderStripItem(it, storeColor, storeName) {
   const imgContent = hasImg
     ? `<img src="${escapeHtml(img)}" alt="" class="strip-item-image" draggable="false" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';" /><span class="strip-item-icon" style="display:none;">${icon}</span>`
     : `<span class="strip-item-icon">${icon}</span>`;
-
   const wishlistItem = {
     storeName,
     title: it.title,
@@ -1228,19 +1406,14 @@ function renderStripItem(it, storeColor, storeName) {
   };
   const inWishlist = isInWishlist(wishlistItem);
   const wishlistBtn = `
-    <button class="product-wishlist-btn strip-wishlist-btn ${inWishlist ? "active" : ""}"
-            type="button"
-            draggable="false"
-            data-store="${escapeHtml(storeName)}"
-            data-title="${escapeHtml(it.title)}"
-            data-price="${it.price}"
-            data-link="${escapeHtml(it.link || "")}"
+    <button class="product-wishlist-btn strip-wishlist-btn ${inWishlist ? "active" : ""}" type="button" draggable="false"
+            data-store="${escapeHtml(storeName)}" data-title="${escapeHtml(it.title)}"
+            data-price="${it.price}" data-link="${escapeHtml(it.link || "")}"
             data-image="${escapeHtml(typeof it.image === "string" ? it.image : "")}"
             title="${inWishlist ? "حذف از علاقه‌مندی‌ها" : "افزودن به علاقه‌مندی‌ها"}">
       ${inWishlist ? "❤️" : "🤍"}
     </button>
   `;
-
   return `
     <div class="strip-item ${it.isSelected ? "selected" : ""}" style="--store-color: ${storeColor};">
       ${it.isSelected ? '<span class="strip-item-badge">💰 کمترین قیمت</span>' : ""}
@@ -1283,7 +1456,6 @@ function toggleCardExpand(card, expand) {
   const collapsed = card.querySelector(".product-collapsed");
   const expanded = card.querySelector(".product-expanded");
   if (!collapsed || !expanded) return;
-
   if (expand) {
     allCards.forEach((c) => {
       if (c !== card && c.classList.contains("expanded"))
@@ -1295,15 +1467,13 @@ function toggleCardExpand(card, expand) {
     card.classList.add("expanded");
     collapsed.classList.add("hidden");
     expanded.classList.remove("hidden");
-
     const wrapper = card.closest(".products-strip-wrapper");
     const parentTrack = wrapper?.querySelector("[data-grid-track]");
     if (parentTrack) parentTrack.scrollTo({ left: 0, behavior: "smooth" });
-    if (wrapper) {
+    if (wrapper)
       wrapper.querySelectorAll(".grid-nav").forEach((btn) => {
         btn.style.display = "none";
       });
-    }
     requestAnimationFrame(() => {
       const track = card.querySelector("[data-strip-track]");
       if (track) {
@@ -1318,7 +1488,6 @@ function toggleCardExpand(card, expand) {
     allCards.forEach((c) => c.classList.remove("hidden-sibling"));
     collapsed.classList.remove("hidden");
     expanded.classList.add("hidden");
-
     const wrapper = card.closest(".products-strip-wrapper");
     if (wrapper) {
       wrapper.querySelectorAll(".grid-nav").forEach((btn) => {
@@ -1364,7 +1533,6 @@ function initStripDrag(track) {
     moved = false,
     startX = 0,
     startScroll = 0;
-
   track.addEventListener("mousedown", (e) => {
     if (e.button !== 0) return;
     if (e.target.closest("a, button")) return;
@@ -1377,7 +1545,6 @@ function initStripDrag(track) {
     track.style.userSelect = "none";
     track.style.scrollBehavior = "auto";
   });
-
   document.addEventListener("mousemove", (e) => {
     if (!dragging) return;
     e.preventDefault();
@@ -1385,7 +1552,6 @@ function initStripDrag(track) {
     if (Math.abs(dx) > 3) moved = true;
     track.scrollLeft = startScroll - dx;
   });
-
   document.addEventListener("mouseup", () => {
     if (!dragging) return;
     dragging = false;
@@ -1397,7 +1563,6 @@ function initStripDrag(track) {
       if (card) updateNavButtons(card);
     }
   });
-
   track.addEventListener(
     "click",
     (e) => {
@@ -1409,7 +1574,6 @@ function initStripDrag(track) {
     },
     true,
   );
-
   track.addEventListener("scroll", () => {
     const card = track.closest(".product-card");
     if (card) updateNavButtons(card);
@@ -1423,7 +1587,6 @@ function initGridDrag(track) {
     moved = false,
     startX = 0,
     startScroll = 0;
-
   track.addEventListener("mousedown", (e) => {
     if (e.button !== 0) return;
     if (e.target.closest("a, button")) return;
@@ -1437,7 +1600,6 @@ function initGridDrag(track) {
     track.style.userSelect = "none";
     track.style.scrollBehavior = "auto";
   });
-
   document.addEventListener("mousemove", (e) => {
     if (!dragging) return;
     e.preventDefault();
@@ -1445,7 +1607,6 @@ function initGridDrag(track) {
     if (Math.abs(dx) > 3) moved = true;
     track.scrollLeft = startScroll - dx;
   });
-
   document.addEventListener("mouseup", () => {
     if (!dragging) return;
     dragging = false;
@@ -1454,7 +1615,6 @@ function initGridDrag(track) {
     track.style.scrollBehavior = "";
     if (moved) updateGridButtons(track);
   });
-
   track.addEventListener(
     "click",
     (e) => {
@@ -1466,7 +1626,6 @@ function initGridDrag(track) {
     },
     true,
   );
-
   track.addEventListener("scroll", () => updateGridButtons(track));
 }
 
@@ -1476,7 +1635,6 @@ function checkGridOverflow(track) {
   const right = wrapper?.querySelector(".grid-nav-right");
   const left = wrapper?.querySelector(".grid-nav-left");
   if (!right || !left) return;
-
   const hasOverflow = track.scrollWidth > track.clientWidth + 2;
   if (hasOverflow) {
     right.classList.remove("hidden");
@@ -1513,7 +1671,9 @@ window.addEventListener("resize", () => {
   window.__resizeTimer = setTimeout(checkAllGridOverflows, 200);
 });
 
-// ---------- رویدادها ----------
+// ================================================================
+// 🎯 EVENTS
+// ================================================================
 document.addEventListener("click", (e) => {
   const wishlistBtn = e.target.closest(".product-wishlist-btn");
   if (wishlistBtn) {
@@ -1656,26 +1816,23 @@ document.addEventListener(
     const interactive = e.target.closest(
       "a, button, .product-action, .product-expand-button, .store-strip-card, .strip-nav, .strip-close, .grid-nav, .product-wishlist-btn",
     );
-    if (interactive && e.detail > 1) {
-      e.preventDefault();
-    }
+    if (interactive && e.detail > 1) e.preventDefault();
   },
   true,
 );
 
 function disableAllDraggable() {
-  document.querySelectorAll("a, img").forEach((el) => {
-    el.setAttribute("draggable", "false");
-  });
+  document
+    .querySelectorAll("a, img")
+    .forEach((el) => el.setAttribute("draggable", "false"));
 }
 
 const observer = new MutationObserver((mutations) => {
   mutations.forEach((m) => {
     m.addedNodes.forEach((node) => {
       if (node.nodeType === 1) {
-        if (node.tagName === "A" || node.tagName === "IMG") {
+        if (node.tagName === "A" || node.tagName === "IMG")
           node.setAttribute("draggable", "false");
-        }
         node
           .querySelectorAll?.("a, img")
           .forEach((el) => el.setAttribute("draggable", "false"));
@@ -1685,7 +1842,9 @@ const observer = new MutationObserver((mutations) => {
 });
 observer.observe(document.body, { childList: true, subtree: true });
 
-// ---------- نقشه ----------
+// ================================================================
+// 🎯 HELPERS
+// ================================================================
 function getStoreIconUrl(name) {
   const map = {
     دیجی‌کالا: "digikala.com",
@@ -1699,33 +1858,6 @@ function getStoreIconUrl(name) {
   return map[name]
     ? `https://www.google.com/s2/favicons?domain=${map[name]}&sz=128`
     : null;
-}
-
-function getProductIcon(title) {
-  const t = (title || "").toLowerCase();
-  if (t.includes("قلمو") || t.includes("قلم مو") || t.includes("brush"))
-    return "🖌️";
-  if (t.includes("مقوا") || t.includes("کاغذ") || t.includes("ورق"))
-    return "📄";
-  if (t.includes("دفتر") || t.includes("بلوک") || t.includes("اسکچ"))
-    return "📔";
-  if (t.includes("خودکار") || t.includes("روان")) return "🖊️";
-  if (t.includes("مداد") || t.includes("تراش")) return "✏️";
-  if (t.includes("آبرنگ") || t.includes("رنگ") || t.includes("گواش"))
-    return "🎨";
-  if (t.includes("ماوس")) return "🖱️";
-  if (t.includes("کیبورد")) return "⌨️";
-  if (t.includes("هدفون") || t.includes("هدست")) return "🎧";
-  if (t.includes("گوشی") || t.includes("موبایل")) return "📱";
-  if (t.includes("شارژر")) return "🔌";
-  if (t.includes("کابل")) return "🔗";
-  if (t.includes("پاک‌کن") || t.includes("پاکن")) return "🧽";
-  if (t.includes("خط‌کش") || t.includes("گونیا")) return "📐";
-  if (t.includes("چسب")) return "🧴";
-  if (t.includes("قیچی")) return "✂️";
-  if (t.includes("ماژیک")) return "🖍️";
-  if (t.includes("کوله") || t.includes("کیف")) return "🎒";
-  return "📦";
 }
 
 function buildStoreCard(store) {
@@ -1762,14 +1894,12 @@ function initStripAutoScroll() {
     startPos = 0,
     hover = false,
     trackW = 0;
-
   function measure() {
     const t = strip.querySelector(".stores-strip-track");
     if (t) trackW = t.getBoundingClientRect().width;
   }
   measure();
   window.addEventListener("resize", measure);
-
   function tick(now) {
     const dt = Math.min((now - lastT) / 1000, 0.1);
     lastT = now;
@@ -1785,7 +1915,6 @@ function initStripAutoScroll() {
     lastT = t;
     requestAnimationFrame(tick);
   });
-
   wrapper.addEventListener("mouseenter", () => {
     hover = true;
   });
@@ -1838,13 +1967,14 @@ function initStripAutoScroll() {
   );
 }
 
-// ---------- مودال تصویر ----------
+// ================================================================
+// 🎯 IMAGE MODAL
+// ================================================================
 const imageModal = document.getElementById("image-modal");
 const imageModalImg = document.getElementById("image-modal-img");
 const imageModalCaption = imageModal?.querySelector(".image-modal-caption");
 const imageModalClose = imageModal?.querySelector(".image-modal-close");
 const imageModalBackdrop = imageModal?.querySelector(".image-modal-backdrop");
-
 function openImageModal(src, cap, alt) {
   if (!imageModal) return;
   imageModalImg.src = src;
@@ -1863,7 +1993,9 @@ if (imageModalClose) imageModalClose.addEventListener("click", closeImageModal);
 if (imageModalBackdrop)
   imageModalBackdrop.addEventListener("click", closeImageModal);
 
-// ---------- کمکی ----------
+// ================================================================
+// 🎯 UTILS
+// ================================================================
 function setLoading(v) {
   searchBtn.disabled = v;
   spinner.classList.toggle("active", v);
@@ -1894,19 +2026,31 @@ clearBtn.addEventListener("click", clearAll);
 const wishlistFloatBtn = document.getElementById("wishlist-float-btn");
 if (wishlistFloatBtn)
   wishlistFloatBtn.addEventListener("click", openWishlistModal);
-
 const wishlistClearAllBtn = document.getElementById("wishlist-clear-all");
 if (wishlistClearAllBtn)
   wishlistClearAllBtn.addEventListener("click", clearAllWishlist);
 
-// ---------- تم ----------
+// ================================================================
+// 🎯 THEME (دو دکمه)
+// ================================================================
 const themeToggle = document.getElementById("theme-toggle");
-const themeIcon = themeToggle.querySelector(".theme-icon");
+const themeToggleTop = document.getElementById("theme-toggle-top");
+
 function applyTheme(t) {
   document.documentElement.setAttribute("data-theme", t);
-  themeIcon.textContent = t === "dark" ? "☀️" : "🌙";
+  const icon = t === "dark" ? "☀️" : "🌙";
+  const i1 = document.querySelector("#theme-toggle .theme-icon");
+  if (i1) i1.textContent = icon;
+  const i2 = document.querySelector("#theme-toggle-top .theme-icon-top");
+  if (i2) i2.textContent = icon;
   localStorage.setItem("theme", t);
 }
+
+function toggleTheme() {
+  const c = document.documentElement.getAttribute("data-theme") || "light";
+  applyTheme(c === "dark" ? "light" : "dark");
+}
+
 function initTheme() {
   const s = localStorage.getItem("theme");
   if (s) applyTheme(s);
@@ -1917,13 +2061,19 @@ function initTheme() {
         : "light",
     );
 }
-themeToggle.addEventListener("click", () => {
-  const c = document.documentElement.getAttribute("data-theme") || "light";
-  applyTheme(c === "dark" ? "light" : "dark");
-});
-initTheme();
 
+if (themeToggle) themeToggle.addEventListener("click", toggleTheme);
+if (themeToggleTop) themeToggleTop.addEventListener("click", toggleTheme);
+initTheme();
+// ================================================================
+// 🎯 INIT
+// ================================================================
 renderSupportedStores();
 disableAllDraggable();
 initSortToggle();
 updateWishlistFloatBtn();
+updateDateTime();
+fetchDollarRate();
+setInterval(updateDateTime, 1000);
+setInterval(fetchDollarRate, 5 * 60 * 1000);
+initStickyHeader();
