@@ -63,6 +63,223 @@ const SUPPORTED_STORES = [
   },
 ];
 
+// ================================================================
+// 🎯 اطلاعات تکمیلی فروشگاه‌ها با نشان‌های واقعی
+// ================================================================
+const STORE_META = {
+  دیجی‌کالا: {
+    shipping: "سراسر ایران",
+    shippingIcon: "/badges/map-icon.png",
+    badges: [
+      {
+        category: "trust",
+        img: "/badges/enamad.png",
+        link: "https://trustseal.enamad.ir/?id=19077&Code=sScdOJOzhFxtcEqkjP7P",
+        alt: "اینماد",
+      },
+      {
+        category: "trust",
+        img: "/badges/ecunion.png",
+        link: "https://www.ecunion.ir/verify/digikala.com?token=35858775acf0232a8063",
+        alt: "مجوز کشوری",
+      },
+      {
+        category: "trust",
+        img: "/badges/samandehi.png",
+        link: "https://logo.samandehi.ir/Verify.aspx?id=28177&p=uiwkmcsirfthjyoejyoe",
+        alt: "نشان ملی ثبت",
+      },
+      {
+        category: "trust",
+        img: "/badges/sapra.png",
+        link: "https://sapra.ir/",
+        alt: "ساپرا",
+      },
+      {
+        category: "payment",
+        img: "/badges/digipay.png",
+        link: "https://www.mydigipay.com/",
+        alt: "دیجی‌پی",
+      },
+    ],
+  },
+  ترب: {
+    shipping: "واسط خرید",
+    shippingIcon: "/badges/map-icon.png",
+    badges: [], // 🎯 حذف شد
+  },
+  قلم‌تراش: {
+    shipping: "شهرکرد",
+    shippingIcon: "/badges/map-icon.png",
+    badges: [
+      {
+        category: "trust",
+        img: "/badges/enamad.png",
+        link: "https://trustseal.enamad.ir/?id=714545&Code=A7bJ06l5V5qU4Gx7kGCBPAtLRo1DuKVY",
+        alt: "اینماد",
+      },
+      {
+        category: "trust",
+        img: "/badges/torob-guarantee.png",
+        link: "https://torob.com/shop/1043/%D9%82%D9%84%D9%85%D8%AA%D8%B1%D8%A7%D8%B4/",
+        alt: "ضمانت ترب",
+      },
+      {
+        category: "trust",
+        img: "/badges/digikala-trust.png",
+        link: "https://buy-with-digikala.digify.shop/d-namad/store/d743959b-3dc3-4ebe-9b46-b003c695d645",
+        alt: "اعتماد دیجی‌کالا",
+      },
+      {
+        category: "shipping",
+        img: "/badges/express-shipping.png",
+        link: null,
+        alt: "اکسپرس",
+      },
+      {
+        category: "payment",
+        img: "/badges/digipay.png",
+        link: "https://www.mydigipay.com/",
+        alt: "دیجی‌پی",
+      },
+      {
+        category: "payment",
+        img: "/badges/torob-pay.png",
+        link: "https://pay.torob.com/",
+        alt: "ترب‌پی",
+      },
+    ],
+  },
+  "آرمان آرت": {
+    shipping: "کرج",
+    shippingIcon: "/badges/map-icon.png",
+    badges: [
+      {
+        category: "trust",
+        img: "/badges/enamad.png",
+        link: "https://trustseal.enamad.ir/?id=372725&Code=xZuYs61DQQXouB2rIBBg",
+        alt: "اینماد",
+      },
+      {
+        category: "shipping",
+        img: "/badges/express-shipping.png",
+        link: null,
+        alt: "اکسپرس",
+      },
+      {
+        category: "payment",
+        img: "/badges/zarinpal.png",
+        link: "https://www.zarinpal.com/trustPage/armanartstore.com",
+        alt: "زرین‌پال",
+      },
+    ],
+  },
+  عالم‌زاده: {
+    shipping: "مشهد",
+    shippingIcon: "/badges/map-icon.png",
+    badges: [
+      {
+        category: "trust",
+        img: "/badges/enamad.png",
+        link: "https://trustseal.enamad.ir/?id=528349&Code=xiOEZ5iHyYK6XJPHJiGU6g71l0Htw2bP",
+        alt: "اینماد",
+      },
+      {
+        category: "shipping",
+        img: "/badges/express-shipping.png",
+        link: null,
+        alt: "اکسپرس",
+      },
+      {
+        category: "shipping",
+        img: "/badges/tipax.png",
+        link: "https://www.tipax.ir/",
+        alt: "تیپاکس",
+      },
+    ],
+  },
+  "مهستان آرت": {
+    shipping: "کرج",
+    shippingIcon: "/badges/map-icon.png",
+    badges: [
+      {
+        category: "trust",
+        img: "/badges/enamad.png",
+        link: "https://trustseal.enamad.ir/?id=140414&Code=tGHPEYjqMPGlftMGEWnq",
+        alt: "اینماد",
+      },
+      {
+        category: "shipping",
+        img: "/badges/express-shipping.png",
+        link: null,
+        alt: "اکسپرس",
+      },
+      {
+        category: "shipping",
+        img: "/badges/tipax.png",
+        link: "https://www.tipax.ir/",
+        alt: "تیپاکس",
+      },
+    ],
+  },
+  "مجد مارکت": {
+    shipping: "قم",
+    shippingIcon: "/badges/map-icon.png",
+    badges: [
+      {
+        category: "trust",
+        img: "/badges/enamad.png",
+        link: "https://trustseal.enamad.ir/?id=133075&Code=IME8ioiVnfPkSp88S8el",
+        alt: "اینماد",
+      },
+      {
+        category: "trust",
+        img: "/badges/digikala-trust.png",
+        link: "https://buy-with-digikala.digify.shop/d-namad/store/0a83edab-5f33-4c2f-a3e7-920523b05a1e",
+        alt: "اعتماد دیجی‌کالا",
+      },
+      { category: "shipping", img: "/badges/post.png", link: null, alt: "پست" },
+      {
+        category: "shipping",
+        img: "/badges/tipax.png",
+        link: "https://www.tipax.ir/",
+        alt: "تیپاکس",
+      },
+      {
+        category: "payment",
+        img: "/badges/torob-pay.png",
+        link: "https://pay.torob.com/",
+        alt: "ترب‌پی",
+      },
+      {
+        category: "payment",
+        img: "/badges/snapp-pay.png",
+        link: "https://snapppay.ir/",
+        alt: "اسنپ‌پی",
+      },
+    ],
+  },
+};
+
+function getStoreMeta(storeName) {
+  return (
+    STORE_META[storeName] || {
+      shipping: null,
+      shippingIcon: "/badges/map-icon.png",
+      badges: [],
+    }
+  );
+}
+
+function getCategoryLabel(category) {
+  const labels = {
+    trust: "ضمانت و اعتماد",
+    shipping: "ارسال",
+    payment: "پرداخت",
+  };
+  return labels[category] || "نشان";
+}
+
 function getStoreColor(storeName) {
   const s = SUPPORTED_STORES.find((x) => x.name === storeName);
   return s ? s.color : "#6366f1";
@@ -524,6 +741,7 @@ function clearAll() {
   items = [];
   renderItems();
   resultsSection.classList.add("hidden");
+  document.getElementById("sort-toggle-group").classList.add("hidden"); // 🎯
   hideError();
   stopStoreCycle();
   searchBtn.classList.remove("searching");
@@ -689,11 +907,16 @@ function renderResults(data) {
   if (!basketComparison || basketComparison.length === 0) {
     showError("هیچ نتیجه‌ای یافت نشد.");
     resultsSection.classList.add("hidden");
+    document.getElementById("sort-toggle-group").classList.add("hidden");
     return;
   }
   lastBasketComparison = basketComparison;
   const sorted = applySorting(basketComparison);
   renderStoreSections(sorted);
+
+  // 🎯 نمایش فیلتر ترتیب
+  document.getElementById("sort-toggle-group").classList.remove("hidden");
+
   resultsSection.classList.remove("hidden");
   resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -719,9 +942,87 @@ function renderStoreSections(sortedStores) {
 
 function renderStoreSection(store, isBest) {
   const storeColor = getStoreColor(store.storeName);
+  const storeMeta = getStoreMeta(store.storeName);
+  const storeUrl = SUPPORTED_STORES.find(
+    (s) => s.name === store.storeName,
+  )?.url;
+
   const cards = store.items
     .map((it) => renderProductCard(it, store, storeColor))
     .join("");
+
+  // 🎯 نشان‌ها به‌صورت ستون عمودی
+  const badges = Array.isArray(storeMeta.badges) ? storeMeta.badges : [];
+
+  const buildBadgeRow = (badge) => {
+    const cat = badge.category || "trust";
+    const inner = `<img src="${escapeHtml(badge.img)}" alt="${escapeHtml(badge.alt)}" class="store-badge-img" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.style.display='none';" />`;
+    const title = `${getCategoryLabel(cat)} — ${badge.alt}`;
+
+    const tag = badge.link ? "a" : "span";
+    const attrs = badge.link
+      ? `href="${escapeHtml(badge.link)}" target="_blank" rel="noopener noreferrer"`
+      : "";
+
+    return `
+      <${tag} class="store-badge-row store-badge-row-${cat}" ${attrs} title="${escapeHtml(title)}">
+        <span class="store-badge-thumb">${inner}</span>
+        <span class="store-badge-text">${escapeHtml(badge.alt)}</span>
+      </${tag}>
+    `;
+  };
+
+  // 🎯 گروه‌بندی نشان‌ها بر اساس category
+  const trustBadges = badges.filter((b) => b.category === "trust");
+  const shippingBadges = badges.filter((b) => b.category === "shipping");
+  const paymentBadges = badges.filter((b) => b.category === "payment");
+
+  const buildGroup = (labelIcon, labelText, className, list) => {
+    if (list.length === 0) return "";
+    return `
+      <div class="store-badge-group ${className}">
+        <div class="store-badge-group-label">
+          <span>${labelIcon}</span>
+          <span>${labelText}</span>
+        </div>
+        <div class="store-badge-group-items">
+          ${list.map(buildBadgeRow).join("")}
+        </div>
+      </div>
+    `;
+  };
+
+  // 🎯 ستون نشان‌ها با شهر در ابتدای آن
+  const cityRowHtml = storeMeta.shipping
+    ? `
+      <div class="store-badge-group group-city">
+        <div class="store-badge-group-label">
+          <span>📍</span>
+          <span>ارسال از</span>
+        </div>
+        <div class="store-badge-group-items">
+          <span class="store-badge-row store-badge-row-city">
+            <span class="store-badge-thumb">
+              <img src="${storeMeta.shippingIcon}" alt="" class="store-badge-img" onerror="this.style.display='none';" />
+            </span>
+            <span class="store-badge-text">${escapeHtml(storeMeta.shipping)}</span>
+          </span>
+        </div>
+      </div>
+    `
+    : "";
+
+  const badgesColumnHtml =
+    badges.length > 0 || storeMeta.shipping
+      ? `
+      <aside class="store-badges-column">
+        ${cityRowHtml}
+        ${buildGroup("🛡️", "ضمانت و اعتماد", "group-trust", trustBadges)}
+        ${buildGroup("📦", "ارسال", "group-shipping", shippingBadges)}
+        ${buildGroup("💳", "پرداخت", "group-payment", paymentBadges)}
+      </aside>
+    `
+      : "";
 
   const missingHtml =
     store.missing && store.missing.length > 0
@@ -745,7 +1046,6 @@ function renderStoreSection(store, isBest) {
     `
       : "";
 
-  // 🎯 عنوان پویا بر اساس حالت مرتب‌سازی
   let bestTitle = "";
   if (isBest) {
     const titleText =
@@ -761,26 +1061,42 @@ function renderStoreSection(store, isBest) {
     ? `<img src="${escapeHtml(iconUrl)}" alt="" class="store-logo" draggable="false" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';" /><span class="store-icon-fallback" style="display:none;">${fallback}</span>`
     : `<span class="store-icon-fallback" style="display:flex;">${fallback}</span>`;
 
+  const storeNameHtml = storeUrl
+    ? `<a class="store-name store-name-link" href="${escapeHtml(storeUrl)}" target="_blank" rel="noopener noreferrer" title="رفتن به صفحه اصلی ${escapeHtml(store.storeName)}">
+         ${escapeHtml(store.storeName)}
+         <svg class="store-name-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+           <line x1="7" y1="17" x2="17" y2="7"></line>
+           <polyline points="7 7 17 7 17 17"></polyline>
+         </svg>
+       </a>`
+    : `<span class="store-name">${escapeHtml(store.storeName)}</span>`;
+
   return `
     <section class="store-section ${isBest ? "best-store" : ""}" style="--store-color: ${storeColor};">
       ${bestTitle}
+
       <div class="store-header-row">
-        <div class="store-badge">
-          <div class="store-logo-wrapper">${iconHtml}</div>
-          <h3 class="store-name">${escapeHtml(store.storeName)}</h3>
+        <div class="store-logo-wrapper">${iconHtml}</div>
+        <div class="store-info">
+          <div class="store-name-row">
+            ${storeNameHtml}
+          </div>
         </div>
         <div class="store-total">
-          <span class="total-label">مجموع سبد</span>
-          <span class="total-value">${formatPrice(store.total)} تومان</span>
+          <span class="total-value">${formatPrice(store.total)}</span>
+          <span class="total-currency">تومان</span>
         </div>
       </div>
 
-      <div class="products-strip-wrapper">
-        <button class="grid-nav grid-nav-right hidden" type="button" aria-label="قبلی" draggable="false">‹</button>
-        <div class="products-strip" data-grid-track>
-          ${cards}
+      <div class="store-body">
+        ${badgesColumnHtml}
+        <div class="products-strip-wrapper">
+          <button class="grid-nav grid-nav-right hidden" type="button" aria-label="قبلی" draggable="false">‹</button>
+          <div class="products-strip" data-grid-track>
+            ${cards}
+          </div>
+          <button class="grid-nav grid-nav-left hidden" type="button" aria-label="بعدی" draggable="false">›</button>
         </div>
-        <button class="grid-nav grid-nav-left hidden" type="button" aria-label="بعدی" draggable="false">›</button>
       </div>
 
       ${missingHtml}

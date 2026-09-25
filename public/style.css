@@ -59,7 +59,7 @@ body {
 }
 
 /* ================================================================
-   هدر
+   HEADER
    ================================================================ */
 .header {
   text-align: center;
@@ -119,7 +119,7 @@ body {
 }
 
 /* ================================================================
-   نوار فروشگاه‌ها
+   STORES STRIP (TOP NAVIGATION)
    ================================================================ */
 .supported-stores {
   direction: ltr;
@@ -270,7 +270,7 @@ body {
 }
 
 /* ================================================================
-   بخش ورودی
+   INPUT SECTION
    ================================================================ */
 .input-section {
   background: var(--surface);
@@ -345,8 +345,16 @@ body {
   margin-bottom: 1.5rem;
   min-height: 2.5rem;
 }
+.items-list.locked .item-chip .remove {
+  display: none !important;
+}
+.items-list.locked .item-chip {
+  cursor: not-allowed;
+}
 
-/* 🎯 چیپ‌های آیتم با حالت‌های پیشرفت */
+/* ================================================================
+   ITEM CHIPS
+   ================================================================ */
 .item-chip {
   position: relative;
   transition: all 0.3s ease;
@@ -362,23 +370,22 @@ body {
   animation: fadeIn 0.3s ease;
 }
 
+.item-chip.active {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+  transform: scale(1.05);
+  z-index: 2;
+}
+.item-chip.active .item-chip-status {
+  display: none !important;
+}
+
 .item-chip.done {
   background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
   color: #065f46;
   box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
-  animation: chipDonePop 0.4s ease;
-}
-
-@keyframes chipDonePop {
-  0% {
-    transform: scale(1);
-  }
-  40% {
-    transform: scale(1.08);
-  }
-  100% {
-    transform: scale(1);
-  }
 }
 
 .item-chip.error {
@@ -399,7 +406,6 @@ body {
   font-weight: 900;
   color: white;
 }
-
 .item-chip.done .item-chip-status {
   display: flex;
   background: #10b981;
@@ -407,7 +413,6 @@ body {
 .item-chip.done .item-chip-status::before {
   content: "✓";
 }
-
 .item-chip.error .item-chip-status {
   display: flex;
   background: #ef4444;
@@ -419,6 +424,10 @@ body {
 :root[data-theme="dark"] .item-chip {
   background: linear-gradient(135deg, #312e81 0%, #3730a3 100%);
   color: #c7d2fe;
+}
+:root[data-theme="dark"] .item-chip.active {
+  background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+  color: #0f172a;
 }
 :root[data-theme="dark"] .item-chip.done {
   background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
@@ -462,6 +471,63 @@ body {
   }
 }
 
+/* ================================================================
+   SORT TOGGLE
+   ================================================================ */
+.sort-toggle-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.sort-toggle-label {
+  font-size: 0.813rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-left: 0.25rem;
+}
+
+.sort-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 0.625rem;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.813rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sort-option:hover {
+  border-color: var(--primary-light);
+  color: var(--primary-dark);
+}
+
+.sort-option.active {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: white;
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+:root[data-theme="dark"] .sort-toggle-group {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* ================================================================
+   ACTION BUTTONS
+   ================================================================ */
 .actions {
   display: flex;
   gap: 0.75rem;
@@ -496,6 +562,126 @@ body {
 .btn-search:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Slot machine */
+.btn-search-idle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.btn-search-active {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  width: 100%;
+}
+.btn-search.searching .btn-search-idle {
+  display: none;
+}
+.btn-search.searching .btn-search-active {
+  display: flex;
+}
+
+.search-label {
+  color: #ffffff;
+  font-size: 0.813rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.search-spinner {
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+.slot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.75rem;
+  min-width: 5rem;
+  padding: 0 0.75rem;
+  background: var(--slot-color-bg, rgba(255, 255, 255, 0.28));
+  border: 2px solid var(--slot-color-border, rgba(255, 255, 255, 0.55));
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.2),
+    0 2px 6px rgba(0, 0, 0, 0.15);
+  transition:
+    background 0.35s ease,
+    border-color 0.35s ease;
+}
+
+.slot-item {
+  min-width: 5rem;
+  max-width: 11rem;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
+  border-color: #818cf8 !important;
+}
+
+.slot-store {
+  min-width: 6rem;
+  max-width: 9rem;
+}
+
+.slot-text {
+  display: block;
+  color: #ffffff;
+  font-size: 0.813rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  text-align: center;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  letter-spacing: -0.2px;
+}
+
+.slot-text.slot-out {
+  animation: slotRollOut 0.35s cubic-bezier(0.55, 0.06, 0.68, 0.19) forwards;
+}
+.slot-text.slot-in {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: slotRollIn 0.35s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+@keyframes slotRollOut {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-120%);
+    opacity: 0;
+  }
+}
+@keyframes slotRollIn {
+  0% {
+    transform: translateY(120%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .btn-clear {
@@ -534,174 +720,7 @@ body {
 }
 
 /* ================================================================
-   🎯 پنل جستجو — شبیه دستگاه شرط‌بندی (کنتراست بالا)
-   ================================================================ */
-.btn-search-idle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.btn-search-active {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  gap: 0.625rem;
-  white-space: nowrap;
-  width: 100%;
-}
-
-.btn-search.searching .btn-search-idle {
-  display: none;
-}
-.btn-search.searching .btn-search-active {
-  display: flex;
-}
-
-/* 🎯 متن برچسب — سفید کامل */
-.search-label {
-  color: #ffffff;
-  font-size: 0.875rem;
-  font-weight: 700;
-  flex-shrink: 0;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-/* 🎯 اسپینر داخل پنل */
-.search-spinner {
-  width: 1rem;
-  height: 1rem;
-  border: 2.5px solid rgba(255, 255, 255, 0.4);
-  border-top-color: #ffffff;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  flex-shrink: 0;
-}
-
-/* 🎯 کادر slot — پس‌زمینه تیره + برند */
-.slot {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 1.875rem;
-  min-width: 5.5rem;
-  padding: 0 0.875rem;
-  /* 🎯 پس‌زمینه: ترکیب مشکی + رنگ برند برای کنتراست بالا */
-  background: var(--slot-color-bg, rgba(0, 0, 0, 0.4));
-  border: 2px solid var(--slot-color-border, rgba(255, 255, 255, 0.6));
-  border-radius: 0.5rem;
-  overflow: hidden;
-  box-shadow:
-    inset 0 2px 8px rgba(0, 0, 0, 0.35),
-    0 2px 8px rgba(0, 0, 0, 0.2);
-  transition:
-    background 0.35s ease,
-    border-color 0.35s ease;
-}
-
-/* ================================================================
-   🎯 slot آیتم در حال جستجو — بنفش ملایم (هماهنگ با چیپ active)
-   ================================================================ */
-.slot-item {
-  min-width: 5.5rem;
-  max-width: 12rem;
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
-  border-color: #818cf8 !important;
-  box-shadow:
-    inset 0 2px 6px rgba(0, 0, 0, 0.15),
-    0 4px 14px rgba(99, 102, 241, 0.35) !important;
-}
-
-.slot-item .slot-text {
-  color: #ffffff !important;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35) !important;
-  font-weight: 800;
-}
-
-/* 🎯 دارک مود */
-:root[data-theme="dark"] .slot-item {
-  background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%) !important;
-  border-color: #a5b4fc !important;
-}
-
-:root[data-theme="dark"] .slot-item .slot-text {
-  color: #0f172a !important;
-  text-shadow: none !important;
-}
-
-.slot-store {
-  min-width: 6.5rem;
-  max-width: 10rem;
-}
-
-/* 🎯 متن داخل slot — همیشه سفید، ضخیم، با سایه قوی */
-.slot-text {
-  display: block;
-  color: #ffffff;
-  font-size: 0.9375rem;
-  font-weight: 800;
-  line-height: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  text-align: center;
-  text-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.9),
-    0 0 6px rgba(0, 0, 0, 0.6);
-  letter-spacing: -0.2px;
-}
-
-/* 🎯 انیمیشن کنتور — خروج به بالا */
-.slot-text.slot-out {
-  animation: slotRollOut 0.35s cubic-bezier(0.55, 0.06, 0.68, 0.19) forwards;
-}
-
-/* 🎯 انیمیشن کنتور — ورود از پایین */
-.slot-text.slot-in {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: slotRollIn 0.35s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
-}
-
-@keyframes slotRollOut {
-  0% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(-120%);
-    opacity: 0;
-  }
-}
-
-@keyframes slotRollIn {
-  0% {
-    transform: translateY(120%);
-    opacity: 0;
-  }
-  100% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-/* 🎯 دارک مود */
-:root[data-theme="dark"] .slot {
-  background: var(--slot-color-bg, rgba(0, 0, 0, 0.35));
-  border-color: var(--slot-color-border, rgba(255, 255, 255, 0.45));
-}
-
-/* ================================================================
-   نتایج
+   RESULTS
    ================================================================ */
 .results-section {
   animation: slideUp 0.4s ease;
@@ -743,13 +762,13 @@ body {
 }
 
 /* ================================================================
-   بخش فروشگاه
+   STORE SECTION
    ================================================================ */
 .store-section {
   background: var(--surface);
   border: 2px solid var(--border);
   border-radius: 1.5rem;
-  padding: 1.75rem;
+  padding: 1.5rem;
   box-shadow: var(--shadow);
 }
 .store-section.best-store {
@@ -769,40 +788,33 @@ body {
   border-radius: 1.5rem 1.5rem 0 0;
 }
 
+/* 🎯 هدر فروشگاه */
 .store-header-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 1rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
   padding-bottom: 1rem;
-  border-bottom: 2px dashed var(--border);
-  flex-wrap: wrap;
-}
-
-.store-badge {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .store-logo-wrapper {
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 3rem; /* 48px */
+  height: 3rem;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 0.75rem;
   background: #ffffff;
-  border: 2px solid var(--border);
   overflow: hidden;
   flex-shrink: 0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
+
 .best-store .store-logo-wrapper {
-  border-color: #f59e0b;
-  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.25);
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.2);
 }
+
 .store-logo {
   width: 100%;
   height: 100%;
@@ -811,46 +823,252 @@ body {
   display: block;
 }
 .store-icon-fallback {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  height: 100%;
+}
+
+.store-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.store-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .store-name {
-  font-size: 1.75rem;
-  font-weight: 900;
-  color: var(--store-color, var(--primary-dark));
-  margin: 0;
-  letter-spacing: -0.5px;
-  cursor: default;
+  font-size: 1.5rem; /* از 1.125rem به 1.5rem */
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.4px;
+  line-height: 1.2;
+}
+
+.store-name-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  text-decoration: none;
+  cursor: pointer !important; /* 🎯 */
+  transition: color 0.2s ease;
+  color: var(--store-color, var(--primary));
+}
+.store-name-link:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+.store-name-link:hover .store-name-arrow {
+  opacity: 1;
+  transform: translate(1px, -1px);
+}
+
+.store-name-arrow {
+  opacity: 0.5;
+  color: var(--store-color, var(--primary));
+  transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .store-total {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.125rem;
-}
-.total-label {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  font-weight: 500;
+  align-items: baseline;
+  gap: 0.25rem;
+  flex-shrink: 0;
+  margin-right: auto;
 }
 .total-value {
   font-size: 1.25rem;
   font-weight: 800;
-  color: var(--success);
+  color: var(--success); /* 🎯 سبز */
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+.total-currency {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.best-store .total-value {
+  color: #d97706;
+}
+
+/* 🎯 بدنه فروشگاه: ستون نشان‌ها (راست) + محصولات (چپ) */
+.store-body {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem;
+  align-items: stretch;
+}
+
+/* 🎯 ستون عمودی نشان‌ها */
+.store-badges-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 0.875rem;
+  min-width: 155px; /* 🎯 از 130px به 155px */
+  max-width: 130px;
+  align-self: flex-start;
+}
+
+:root[data-theme="dark"] .store-badges-column {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* 🎯 گروه نشان‌ها */
+.store-badge-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.375rem;
+  border-radius: 0.5rem;
+  border-right: 3px solid transparent;
+}
+
+.group-trust {
+  background: rgba(99, 102, 241, 0.05);
+  border-right-color: #6366f1;
+}
+.group-shipping {
+  background: rgba(14, 165, 233, 0.05);
+  border-right-color: #0ea5e9;
+}
+.group-payment {
+  background: rgba(16, 185, 129, 0.05);
+  border-right-color: #10b981;
+}
+
+:root[data-theme="dark"] .group-trust {
+  background: rgba(129, 140, 248, 0.08);
+}
+:root[data-theme="dark"] .group-shipping {
+  background: rgba(56, 189, 248, 0.08);
+}
+:root[data-theme="dark"] .group-payment {
+  background: rgba(52, 211, 153, 0.08);
+}
+
+/* 🎯 برچسب گروه */
+.store-badge-group-label {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 800;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.375rem;
+  line-height: 1;
+  margin-bottom: 0.125rem;
+}
+
+.group-trust .store-badge-group-label {
+  color: #4f46e5;
+  background: rgba(99, 102, 241, 0.15);
+}
+.group-shipping .store-badge-group-label {
+  color: #0284c7;
+  background: rgba(14, 165, 233, 0.15);
+}
+.group-payment .store-badge-group-label {
+  color: #059669;
+  background: rgba(16, 185, 129, 0.15);
+}
+
+:root[data-theme="dark"] .group-trust .store-badge-group-label {
+  color: #c7d2fe;
+}
+:root[data-theme="dark"] .group-shipping .store-badge-group-label {
+  color: #bae6fd;
+}
+:root[data-theme="dark"] .group-payment .store-badge-group-label {
+  color: #a7f3d0;
+}
+
+.store-badge-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* 🎯 هر نشان در ستون */
+.store-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.3rem 0.4rem;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.store-badge-row:hover {
+  transform: translateX(-2px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+  border-color: var(--primary-light);
+}
+
+.store-badge-row:active {
+  transform: translateX(0) scale(0.98);
+}
+
+:root[data-theme="dark"] .store-badge-row {
+  background: #f8fafc;
+}
+
+.store-badge-thumb {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.store-badge-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.store-badge-text {
+  font-size: 0.688rem; /* از 0.625rem به 0.688rem */
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+:root[data-theme="dark"] .store-badge-text {
+  color: #0f172a;
 }
 
 /* ================================================================
-   گرید محصولات — strip افقی
+   PRODUCTS STRIP (HORIZONTAL GRID)
    ================================================================ */
 .products-strip-wrapper {
   position: relative;
-  padding: 0 3rem;
+  padding: 0 2.75rem;
+  min-width: 0; /* 🎯 جلوگیری از سرریز grid */
 }
 
 .products-strip {
@@ -867,20 +1085,44 @@ body {
   user-select: none;
   -webkit-user-select: none;
 }
-
-.products-strip:active {
-}
-
 .products-strip::-webkit-scrollbar {
   display: none;
 }
 
+.products-strip-wrapper:not(.scrollable) .products-strip {
+  cursor: default;
+}
+.products-strip-wrapper.scrollable .products-strip {
+  cursor: grab;
+}
+.products-strip-wrapper.scrollable .products-strip:active {
+  cursor: grabbing;
+}
+.products-strip-wrapper.scrollable .products-strip .product-card {
+  cursor: grab;
+}
+.products-strip-wrapper.scrollable .products-strip:active .product-card {
+  cursor: grabbing;
+}
+.products-strip-wrapper.scrollable .products-strip .product-action,
+.products-strip-wrapper.scrollable .products-strip .product-expand-button,
+.products-strip-wrapper.scrollable
+  .products-strip
+  .product-image-wrapper.clickable-image,
+.products-strip-wrapper.scrollable
+  .products-strip
+  .product-image-wrapper.clickable-image
+  * {
+  cursor: pointer;
+}
+
 .products-strip .product-card {
-  flex: 0 0 calc((100% - 3rem) / 4);
+  flex: 0 0 calc((100% - 2rem) / 3);
   min-width: 0;
   box-sizing: border-box;
 }
 
+/* Grid navigation buttons */
 .grid-nav {
   position: absolute;
   top: 50%;
@@ -924,13 +1166,16 @@ body {
   cursor: not-allowed;
   box-shadow: none;
 }
+.grid-nav.hidden {
+  display: none !important;
+}
 
 /* ================================================================
-   کارت محصول
+   PRODUCT CARD
    ================================================================ */
 .product-card {
   position: relative;
-  padding-top: 14px; /* 🎯 برای همه کارت‌ها، برای هم‌ترازی */
+  padding-top: 14px;
   transition: transform 0.25s ease;
 }
 
@@ -957,7 +1202,6 @@ body {
 .product-card.has-others {
   overflow: visible;
 }
-
 .product-card.has-others .product-collapsed {
   position: relative;
   z-index: 3;
@@ -973,7 +1217,6 @@ body {
     box-shadow 0.25s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
-
 .product-card.has-others:hover {
   transform: translateY(-4px);
 }
@@ -982,6 +1225,7 @@ body {
   box-shadow: 0 12px 30px rgba(99, 102, 241, 0.15);
 }
 
+/* Stack layers */
 .product-stack-layer {
   position: absolute;
   height: 14px;
@@ -989,25 +1233,22 @@ body {
   pointer-events: none;
   transition: all 0.25s ease;
 }
-
 .stack-layer-1 {
-  top: 4px; /* 🎯 داخل فضای padding */
+  top: 4px;
   left: 8%;
   right: 8%;
   background: #e2e8f0;
   z-index: 2;
   box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.06);
 }
-
 .stack-layer-2 {
-  top: -4px; /* 🎯 بالاتر، در لبه‌ی padding */
+  top: -4px;
   left: 16%;
   right: 16%;
   background: #94a3b8;
   z-index: 1;
   box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.15);
 }
-
 :root[data-theme="dark"] .stack-layer-1 {
   background: #0f172a;
   box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.4);
@@ -1016,8 +1257,6 @@ body {
   background: #020617;
   box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.6);
 }
-
-/* 🎯 انیمیشن hover */
 .product-card.has-others:hover .stack-layer-1 {
   top: 2px;
   left: 6%;
@@ -1028,9 +1267,8 @@ body {
   left: 13%;
   right: 13%;
 }
-/* ================================================================
-   ناحیه تصویر محصول
-   ================================================================ */
+
+/* Product image */
 .product-image-wrapper {
   position: relative;
   width: 100%;
@@ -1044,7 +1282,6 @@ body {
 :root[data-theme="dark"] .product-image-wrapper {
   background: linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #3730a3 100%);
 }
-
 .product-image-wrapper.has-real-image {
   background: #ffffff;
 }
@@ -1084,9 +1321,12 @@ body {
   transform: translate(-50%, -50%) scale(1.12) rotate(-5deg);
 }
 
-/* ================================================================
-   بدنه کارت
-   ================================================================ */
+.product-image-wrapper.clickable-image,
+.strip-item-image-wrapper.clickable-image {
+  cursor: pointer;
+}
+
+/* Product body */
 .product-body {
   padding: 0.875rem;
   flex: 1;
@@ -1149,9 +1389,7 @@ body {
   cursor: default;
 }
 
-/* ================================================================
-   دکمه بازکردن آیتم‌های دیگر
-   ================================================================ */
+/* Expand button */
 .product-expand-button {
   display: flex;
   align-items: center;
@@ -1178,7 +1416,6 @@ body {
   transition: all 0.25s ease;
   letter-spacing: -0.2px;
 }
-
 .product-expand-button:hover {
   background: linear-gradient(
     135deg,
@@ -1192,7 +1429,6 @@ body {
     color-mix(in srgb, var(--store-color, var(--primary)) 25%, transparent);
   transform: translateY(-1px);
 }
-
 .product-expand-icon {
   width: 14px;
   height: 14px;
@@ -1203,24 +1439,16 @@ body {
   transform: translateX(-3px);
 }
 
-:root[data-theme="dark"] .product-expand-button {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--store-color, var(--primary)) 18%, var(--surface))
-      0%,
-    color-mix(in srgb, var(--store-color, var(--primary)) 10%, var(--surface))
-      100%
-  );
-  border-color: color-mix(
-    in srgb,
-    var(--store-color, var(--primary)) 40%,
-    var(--border)
-  );
+.product-expand-placeholder {
+  display: block;
+  width: 100%;
+  height: 2.5rem;
+  margin-top: 0.5rem;
+  visibility: hidden;
+  pointer-events: none;
 }
 
-/* ================================================================
-   دکمه اقدام
-   ================================================================ */
+/* Product action */
 .product-action {
   display: block;
   text-align: center;
@@ -1247,9 +1475,7 @@ body {
   opacity: 0.6;
 }
 
-/* ================================================================
-   کارت باز شده
-   ================================================================ */
+/* Expanded card */
 .product-card.hidden-sibling {
   display: none !important;
 }
@@ -1277,7 +1503,7 @@ body {
 }
 
 /* ================================================================
-   نوار باز شده
+   EXPANDED STRIP (VARIANTS)
    ================================================================ */
 .product-expanded {
   position: relative;
@@ -1285,7 +1511,7 @@ body {
   background: var(--surface);
   border: 2px solid var(--border);
   border-radius: 1rem;
-  overflow: hidden; /* 🎯 دکمه‌ها داخل padding می‌مانند، نیازی به visible نیست */
+  overflow: hidden;
 }
 @keyframes stripExpandIn {
   from {
@@ -1326,7 +1552,6 @@ body {
 
 .strip-viewport {
   position: relative;
-  /* 🎯 دقیقاً مثل .products-strip-wrapper */
   padding: 0.75rem 3rem;
 }
 
@@ -1351,8 +1576,7 @@ body {
   display: none;
 }
 
-.strip-nav,
-.grid-nav {
+.strip-nav {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
@@ -1372,49 +1596,34 @@ body {
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.18);
   font-family: inherit;
   padding: 0;
-  z-index: 10;
+  z-index: 5;
 }
-
-/* 🎯 موقعیت یکسان برای هر دو */
-.strip-nav-right,
-.grid-nav-right {
+.strip-nav-right {
   right: 0;
 }
-
-.strip-nav-left,
-.grid-nav-left {
+.strip-nav-left {
   left: 0;
 }
-
-/* 🎯 hover یکسان */
-.strip-nav:hover:not(:disabled),
-.grid-nav:hover:not(:disabled) {
+.strip-nav:hover:not(:disabled) {
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: white;
   border-color: var(--primary);
   transform: translateY(-50%) scale(1.1);
   box-shadow: 0 8px 22px rgba(99, 102, 241, 0.5);
 }
-
-/* 🎯 disabled یکسان */
-.strip-nav:disabled,
-.grid-nav:disabled {
+.strip-nav:disabled {
   background: var(--bg);
   color: var(--text-muted);
   border-color: var(--border);
-  opacity: 0.35;
+  opacity: 0.4;
   cursor: not-allowed;
   box-shadow: none;
 }
 
-/* ================================================================
-   آیتم strip
-   ================================================================ */
+/* Strip items */
 .strip-item {
-  /* 🎯 هم‌اندازه با کارت‌های اصلی */
-  flex: 0 0 calc((100% - 3rem) / 4);
-  min-width: 0;
-  max-width: calc((100% - 3rem) / 4);
+  flex-shrink: 0;
+  width: 260px;
   background: var(--surface);
   border: 2px solid var(--border);
   border-radius: 1rem;
@@ -1448,10 +1657,7 @@ body {
 .strip-item:active * {
   cursor: grabbing !important;
 }
-
-.strip-item:not(.selected) {
-  cursor: grab;
-}
+.strip-item:not(.selected),
 .strip-item:not(.selected) * {
   cursor: grab;
 }
@@ -1468,11 +1674,6 @@ body {
   background: linear-gradient(135deg, #ecfdf5 0%, var(--surface) 100%);
   cursor: grab;
 }
-.strip-item.selected,
-.strip-item.selected * {
-  cursor: grab;
-}
-
 :root[data-theme="dark"] .strip-item.selected {
   background: linear-gradient(135deg, #064e3b 0%, var(--surface) 100%);
   border-color: #34d399;
@@ -1613,7 +1814,7 @@ body {
 }
 
 /* ================================================================
-   یادداشت ناموجود
+   MISSING ITEMS
    ================================================================ */
 .missing-section {
   display: flex;
@@ -1653,7 +1854,6 @@ body {
   font-weight: 600;
   color: var(--danger);
   line-height: 1;
-  transition: all 0.2s ease;
   white-space: nowrap;
 }
 .missing-item-card:hover {
@@ -1676,13 +1876,832 @@ body {
   border-color: rgba(248, 113, 113, 0.3);
   color: #fca5a5;
 }
-:root[data-theme="dark"] .missing-item-card:hover {
-  background: rgba(248, 113, 113, 0.18);
-  border-color: rgba(248, 113, 113, 0.5);
+
+/* ================================================================
+   WISHLIST BUTTON (on cards)
+   ================================================================ */
+.product-wishlist-btn {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  color: #64748b;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  transition: all 0.25s ease;
+  padding: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.product-wishlist-btn:hover {
+  transform: scale(1.15);
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+.product-wishlist-btn.active {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  border-color: #ef4444;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.5);
+  animation: heartBeat 0.4s ease;
+}
+@keyframes heartBeat {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.3);
+  }
+  60% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+:root[data-theme="dark"] .product-wishlist-btn {
+  background: rgba(30, 41, 59, 0.95);
+  color: #94a3b8;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+:root[data-theme="dark"] .product-wishlist-btn:hover {
+  background: #1e293b;
+  color: #f87171;
+}
+
+.strip-wishlist-btn {
+  top: 0.375rem !important;
+  left: 0.375rem !important;
+  width: 1.75rem !important;
+  height: 1.75rem !important;
+  font-size: 0.875rem !important;
+  z-index: 10 !important;
 }
 
 /* ================================================================
-   مودال تصویر
+   WISHLIST FLOAT BUTTON
+   ================================================================ */
+.wishlist-float-btn {
+  position: fixed;
+  bottom: 2rem;
+  left: 2rem;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  border: 3px solid var(--surface);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.45);
+  transition: all 0.3s ease;
+  padding: 0;
+  animation: wishlistFloatIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes wishlistFloatIn {
+  from {
+    opacity: 0;
+    transform: scale(0.5) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.wishlist-float-btn:hover {
+  transform: translateY(-4px) scale(1.08);
+  box-shadow: 0 12px 32px rgba(239, 68, 68, 0.6);
+}
+.wishlist-float-btn:active {
+  transform: translateY(-2px) scale(1);
+}
+
+.wishlist-float-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.wishlist-float-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.375rem;
+  background: #0f172a;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 800;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--surface);
+  font-family: "Vazirmatn", sans-serif;
+}
+:root[data-theme="dark"] .wishlist-float-btn {
+  border-color: #1e293b;
+}
+:root[data-theme="dark"] .wishlist-float-count {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #1e293b;
+}
+
+/* ================================================================
+   WISHLIST MODAL
+   ================================================================ */
+.wishlist-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  animation: wishlistModalFadeIn 0.25s ease;
+}
+@keyframes wishlistModalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.wishlist-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+
+.wishlist-modal-content {
+  position: relative;
+  z-index: 1;
+  background: var(--surface);
+  border-radius: 1.5rem;
+  padding: 1.75rem;
+  width: 100%;
+  max-width: 700px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+  animation: wishlistModalZoomIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+}
+@keyframes wishlistModalZoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.wishlist-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px dashed var(--border);
+}
+
+.wishlist-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text);
+}
+.wishlist-modal-icon {
+  font-size: 1.5rem;
+}
+
+.wishlist-modal-date {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-top: 0.125rem;
+  line-height: 1.4;
+}
+.wishlist-modal-date:empty {
+  display: none;
+}
+
+.wishlist-modal-close {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+.wishlist-modal-close:hover {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+  transform: rotate(90deg);
+}
+
+.wishlist-modal-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.875rem 1.25rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border-radius: 0.875rem;
+  font-weight: 700;
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.3);
+}
+.wishlist-modal-total .total-label {
+  font-size: 0.875rem;
+  opacity: 0.95;
+  color: white;
+}
+.wishlist-modal-total .total-value {
+  font-size: 1.25rem;
+  color: white;
+  font-weight: 800;
+}
+
+.wishlist-modal-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px dashed var(--border);
+  flex-wrap: wrap;
+}
+
+.wishlist-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.625rem;
+  font-family: inherit;
+  font-size: 0.813rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1.5px solid;
+  flex: 1;
+  justify-content: center;
+  min-width: 140px;
+}
+
+.wishlist-tool-clear {
+  background: var(--bg);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+.wishlist-tool-clear:hover {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border-color: #ef4444;
+  color: white;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+  transform: translateY(-1px);
+}
+
+:root[data-theme="dark"] .wishlist-tool-clear {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.wishlist-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+}
+.wishlist-modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+.wishlist-modal-body::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.wishlist-item {
+  display: grid;
+  grid-template-columns: 70px 1fr auto auto;
+  gap: 0.875rem;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 0.875rem;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  color: inherit;
+}
+.wishlist-item.wishlist-item-link {
+  cursor: pointer;
+}
+.wishlist-item.wishlist-item-link:hover {
+  border-color: var(--primary-light);
+  background: var(--surface);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.12);
+  transform: translateX(-4px);
+}
+.wishlist-item.wishlist-item-link:hover .wishlist-item-title {
+  color: var(--primary-dark);
+}
+
+.wishlist-item-image {
+  width: 70px;
+  height: 70px;
+  background: #ffffff;
+  border-radius: 0.625rem;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+:root[data-theme="dark"] .wishlist-item-image {
+  background: #0f172a;
+}
+.wishlist-item-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 0.25rem;
+}
+.wishlist-item-image .wishlist-item-icon {
+  font-size: 2rem;
+}
+
+.wishlist-item-info {
+  min-width: 0;
+}
+
+.wishlist-item-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 0.25rem;
+  line-height: 1.4;
+}
+
+.wishlist-item-store {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  background: var(--bg);
+  border-radius: 0.5rem;
+  max-width: fit-content;
+}
+
+.wishlist-item-store-logo {
+  width: 1.125rem;
+  height: 1.125rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border-radius: 0.3rem;
+  padding: 0.1rem;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.wishlist-item-store-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  border-radius: 0.2rem;
+}
+.wishlist-item-store-fallback {
+  font-size: 0.75rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wishlist-item-store-name {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.wishlist-item-price {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+.wishlist-item-price-value {
+  font-size: 0.9375rem;
+  font-weight: 800;
+  color: var(--primary-dark);
+}
+.wishlist-item-price-currency {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.wishlist-item-remove {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  padding: 0;
+  flex-shrink: 0;
+  z-index: 2;
+}
+.wishlist-item-remove:hover {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+  transform: rotate(90deg);
+}
+
+.wishlist-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+.wishlist-empty-icon {
+  font-size: 3rem;
+  opacity: 0.5;
+}
+.wishlist-empty-text {
+  font-size: 0.938rem;
+  font-weight: 500;
+}
+
+/* ================================================================
+   CONFIRM DIALOG
+   ================================================================ */
+.confirm-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 9500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  animation: confirmFadeIn 0.2s ease;
+}
+@keyframes confirmFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.confirm-dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+}
+
+.confirm-dialog-content {
+  position: relative;
+  z-index: 1;
+  background: var(--surface);
+  border-radius: 1.5rem;
+  padding: 2rem 1.75rem 1.75rem;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+  animation: confirmZoomIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border: 2px solid var(--border);
+}
+@keyframes confirmZoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.confirm-dialog-icon {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border: 3px solid rgba(251, 191, 36, 0.3);
+  box-shadow: 0 6px 20px rgba(251, 191, 36, 0.25);
+  margin-top: -3rem;
+  animation: confirmIconPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+}
+@keyframes confirmIconPop {
+  from {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.confirm-dialog.danger .confirm-dialog-icon {
+  background: linear-gradient(135deg, #fee2e2, #fecaca);
+  border-color: rgba(239, 68, 68, 0.3);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.25);
+}
+.confirm-dialog.info .confirm-dialog-icon {
+  background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.25);
+}
+
+.confirm-dialog-title {
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-top: 0.25rem;
+}
+
+.confirm-dialog-message {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  line-height: 1.7;
+  margin-bottom: 0.5rem;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  gap: 0.625rem;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.confirm-dialog-btn {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  font-family: inherit;
+  font-size: 0.938rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+}
+
+.confirm-dialog-cancel {
+  background: var(--bg);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+.confirm-dialog-cancel:hover {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+
+.confirm-dialog-ok {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: white;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+}
+.confirm-dialog-ok:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+}
+.confirm-dialog.danger .confirm-dialog-ok {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+}
+.confirm-dialog.danger .confirm-dialog-ok:hover {
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
+}
+.confirm-dialog-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+:root[data-theme="dark"] .confirm-dialog-icon {
+  background: linear-gradient(135deg, #78350f, #92400e);
+  border-color: rgba(251, 191, 36, 0.4);
+}
+:root[data-theme="dark"] .confirm-dialog.danger .confirm-dialog-icon {
+  background: linear-gradient(135deg, #7f1d1d, #991b1b);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+:root[data-theme="dark"] .confirm-dialog.info .confirm-dialog-icon {
+  background: linear-gradient(135deg, #312e81, #3730a3);
+  border-color: rgba(129, 140, 248, 0.4);
+}
+
+/* ================================================================
+   TOAST NOTIFICATIONS
+   ================================================================ */
+.toast-container {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  pointer-events: none;
+}
+
+.toast {
+  position: relative;
+  min-width: 280px;
+  max-width: 360px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 1rem;
+  padding: 1rem 1.25rem 1.5rem;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  pointer-events: auto;
+  overflow: hidden;
+  animation: toastSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.3s ease;
+}
+.toast.toast-out {
+  animation: toastSlideOut 0.3s ease forwards;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-100%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) translateY(0);
+  }
+}
+@keyframes toastSlideOut {
+  to {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+}
+
+.toast-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+}
+.toast.toast-remove .toast-icon {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+}
+.toast.toast-info .toast-icon {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+}
+
+.toast-content {
+  flex: 1;
+  min-width: 0;
+}
+.toast-title {
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 0.125rem;
+}
+.toast-message {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.4;
+}
+
+.toast-progress {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  left: 0;
+  height: 4px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.toast-progress-bar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #6366f1, #4f46e5);
+  transform-origin: right center;
+  animation-name: toastProgress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+.toast.toast-success .toast-progress-bar {
+  background: linear-gradient(90deg, #10b981, #059669);
+}
+.toast.toast-remove .toast-progress-bar {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+.toast.toast-info .toast-progress-bar {
+  background: linear-gradient(90deg, #6366f1, #4f46e5);
+}
+
+@keyframes toastProgress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+:root[data-theme="dark"] .toast {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
+}
+:root[data-theme="dark"] .toast-progress {
+  background: #0f172a;
+}
+
+/* ================================================================
+   IMAGE MODAL
    ================================================================ */
 .image-modal {
   position: fixed;
@@ -1784,7 +2803,7 @@ body {
 }
 
 /* ================================================================
-   خطا
+   ERROR
    ================================================================ */
 .error-box {
   background: #fef2f2;
@@ -1804,7 +2823,7 @@ body {
 }
 
 /* ================================================================
-   cursor
+   CURSOR RULES
    ================================================================ */
 .product-card,
 .product-collapsed,
@@ -1840,7 +2859,7 @@ body {
   cursor: default;
 }
 
-/* جلوگیری از درگ لینک‌ها */
+/* Prevent drag */
 .product-action,
 .strip-item-action,
 .store-strip-card,
@@ -1874,11 +2893,11 @@ a img,
 }
 
 /* ================================================================
-   واکنش‌گرایی
+   RESPONSIVE
    ================================================================ */
 @media (max-width: 1100px) {
   .products-strip .product-card {
-    flex: 0 0 calc((100% - 2rem) / 3);
+    flex: 0 0 calc((100% - 2rem) / 2);
   }
 }
 
@@ -1887,10 +2906,10 @@ a img,
     font-size: 1.5rem;
   }
   .store-name {
-    font-size: 1.35rem;
+    font-size: 1rem;
   }
   .products-strip .product-card {
-    flex: 0 0 calc((100% - 2rem) / 3);
+    flex: 0 0 calc((100% - 2rem) / 2);
   }
   .products-strip-wrapper {
     padding: 0 2.75rem;
@@ -1924,6 +2943,18 @@ a img,
   .btn-add {
     width: 100%;
   }
+
+  .sort-toggle-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .sort-toggle-label {
+    margin-bottom: 0.25rem;
+  }
+  .sort-option {
+    justify-content: center;
+  }
+
   .item-chip {
     font-size: 0.813rem;
     padding: 0.4rem 0.75rem;
@@ -1933,6 +2964,93 @@ a img,
     height: 14px;
     font-size: 9px;
   }
+
+  .search-label {
+    font-size: 0.688rem;
+  }
+  .slot {
+    height: 1.5rem;
+    padding: 0 0.5rem;
+    min-width: 4rem;
+  }
+  .slot-item {
+    min-width: 4rem;
+    max-width: 7rem;
+  }
+  .slot-store {
+    min-width: 4rem;
+    max-width: 6rem;
+  }
+  .slot-text {
+    font-size: 0.688rem;
+  }
+  .search-spinner {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+
+  .store-header-row {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  .store-logo-wrapper {
+    width: 38px;
+    height: 38px;
+    border-radius: 0.5rem;
+  }
+  .store-name {
+    font-size: 1rem;
+  }
+  .total-value {
+    font-size: 1.063rem;
+  }
+  .store-total {
+    margin-right: 0;
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .store-section {
+    padding: 1.25rem;
+  }
+
+  /* 🎯 ستون نشان‌ها در موبایل: افقی */
+  .store-body {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  .store-badges-column {
+    max-width: none;
+    min-width: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    padding: 0.5rem;
+  }
+  .store-badge-group {
+    flex: 1;
+    min-width: 130px;
+  }
+  .store-badge-group-items {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .store-badge-row {
+    flex: 0 0 auto;
+  }
+  .store-badge-text {
+    display: none;
+  }
+
+  .products-strip .product-card {
+    flex: 0 0 calc((100% - 0.5rem) / 1.5);
+  }
+  .products-strip-wrapper {
+    padding: 0 0.5rem;
+  }
+  .grid-nav {
+    display: none !important;
+  }
+
   .product-image-icon {
     font-size: 3rem;
   }
@@ -1954,52 +3072,9 @@ a img,
     padding: 0.5rem;
     font-size: 0.7rem;
   }
-  .store-header-row {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .store-total {
-    align-items: flex-start;
-  }
-  .store-section {
-    padding: 1.25rem;
-  }
-  .supported-stores {
-    padding: 0.25rem 0;
-  }
-  .stores-strip-track {
-    gap: 0.5rem;
-    padding-right: 0.5rem;
-  }
-  .store-strip-card {
-    min-width: 140px;
-    padding: 0.625rem 0.75rem;
-    gap: 0.625rem;
-  }
-  .store-strip-name {
-    font-size: 0.875rem;
-  }
-  .store-strip-logo {
-    width: 2rem;
-    height: 2rem;
-    border-radius: 0.5rem;
-  }
-  .store-logo-wrapper {
-    width: 2.25rem;
-    height: 2.25rem;
-  }
-  .store-logo {
-    padding: 0.25rem;
-  }
-  .products-strip .product-card {
-    flex: 0 0 calc((100% - 0.5rem) / 1.5);
-  }
-  .products-strip-wrapper {
-    padding: 0 2.25rem;
-  }
+
   .strip-item {
-    flex: 0 0 calc((100% - 0.5rem) / 1.5);
-    max-width: calc((100% - 0.5rem) / 1.5);
+    width: 200px;
   }
   .strip-item-title {
     font-size: 0.7rem;
@@ -2009,746 +3084,10 @@ a img,
     font-size: 0.875rem;
   }
   .strip-nav {
-    width: 2.25rem;
-    height: 2.25rem;
-  }
-  .strip-nav-right {
-    right: 6px;
-  }
-  .strip-nav-left {
-    left: 6px;
-  }
-  .strip-viewport {
-    padding: 0.5rem 3rem;
-  }
-  .image-modal {
-    padding: 1rem;
-  }
-  .image-modal-content img {
-    width: 90vw;
-    min-height: 250px;
-    max-height: 65vh;
-    padding: 0.5rem;
-  }
-  .image-modal-caption {
-    font-size: 0.813rem;
-  }
-  .image-modal-close {
-    top: 1rem;
-    left: 1rem;
-    width: 2.5rem;
-    height: 2.5rem;
-  }
-  .missing-label {
-    font-size: 0.75rem;
-  }
-  .missing-item-card {
-    font-size: 0.75rem;
-    padding: 0.3rem 0.6rem;
-  }
-  .missing-item-text {
-    font-size: 0.75rem;
-  }
-  .search-label {
-    font-size: 0.75rem;
-  }
-  .slot {
-    height: 1.625rem;
-    padding: 0 0.625rem;
-    min-width: 4.5rem;
-  }
-  .slot-item {
-    min-width: 4.5rem;
-    max-width: 8rem;
-  }
-  .slot-store {
-    min-width: 5rem;
-    max-width: 7rem;
-  }
-  .slot-text {
-    font-size: 0.813rem;
-  }
-  .search-spinner {
-    width: 0.875rem;
-    height: 0.875rem;
-    border-width: 2px;
-  }
-}
-/* ================================================================
-   🎯 چیپ محصول در حال جستجو — بنفش ملایم
-   ================================================================ */
-.item-chip.active {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-  color: #ffffff;
-  font-weight: 700;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
-  transform: scale(1.05);
-  z-index: 2;
-  transition: all 0.3s ease;
-}
-
-/* 🎯 دارک مود */
-:root[data-theme="dark"] .item-chip.active {
-  background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
-  color: #0f172a;
-  box-shadow: 0 4px 14px rgba(129, 140, 248, 0.4);
-}
-
-/* ================================================================
-   🎯 placeholder برای هم‌ترازی کارت‌های بدون زیرمجموعه
-   ================================================================ */
-.product-expand-placeholder {
-  display: block;
-  width: 100%;
-  /* 🎯 دقیقاً هم‌اندازه با دکمه expand */
-  height: calc(0.625rem * 2 + 0.75rem * 1.5 + 3px);
-  margin-top: 0.5rem;
-  visibility: hidden;
-  pointer-events: none;
-}
-
-/* 🎯 کارت‌های بدون زیرمجموعه: قیمت بالاتر نیاید */
-.product-card:not(.has-others) .product-price-section {
-  margin-top: auto;
-}
-
-/* 🎯 کارت‌های دارای زیرمجموعه: قیمت هم بالای دکمه قرار بگیرد */
-.product-card.has-others .product-price-section {
-  margin-top: auto;
-}
-
-/* ================================================================
-   🎯 قفل کردن لیست آیتم‌ها در حین جستجو
-   ================================================================ */
-.items-list.locked .item-chip {
-  cursor: not-allowed;
-  opacity: 0.85;
-}
-
-/* مخفی کردن دکمه حذف */
-.items-list.locked .item-chip .remove {
-  display: none !important;
-}
-
-/* 🎯 تغییر نشانگر موس روی چیپ‌ها در حالت قفل */
-.items-list.locked .item-chip.active {
-  opacity: 1;
-  cursor: default;
-}
-
-/* 🎯 در دارک مود */
-:root[data-theme="dark"] .items-list.locked .item-chip {
-  opacity: 0.75;
-}
-
-:root[data-theme="dark"] .items-list.locked .item-chip.active {
-  opacity: 1;
-}
-
-/* ================================================================
-   🎯 cursor فقط زمانی که overflow وجود دارد
-   ================================================================ */
-
-/* حالت عادی — بدون اسکرول */
-.products-strip-wrapper:not(.scrollable) .products-strip {
-  cursor: default;
-}
-
-/* حالت scrollable — قابل کشیدن */
-.products-strip-wrapper.scrollable .products-strip {
-  cursor: grab;
-}
-
-.products-strip-wrapper.scrollable .products-strip:active {
-  cursor: grabbing;
-}
-
-/* 🎯 همه‌ی عناصر داخل strip در حالت scrollable، grab بگیرند */
-.products-strip-wrapper.scrollable .products-strip .product-card {
-  cursor: grab;
-}
-
-.products-strip-wrapper.scrollable .products-strip:active .product-card {
-  cursor: grabbing;
-}
-
-/* 🎯 اما دکمه‌ها و لینک‌ها همیشه pointer */
-.products-strip-wrapper.scrollable .products-strip .product-action,
-.products-strip-wrapper.scrollable .products-strip .product-expand-button,
-.products-strip-wrapper.scrollable
-  .products-strip
-  .product-image-wrapper.clickable-image,
-.products-strip-wrapper.scrollable
-  .products-strip
-  .product-image-wrapper.clickable-image
-  * {
-  cursor: pointer;
-}
-
-/* 🎯 مخفی کردن دکمه‌های grid-nav */
-.grid-nav.hidden {
-  display: none !important;
-}
-
-/* ================================================================
-   🎯 مخفی کردن دکمه‌های ناوبری در موبایل
-   (کاربر با انگشت اسکرول می‌کند، نیازی به دکمه نیست)
-   ================================================================ */
-@media (max-width: 640px) {
-  .grid-nav {
     display: none !important;
   }
-
-  /* 🎯 در موبایل، padding کنار strip را حذف کن تا فضای بیشتری برای کارت‌ها باشد */
-  .products-strip-wrapper {
-    padding: 0 0.5rem;
-  }
-}
-
-/* 🎯 در تبلت (۶۴۱ تا ۸۰۰) دکمه‌ها کوچک‌تر شوند ولی نمایش داده شوند */
-@media (min-width: 641px) and (max-width: 800px) {
-  .grid-nav {
-    width: 2.25rem;
-    height: 2.25rem;
-    font-size: 1rem;
-  }
-}
-
-/* ================================================================
-   🎯 واکنش‌گرایی strip-item — هم‌اندازه با کارت‌های اصلی
-   ================================================================ */
-@media (max-width: 1100px) {
-  .strip-item {
-    flex: 0 0 calc((100% - 2rem) / 3);
-    max-width: calc((100% - 2rem) / 3);
-  }
-}
-
-@media (max-width: 800px) {
-  .strip-item {
-    flex: 0 0 calc((100% - 1rem) / 2);
-    max-width: calc((100% - 1rem) / 2);
-  }
-}
-
-/* 🎯 مخفی کردن دکمه‌های ناوبری strip در موبایل */
-@media (max-width: 640px) {
-  .strip-nav {
-    display: none !important;
-  }
-
-  /* 🎯 در موبایل، padding کنار strip داخلی کمتر شود */
   .strip-viewport {
     padding: 0.75rem 0.5rem;
-  }
-}
-/* ================================================================
-   🎯 گروه دکمه‌های ترتیب نمایش
-   ================================================================ */
-.sort-toggle-group {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-  padding: 0.75rem 1rem;
-  background: var(--bg);
-  border: 1.5px solid var(--border);
-  border-radius: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.sort-toggle-label {
-  font-size: 0.813rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  margin-left: 0.25rem;
-}
-
-.sort-option {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.5rem 0.875rem;
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: 0.625rem;
-  color: var(--text-muted);
-  font-family: inherit;
-  font-size: 0.813rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.sort-option:hover {
-  border-color: var(--primary-light);
-  color: var(--primary-dark);
-}
-
-.sort-option.active {
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-  color: white;
-  border-color: var(--primary);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-}
-
-:root[data-theme="dark"] .sort-toggle-group {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-/* ================================================================
-   🎯 دکمه قلب روی کارت محصول
-   ================================================================ */
-.product-wishlist-btn {
-  position: absolute;
-  top: 0.5rem;
-  left: 0.5rem;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(8px);
-  border: 1.5px solid rgba(0, 0, 0, 0.08);
-  color: #64748b;
-  font-size: 1rem;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 5;
-  transition: all 0.25s ease;
-  padding: 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.product-wishlist-btn:hover {
-  transform: scale(1.15);
-  background: #ffffff;
-  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
-  color: #ef4444;
-}
-
-.product-wishlist-btn.active {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  color: white;
-  border-color: #ef4444;
-  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.5);
-  animation: heartBeat 0.4s ease;
-}
-
-@keyframes heartBeat {
-  0% {
-    transform: scale(1);
-  }
-  30% {
-    transform: scale(1.3);
-  }
-  60% {
-    transform: scale(0.95);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-:root[data-theme="dark"] .product-wishlist-btn {
-  background: rgba(30, 41, 59, 0.95);
-  color: #94a3b8;
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-:root[data-theme="dark"] .product-wishlist-btn:hover {
-  background: #1e293b;
-  color: #f87171;
-}
-
-/* ================================================================
-   🎯 دکمه شناور علاقه‌مندی‌ها
-   ================================================================ */
-.wishlist-float-btn {
-  position: fixed;
-  bottom: 2rem;
-  left: 2rem;
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  color: white;
-  border: 3px solid var(--surface);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 999;
-  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.45);
-  transition: all 0.3s ease;
-  padding: 0;
-  animation: wishlistFloatIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes wishlistFloatIn {
-  from {
-    opacity: 0;
-    transform: scale(0.5) translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-.wishlist-float-btn:hover {
-  transform: translateY(-4px) scale(1.08);
-  box-shadow: 0 12px 32px rgba(239, 68, 68, 0.6);
-}
-
-.wishlist-float-btn:active {
-  transform: translateY(-2px) scale(1);
-}
-
-.wishlist-float-icon {
-  font-size: 1.5rem;
-  line-height: 1;
-}
-
-.wishlist-float-count {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  min-width: 1.5rem;
-  height: 1.5rem;
-  padding: 0 0.375rem;
-  background: #0f172a;
-  color: white;
-  font-size: 0.75rem;
-  font-weight: 800;
-  border-radius: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid var(--surface);
-  font-family: "Vazirmatn", sans-serif;
-}
-
-:root[data-theme="dark"] .wishlist-float-btn {
-  border-color: #1e293b;
-}
-
-:root[data-theme="dark"] .wishlist-float-count {
-  background: #f1f5f9;
-  color: #0f172a;
-  border-color: #1e293b;
-}
-
-/* ================================================================
-   🎯 مودال علاقه‌مندی‌ها
-   ================================================================ */
-.wishlist-modal {
-  position: fixed;
-  inset: 0;
-  z-index: 9000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-  animation: wishlistModalFadeIn 0.25s ease;
-}
-
-@keyframes wishlistModalFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.wishlist-modal-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
-  cursor: pointer;
-}
-
-.wishlist-modal-content {
-  position: relative;
-  z-index: 1;
-  background: var(--surface);
-  border-radius: 1.5rem;
-  padding: 1.75rem;
-  width: 100%;
-  max-width: 700px;
-  max-height: 85vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
-  animation: wishlistModalZoomIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-  overflow: hidden;
-}
-
-@keyframes wishlistModalZoomIn {
-  from {
-    opacity: 0;
-    transform: scale(0.85);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.wishlist-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px dashed var(--border);
-}
-
-.wishlist-modal-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 1.25rem;
-  font-weight: 800;
-  color: var(--text);
-}
-
-.wishlist-modal-icon {
-  font-size: 1.5rem;
-}
-
-.wishlist-modal-close {
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 50%;
-  background: var(--bg);
-  border: 2px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.875rem;
-  font-family: inherit;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.wishlist-modal-close:hover {
-  background: var(--danger);
-  color: white;
-  border-color: var(--danger);
-  transform: rotate(90deg);
-}
-
-.wishlist-modal-total {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.875rem 1.25rem;
-  margin-bottom: 1rem;
-  background: linear-gradient(135deg, #10b981, #059669);
-  color: white;
-  border-radius: 0.875rem;
-  font-weight: 700;
-  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.3);
-}
-
-.wishlist-modal-total .total-label {
-  font-size: 0.875rem;
-  opacity: 0.95;
-  color: white;
-}
-
-.wishlist-modal-total .total-value {
-  font-size: 1.25rem;
-  color: white;
-  font-weight: 800;
-}
-
-.wishlist-modal-body {
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding-left: 0.25rem;
-  padding-right: 0.25rem;
-}
-
-.wishlist-modal-body::-webkit-scrollbar {
-  width: 6px;
-}
-
-.wishlist-modal-body::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
-}
-
-.wishlist-item {
-  display: grid;
-  grid-template-columns: 70px 1fr auto auto;
-  gap: 0.875rem;
-  align-items: center;
-  padding: 0.75rem;
-  background: var(--bg);
-  border: 1.5px solid var(--border);
-  border-radius: 0.875rem;
-  transition: all 0.2s ease;
-  text-decoration: none;
-  color: inherit;
-}
-
-.wishlist-item.wishlist-item-link {
-  cursor: pointer;
-}
-
-.wishlist-item.wishlist-item-link:hover {
-  border-color: var(--primary-light);
-  background: var(--surface);
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.12);
-  transform: translateX(-4px);
-}
-
-.wishlist-item.wishlist-item-link:hover .wishlist-item-title {
-  color: var(--primary-dark);
-}
-
-.wishlist-item:hover {
-  border-color: var(--primary-light);
-  background: var(--surface);
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.1);
-}
-
-.wishlist-item-image {
-  width: 70px;
-  height: 70px;
-  background: #ffffff;
-  border-radius: 0.625rem;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-:root[data-theme="dark"] .wishlist-item-image {
-  background: #0f172a;
-}
-
-.wishlist-item-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  padding: 0.25rem;
-}
-
-.wishlist-item-image .wishlist-item-icon {
-  font-size: 2rem;
-}
-
-.wishlist-item-info {
-  min-width: 0;
-}
-
-.wishlist-item-title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  margin-bottom: 0.25rem;
-  line-height: 1.4;
-}
-
-.wishlist-item-store {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.wishlist-item-price {
-  display: flex;
-  align-items: baseline;
-  gap: 0.25rem;
-  white-space: nowrap;
-}
-
-.wishlist-item-price-value {
-  font-size: 0.9375rem;
-  font-weight: 800;
-  color: var(--primary-dark);
-}
-
-.wishlist-item-price-currency {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.wishlist-item-remove {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  font-family: inherit;
-  padding: 0;
-  flex-shrink: 0;
-  z-index: 2;
-}
-
-.wishlist-item-remove:hover {
-  background: var(--danger);
-  color: white;
-  border-color: var(--danger);
-  transform: rotate(90deg);
-}
-
-.wishlist-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  padding: 3rem 1rem;
-  text-align: center;
-  color: var(--text-muted);
-}
-
-.wishlist-empty-icon {
-  font-size: 3rem;
-  opacity: 0.5;
-}
-
-.wishlist-empty-text {
-  font-size: 0.938rem;
-  font-weight: 500;
-}
-
-/* 🎯 موبایل */
-@media (max-width: 640px) {
-  .sort-toggle-group {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .sort-toggle-label {
-    margin-bottom: 0.25rem;
-  }
-  .sort-option {
-    justify-content: center;
   }
 
   .wishlist-float-btn {
@@ -2788,1232 +3127,15 @@ a img,
     grid-column: 3 / 4;
     grid-row: 1 / 2;
   }
-}
-/* ================================================================
-   🎯 دکمه سرچ — حالت slot machine (بازگردانی شده)
-   ================================================================ */
-.btn-search {
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-search-idle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.btn-search-active {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  white-space: nowrap;
-  width: 100%;
-}
-
-.btn-search.searching .btn-search-idle {
-  display: none;
-}
-.btn-search.searching .btn-search-active {
-  display: flex;
-}
-
-.search-label {
-  color: #ffffff;
-  font-size: 0.813rem;
-  font-weight: 700;
-  flex-shrink: 0;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.search-spinner {
-  width: 0.875rem;
-  height: 0.875rem;
-  border: 2px solid rgba(255, 255, 255, 0.4);
-  border-top-color: #ffffff;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  flex-shrink: 0;
-}
-
-.slot {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 1.75rem;
-  min-width: 5rem;
-  padding: 0 0.75rem;
-  background: var(--slot-color-bg, rgba(255, 255, 255, 0.28));
-  border: 2px solid var(--slot-color-border, rgba(255, 255, 255, 0.55));
-  border-radius: 0.5rem;
-  overflow: hidden;
-  box-shadow:
-    inset 0 2px 8px rgba(0, 0, 0, 0.2),
-    0 2px 6px rgba(0, 0, 0, 0.15);
-  transition:
-    background 0.35s ease,
-    border-color 0.35s ease;
-}
-
-.slot-item {
-  min-width: 5rem;
-  max-width: 11rem;
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
-  border-color: #818cf8 !important;
-}
-
-.slot-store {
-  min-width: 6rem;
-  max-width: 9rem;
-}
-
-.slot-text {
-  display: block;
-  color: #ffffff;
-  font-size: 0.813rem;
-  font-weight: 800;
-  line-height: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  text-align: center;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
-  letter-spacing: -0.2px;
-}
-
-.slot-text.slot-out {
-  animation: slotRollOut 0.35s cubic-bezier(0.55, 0.06, 0.68, 0.19) forwards;
-}
-
-.slot-text.slot-in {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: slotRollIn 0.35s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
-}
-
-@keyframes slotRollOut {
-  0% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(-120%);
-    opacity: 0;
-  }
-}
-
-@keyframes slotRollIn {
-  0% {
-    transform: translateY(120%);
-    opacity: 0;
-  }
-  100% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-:root[data-theme="dark"] .slot {
-  background: var(--slot-color-bg, rgba(0, 0, 0, 0.35));
-  border-color: var(--slot-color-border, rgba(255, 255, 255, 0.45));
-}
-
-/* ================================================================
-   🎯 دکمه قلب روی strip-item
-   ================================================================ */
-.strip-wishlist-btn {
-  top: 0.375rem !important;
-  left: 0.375rem !important;
-  width: 1.75rem !important;
-  height: 1.75rem !important;
-  font-size: 0.875rem !important;
-  z-index: 10 !important;
-}
-
-/* ================================================================
-   🎯 مخفی کردن دکمه‌های ناوبری در موبایل
-   ================================================================ */
-@media (max-width: 640px) {
-  .grid-nav {
-    display: none !important;
-  }
-  .products-strip-wrapper {
-    padding: 0 0.5rem;
-  }
-  .strip-nav {
-    display: none !important;
-  }
-  .strip-viewport {
-    padding: 0.75rem 0.5rem;
-  }
-}
-
-/* ================================================================
-   🎯 گزینه‌های ترتیب نمایش
-   ================================================================ */
-.sort-toggle-group {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-  padding: 0.75rem 1rem;
-  background: var(--bg);
-  border: 1.5px solid var(--border);
-  border-radius: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.sort-toggle-label {
-  font-size: 0.813rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  margin-left: 0.25rem;
-}
-
-.sort-option {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.5rem 0.875rem;
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: 0.625rem;
-  color: var(--text-muted);
-  font-family: inherit;
-  font-size: 0.813rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.sort-option:hover {
-  border-color: var(--primary-light);
-  color: var(--primary-dark);
-}
-
-.sort-option.active {
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-  color: white;
-  border-color: var(--primary);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-}
-
-:root[data-theme="dark"] .sort-toggle-group {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-/* ================================================================
-   🎯 دکمه قلب روی کارت اصلی
-   ================================================================ */
-.product-wishlist-btn {
-  position: absolute;
-  top: 0.5rem;
-  left: 0.5rem;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(8px);
-  border: 1.5px solid rgba(0, 0, 0, 0.08);
-  color: #64748b;
-  font-size: 1rem;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 5;
-  transition: all 0.25s ease;
-  padding: 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.product-wishlist-btn:hover {
-  transform: scale(1.15);
-  background: #ffffff;
-  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
-  color: #ef4444;
-}
-
-.product-wishlist-btn.active {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  color: white;
-  border-color: #ef4444;
-  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.5);
-  animation: heartBeat 0.4s ease;
-}
-
-@keyframes heartBeat {
-  0% {
-    transform: scale(1);
-  }
-  30% {
-    transform: scale(1.3);
-  }
-  60% {
-    transform: scale(0.95);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-:root[data-theme="dark"] .product-wishlist-btn {
-  background: rgba(30, 41, 59, 0.95);
-  color: #94a3b8;
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-:root[data-theme="dark"] .product-wishlist-btn:hover {
-  background: #1e293b;
-  color: #f87171;
-}
-
-/* ================================================================
-   🎯 دکمه شناور علاقه‌مندی‌ها
-   ================================================================ */
-.wishlist-float-btn {
-  position: fixed;
-  bottom: 2rem;
-  left: 2rem;
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  color: white;
-  border: 3px solid var(--surface);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 999;
-  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.45);
-  transition: all 0.3s ease;
-  padding: 0;
-  animation: wishlistFloatIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes wishlistFloatIn {
-  from {
-    opacity: 0;
-    transform: scale(0.5) translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-.wishlist-float-btn:hover {
-  transform: translateY(-4px) scale(1.08);
-  box-shadow: 0 12px 32px rgba(239, 68, 68, 0.6);
-}
-
-.wishlist-float-btn:active {
-  transform: translateY(-2px) scale(1);
-}
-
-.wishlist-float-icon {
-  font-size: 1.5rem;
-  line-height: 1;
-}
-
-.wishlist-float-count {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  min-width: 1.5rem;
-  height: 1.5rem;
-  padding: 0 0.375rem;
-  background: #0f172a;
-  color: white;
-  font-size: 0.75rem;
-  font-weight: 800;
-  border-radius: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid var(--surface);
-  font-family: "Vazirmatn", sans-serif;
-}
-
-:root[data-theme="dark"] .wishlist-float-btn {
-  border-color: #1e293b;
-}
-
-:root[data-theme="dark"] .wishlist-float-count {
-  background: #f1f5f9;
-  color: #0f172a;
-  border-color: #1e293b;
-}
-
-/* ================================================================
-   🎯 مودال علاقه‌مندی‌ها
-   ================================================================ */
-.wishlist-modal {
-  position: fixed;
-  inset: 0;
-  z-index: 9000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-  animation: wishlistModalFadeIn 0.25s ease;
-}
-
-@keyframes wishlistModalFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.wishlist-modal-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
-  cursor: pointer;
-}
-
-.wishlist-modal-content {
-  position: relative;
-  z-index: 1;
-  background: var(--surface);
-  border-radius: 1.5rem;
-  padding: 1.75rem;
-  width: 100%;
-  max-width: 700px;
-  max-height: 85vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
-  animation: wishlistModalZoomIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-  overflow: hidden;
-}
-
-@keyframes wishlistModalZoomIn {
-  from {
-    opacity: 0;
-    transform: scale(0.85);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.wishlist-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px dashed var(--border);
-}
-
-.wishlist-modal-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 1.25rem;
-  font-weight: 800;
-  color: var(--text);
-}
-
-.wishlist-modal-icon {
-  font-size: 1.5rem;
-}
-
-.wishlist-modal-close {
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 50%;
-  background: var(--bg);
-  border: 2px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.875rem;
-  font-family: inherit;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.wishlist-modal-close:hover {
-  background: var(--danger);
-  color: white;
-  border-color: var(--danger);
-  transform: rotate(90deg);
-}
-
-.wishlist-modal-total {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.875rem 1.25rem;
-  margin-bottom: 1rem;
-  background: linear-gradient(135deg, #10b981, #059669);
-  color: white;
-  border-radius: 0.875rem;
-  font-weight: 700;
-  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.3);
-}
-
-.wishlist-modal-total .total-label {
-  font-size: 0.875rem;
-  opacity: 0.95;
-  color: white;
-}
-
-.wishlist-modal-total .total-value {
-  font-size: 1.25rem;
-  color: white;
-  font-weight: 800;
-}
-
-.wishlist-modal-body {
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding-left: 0.25rem;
-  padding-right: 0.25rem;
-}
-
-.wishlist-modal-body::-webkit-scrollbar {
-  width: 6px;
-}
-.wishlist-modal-body::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
-}
-
-.wishlist-item {
-  display: grid;
-  grid-template-columns: 70px 1fr auto auto;
-  gap: 0.875rem;
-  align-items: center;
-  padding: 0.75rem;
-  background: var(--bg);
-  border: 1.5px solid var(--border);
-  border-radius: 0.875rem;
-  transition: all 0.2s ease;
-}
-
-.wishlist-item:hover {
-  border-color: var(--primary-light);
-  background: var(--surface);
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.1);
-}
-
-.wishlist-item-image {
-  width: 70px;
-  height: 70px;
-  background: #ffffff;
-  border-radius: 0.625rem;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-:root[data-theme="dark"] .wishlist-item-image {
-  background: #0f172a;
-}
-
-.wishlist-item-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  padding: 0.25rem;
-}
-
-.wishlist-item-image .wishlist-item-icon {
-  font-size: 2rem;
-}
-
-.wishlist-item-info {
-  min-width: 0;
-}
-
-.wishlist-item-title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  margin-bottom: 0.25rem;
-  line-height: 1.4;
-}
-
-.wishlist-item-store {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.wishlist-item-price {
-  display: flex;
-  align-items: baseline;
-  gap: 0.25rem;
-  white-space: nowrap;
-}
-
-.wishlist-item-price-value {
-  font-size: 0.9375rem;
-  font-weight: 800;
-  color: var(--primary-dark);
-}
-
-.wishlist-item-price-currency {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.wishlist-item-remove {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0.5rem;
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.875rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  font-family: inherit;
-  padding: 0;
-}
-
-.wishlist-item-remove:hover {
-  background: var(--danger);
-  color: white;
-  border-color: var(--danger);
-}
-
-.wishlist-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  padding: 3rem 1rem;
-  text-align: center;
-  color: var(--text-muted);
-}
-
-.wishlist-empty-icon {
-  font-size: 3rem;
-  opacity: 0.5;
-}
-.wishlist-empty-text {
-  font-size: 0.938rem;
-  font-weight: 500;
-}
-
-/* موبایل */
-@media (max-width: 640px) {
-  .sort-toggle-group {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .sort-option {
-    justify-content: center;
-  }
-
-  .wishlist-float-btn {
-    bottom: 1.25rem;
-    left: 1.25rem;
-    width: 3rem;
-    height: 3rem;
-  }
-  .wishlist-float-icon {
-    font-size: 1.25rem;
-  }
-
-  .wishlist-modal {
-    padding: 1rem;
-  }
-  .wishlist-modal-content {
-    padding: 1.25rem;
-    max-height: 90vh;
-  }
-  .wishlist-modal-title {
-    font-size: 1.063rem;
-  }
-  .wishlist-item {
-    grid-template-columns: 60px 1fr auto;
-    gap: 0.625rem;
-    padding: 0.625rem;
-  }
-  .wishlist-item-image {
-    width: 60px;
-    height: 60px;
-  }
-  .wishlist-item-price {
-    grid-column: 2 / 3;
-    justify-content: flex-start;
-  }
-  .wishlist-item-actions {
-    grid-column: 3 / 4;
-    grid-row: 1 / 2;
-  }
   .wishlist-item-price-value {
     font-size: 0.875rem;
   }
-
-  .search-label {
-    font-size: 0.688rem;
-  }
-  .slot {
-    height: 1.5rem;
-    padding: 0 0.5rem;
-    min-width: 4rem;
-  }
-  .slot-item {
-    min-width: 4rem;
-    max-width: 7rem;
-  }
-  .slot-store {
-    min-width: 4rem;
-    max-width: 6rem;
-  }
-  .slot-text {
-    font-size: 0.688rem;
-  }
-  .search-spinner {
-    width: 0.75rem;
-    height: 0.75rem;
-  }
-}
-/* ================================================================
-   🎯 نمایش فروشگاه در آیتم علاقه‌مندی (هم‌سبک با صفحه اصلی)
-   ================================================================ */
-.wishlist-item-store {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 0.2rem 0.5rem;
-  background: var(--bg);
-  border-radius: 0.5rem;
-  transition: all 0.2s ease;
-  max-width: fit-content;
-}
-
-.wishlist-item-store-logo {
-  width: 1.125rem;
-  height: 1.125rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #ffffff;
-  border-radius: 0.3rem;
-  padding: 0.1rem;
-  flex-shrink: 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
-
-:root[data-theme="dark"] .wishlist-item-store-logo {
-  background: #ffffff;
-}
-
-.wishlist-item-store-logo img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-  border-radius: 0.2rem;
-}
-
-.wishlist-item-store-fallback {
-  font-size: 0.75rem;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.wishlist-item-store-name {
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: -0.2px;
-}
-
-/* ================================================================
-   🎯 اعلان Toast
-   ================================================================ */
-.toast-container {
-  position: fixed;
-  bottom: 2rem;
-  right: 2rem;
-  z-index: 10000;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  pointer-events: none;
-}
-
-.toast {
-  position: relative;
-  min-width: 280px;
-  max-width: 360px;
-  background: var(--surface);
-  border: 2px solid var(--border);
-  border-radius: 1rem;
-  padding: 1rem 1.25rem 1.5rem;
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  pointer-events: auto;
-  overflow: hidden;
-  animation: toastSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  transition: all 0.3s ease;
-}
-
-.toast.toast-out {
-  animation: toastSlideOut 0.3s ease forwards;
-}
-
-@keyframes toastSlideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-100%) translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0) translateY(0);
-  }
-}
-
-@keyframes toastSlideOut {
-  to {
-    opacity: 0;
-    transform: translateX(-100%);
-  }
-}
-
-/* 🎯 آیکن */
-.toast-icon {
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.25rem;
-  flex-shrink: 0;
-  background: linear-gradient(135deg, #10b981, #059669);
-  color: white;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
-}
-
-.toast.toast-success .toast-icon {
-  background: linear-gradient(135deg, #10b981, #059669);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
-}
-
-.toast.toast-remove .toast-icon {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
-}
-
-.toast.toast-info .toast-icon {
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
-}
-
-/* 🎯 محتوا */
-.toast-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.toast-title {
-  font-size: 0.875rem;
-  font-weight: 800;
-  color: var(--text);
-  margin-bottom: 0.125rem;
-}
-
-.toast-message {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  line-height: 1.4;
-}
-
-/* 🎯 نوار پیشرفت */
-.toast-progress {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  left: 0;
-  height: 4px;
-  background: var(--bg);
-  overflow: hidden;
-}
-
-.toast-progress-bar {
-  height: 100%;
-  width: 100%;
-  background: linear-gradient(90deg, #6366f1, #4f46e5);
-  transform-origin: right center;
-  /* 🎯 duration از JS می‌آید */
-  animation-name: toastProgress;
-  animation-timing-function: linear;
-  animation-fill-mode: forwards;
-}
-
-.toast.toast-success .toast-progress-bar {
-  background: linear-gradient(90deg, #10b981, #059669);
-}
-
-.toast.toast-remove .toast-progress-bar {
-  background: linear-gradient(90deg, #ef4444, #dc2626);
-}
-
-.toast.toast-info .toast-progress-bar {
-  background: linear-gradient(90deg, #6366f1, #4f46e5);
-}
-
-@keyframes toastProgress {
-  from {
-    transform: scaleX(1);
-  }
-  to {
-    transform: scaleX(0);
-  }
-}
-
-/* 🎯 دارک مود */
-:root[data-theme="dark"] .toast {
-  background: #1e293b;
-  border-color: #334155;
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
-}
-
-:root[data-theme="dark"] .toast-progress {
-  background: #0f172a;
-}
-
-/* 🎯 موبایل */
-@media (max-width: 640px) {
-  .toast-container {
-    bottom: 1rem;
-    right: 1rem;
-    left: 1rem;
-  }
-  .toast {
-    min-width: 0;
-    max-width: none;
-  }
-}
-
-/* ================================================================
-   🎯 نوار ابزار مودال علاقه‌مندی
-   ================================================================ */
-.wishlist-modal-toolbar {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px dashed var(--border);
-  flex-wrap: wrap;
-}
-
-.wishlist-tool-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.5rem 0.875rem;
-  border-radius: 0.625rem;
-  font-family: inherit;
-  font-size: 0.813rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: 1.5px solid;
-  flex: 1;
-  justify-content: center;
-  min-width: 140px;
-}
-
-.wishlist-tool-open {
-  background: var(--bg);
-  border-color: var(--primary-light);
-  color: var(--primary);
-}
-
-.wishlist-tool-open:hover {
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-  border-color: var(--primary);
-  color: white;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
-  transform: translateY(-1px);
-}
-
-.wishlist-tool-clear {
-  background: var(--bg);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #ef4444;
-}
-
-.wishlist-tool-clear:hover {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  border-color: #ef4444;
-  color: white;
-  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
-  transform: translateY(-1px);
-}
-
-.wishlist-tool-btn:active {
-  transform: translateY(0) scale(0.98);
-}
-
-.wishlist-tool-btn svg {
-  flex-shrink: 0;
-}
-
-:root[data-theme="dark"] .wishlist-tool-open {
-  background: rgba(99, 102, 241, 0.1);
-}
-
-:root[data-theme="dark"] .wishlist-tool-clear {
-  background: rgba(239, 68, 68, 0.1);
-}
-
-/* 🎯 موبایل */
-@media (max-width: 640px) {
   .wishlist-tool-btn {
     font-size: 0.75rem;
     padding: 0.5rem 0.625rem;
     min-width: 0;
   }
-  .wishlist-tool-btn span {
-    display: none;
-  }
-  .wishlist-tool-btn svg {
-    width: 18px;
-    height: 18px;
-  }
-}
 
-/* ================================================================
-   🎯 دیالوگ تأیید اختصاصی
-   ================================================================ */
-.confirm-dialog {
-  position: fixed;
-  inset: 0;
-  z-index: 9500;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-  animation: confirmFadeIn 0.2s ease;
-}
-
-@keyframes confirmFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.confirm-dialog-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(6px);
-  cursor: pointer;
-}
-
-.confirm-dialog-content {
-  position: relative;
-  z-index: 1;
-  background: var(--surface);
-  border-radius: 1.5rem;
-  padding: 2rem 1.75rem 1.75rem;
-  width: 100%;
-  max-width: 420px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 1rem;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
-  animation: confirmZoomIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-  border: 2px solid var(--border);
-}
-
-@keyframes confirmZoomIn {
-  from {
-    opacity: 0;
-    transform: scale(0.85);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.confirm-dialog-icon {
-  width: 4rem;
-  height: 4rem;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2rem;
-  background: linear-gradient(135deg, #fef3c7, #fde68a);
-  border: 3px solid rgba(251, 191, 36, 0.3);
-  box-shadow: 0 6px 20px rgba(251, 191, 36, 0.25);
-  margin-top: -3rem;
-  animation: confirmIconPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
-}
-
-@keyframes confirmIconPop {
-  from {
-    transform: scale(0.5);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-/* 🎯 انواع آیکن */
-.confirm-dialog.danger .confirm-dialog-icon {
-  background: linear-gradient(135deg, #fee2e2, #fecaca);
-  border-color: rgba(239, 68, 68, 0.3);
-  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.25);
-}
-
-.confirm-dialog.info .confirm-dialog-icon {
-  background: linear-gradient(135deg, #eef2ff, #e0e7ff);
-  border-color: rgba(99, 102, 241, 0.3);
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.25);
-}
-
-.confirm-dialog-title {
-  font-size: 1.125rem;
-  font-weight: 800;
-  color: var(--text);
-  margin-top: 0.25rem;
-}
-
-.confirm-dialog-message {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  line-height: 1.7;
-  margin-bottom: 0.5rem;
-}
-
-.confirm-dialog-actions {
-  display: flex;
-  gap: 0.625rem;
-  width: 100%;
-  margin-top: 0.5rem;
-}
-
-.confirm-dialog-btn {
-  flex: 1;
-  padding: 0.75rem 1rem;
-  border-radius: 0.75rem;
-  font-family: inherit;
-  font-size: 0.938rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: 2px solid transparent;
-}
-
-.confirm-dialog-cancel {
-  background: var(--bg);
-  color: var(--text-muted);
-  border-color: var(--border);
-}
-
-.confirm-dialog-cancel:hover {
-  background: var(--surface);
-  color: var(--text);
-  border-color: var(--text-muted);
-}
-
-.confirm-dialog-ok {
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-  color: white;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
-}
-
-.confirm-dialog-ok:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
-}
-
-.confirm-dialog.danger .confirm-dialog-ok {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
-}
-
-.confirm-dialog.danger .confirm-dialog-ok:hover {
-  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
-}
-
-.confirm-dialog-btn:active {
-  transform: translateY(0) scale(0.98);
-}
-
-/* 🎯 دارک مود */
-:root[data-theme="dark"] .confirm-dialog-icon {
-  background: linear-gradient(135deg, #78350f, #92400e);
-  border-color: rgba(251, 191, 36, 0.4);
-}
-
-:root[data-theme="dark"] .confirm-dialog.danger .confirm-dialog-icon {
-  background: linear-gradient(135deg, #7f1d1d, #991b1b);
-  border-color: rgba(239, 68, 68, 0.4);
-}
-
-:root[data-theme="dark"] .confirm-dialog.info .confirm-dialog-icon {
-  background: linear-gradient(135deg, #312e81, #3730a3);
-  border-color: rgba(129, 140, 248, 0.4);
-}
-
-/* 🎯 موبایل */
-@media (max-width: 640px) {
   .confirm-dialog {
     padding: 1rem;
   }
@@ -4029,4 +3151,78 @@ a img,
   .confirm-dialog-actions {
     flex-direction: column-reverse;
   }
+
+  .toast-container {
+    bottom: 1rem;
+    right: 1rem;
+    left: 1rem;
+  }
+  .toast {
+    min-width: 0;
+    max-width: none;
+  }
+
+  .image-modal {
+    padding: 1rem;
+  }
+  .image-modal-content img {
+    width: 90vw;
+    min-height: 250px;
+    max-height: 65vh;
+    padding: 0.5rem;
+  }
+  .image-modal-caption {
+    font-size: 0.813rem;
+  }
+  .image-modal-close {
+    top: 1rem;
+    left: 1rem;
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .missing-label {
+    font-size: 0.75rem;
+  }
+  .missing-item-card {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.6rem;
+  }
+  .missing-item-text {
+    font-size: 0.75rem;
+  }
+}
+
+/* 🎯 گروه شهر */
+.group-city {
+  background: rgba(245, 158, 11, 0.06);
+  border-right-color: #f59e0b;
+}
+
+:root[data-theme="dark"] .group-city {
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.group-city .store-badge-group-label {
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.15);
+}
+
+:root[data-theme="dark"] .group-city .store-badge-group-label {
+  color: #fde68a;
+}
+
+.store-badge-row-city {
+  background: #ffffff;
+  cursor: default !important;
+}
+
+.store-badge-row-city:hover {
+  transform: none !important;
+  box-shadow: none !important;
+  border-color: var(--border) !important;
+}
+
+:root[data-theme="dark"] .store-badge-row-city {
+  background: #f8fafc;
 }

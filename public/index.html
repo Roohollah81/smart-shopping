@@ -59,17 +59,6 @@
 
         <div id="items-list" class="items-list"></div>
 
-        <!-- گزینه ترتیب نمایش -->
-        <div class="sort-toggle-group" id="sort-toggle-group">
-          <span class="sort-toggle-label">اولویت نمایش فروشگاه ها:</span>
-          <button class="sort-option active" data-sort="price" type="button">
-            💰 کمترین قیمت
-          </button>
-          <button class="sort-option" data-sort="count" type="button">
-            📦 بیشترین موجودی
-          </button>
-        </div>
-
         <div class="actions">
           <button id="search-btn" class="btn-search" disabled>
             <span class="btn-search-idle" id="btn-search-idle">
@@ -92,6 +81,17 @@
           <button id="clear-btn" class="btn-clear">پاک کردن همه</button>
         </div>
       </section>
+
+      <!-- 🎯 فیلتر ترتیب — فقط بعد از جستجو نمایش داده می‌شود -->
+      <div class="sort-toggle-group hidden" id="sort-toggle-group">
+        <span class="sort-toggle-label">اولویت نمایش فروشگاه ها:</span>
+        <button class="sort-option active" data-sort="price" type="button">
+          💰 کمترین قیمت
+        </button>
+        <button class="sort-option" data-sort="count" type="button">
+          📦 بیشترین موجودی
+        </button>
+      </div>
 
       <!-- نتایج -->
       <section id="results-section" class="results-section hidden">
