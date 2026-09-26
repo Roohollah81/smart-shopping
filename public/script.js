@@ -12,6 +12,9 @@ const resultsSection = document.getElementById("results-section");
 const storesContainer = document.getElementById("stores-container");
 const errorBox = document.getElementById("error-box");
 const spinner = document.getElementById("spinner");
+const cancelBtn = document.getElementById("cancel-btn");
+let searchAborted = false;
+let searchController = null; // ← این خط جدید
 
 let items = [];
 let currentSort = localStorage.getItem("sortOrder") || "price";
@@ -354,7 +357,11 @@ function toPersianNum(num) {
 function showToast(title, message, type = "success", duration = 5000) {
   const container = document.getElementById("toast-container");
   if (!container) return;
-  const icons = { success: "✓", remove: "✕", info: "❤️" };
+  const icons = {
+    success: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+    remove: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+    info: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`,
+  };
   const toast = document.createElement("div");
   toast.className = `toast toast-${type}`;
   toast.innerHTML = `
@@ -672,17 +679,36 @@ function applySorting(basketComparison) {
 }
 
 function setSortOrder(order) {
+  if (currentSort === order) return;
+
   currentSort = order;
   localStorage.setItem("sortOrder", order);
 
-  // به‌روزرسانی همه دکمه‌های سورت (هم در پایین و هم در نوار چسبان)
   document.querySelectorAll(".sort-option").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.sort === order);
   });
 
+  const label = order === "price" ? "کمترین قیمت" : "بیشترین موجودی";
+  showToast(
+    "ترتیب نمایش تغییر کرد",
+    `فروشگاه‌ها بر اساس «${label}» مرتب شدند`,
+    "info",
+    3000,
+  );
+
   if (lastBasketComparison && lastBasketComparison.length > 0) {
     const sorted = applySorting(lastBasketComparison);
     renderStoreSections(sorted);
+
+    // اسکرول به فروشگاه منتخب بعد از رندر
+    setTimeout(() => {
+      const target =
+        document.querySelector(".store-section.best-store") ||
+        document.querySelector(".store-section");
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 200);
   }
 }
 
@@ -921,6 +947,12 @@ function clearAll() {
   searchBtn.classList.remove("searching");
   setLoading(false);
   lastBasketComparison = null;
+  document.querySelectorAll(".store-badge-group-items").forEach((c) => {
+    if (c._rotationInterval) {
+      clearInterval(c._rotationInterval);
+      c._rotationInterval = null;
+    }
+  });
 }
 
 function markChipActive(index) {
@@ -954,25 +986,42 @@ async function search() {
   if (items.length === 0) return;
   hideError();
   setLoading(true);
+  searchAborted = false;
+
+  // ساخت کنترلر برای کنسل کردن fetch ها
+  searchController = new AbortController();
+  const signal = searchController.signal;
+
+  if (cancelBtn) {
+    cancelBtn.classList.remove("hidden");
+    cancelBtn.disabled = false;
+  }
+
   document
     .querySelectorAll(".item-chip")
     .forEach((chip) => chip.classList.remove("done", "error", "active"));
   searchBtn.classList.add("searching");
   itemsList.classList.add("locked");
+  clearBtn.classList.add("hidden");
   startStoreCycle();
+
   try {
-    addBtn.disabled = true;
     const queryResults = [];
     for (let i = 0; i < items.length; i++) {
+      if (searchAborted) break;
+
       const item = items[i];
       markChipActive(i);
       animateSlot("slot-item", item);
+
       try {
         const r = await fetch("/api/compare", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ items: [item] }),
+          signal, // ← این خط
         });
+        if (searchAborted) break;
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
         if (data.success && data.data?.queries?.[0]) {
@@ -982,10 +1031,17 @@ async function search() {
           markChipError(i);
         }
       } catch (e) {
+        if (e.name === "AbortError" || searchAborted) break;
         console.error(`Error searching "${item}":`, e);
         markChipError(i);
       }
     }
+
+    if (searchAborted) {
+      showToast("جستجو لغو شد", "عملیات توسط شما متوقف شد", "remove", 3000);
+      return;
+    }
+
     const validQueries = queryResults.filter(Boolean);
     if (validQueries.length === 0) {
       showError("هیچ نتیجه‌ای یافت نشد.");
@@ -994,17 +1050,27 @@ async function search() {
     const basketComparison = computeBasketComparison(validQueries);
     renderResults({ queries: validQueries, basketComparison });
   } catch (e) {
-    showError("خطا در جستجو: " + (e.message || "خطای نامشخص"));
-    console.error(e);
+    if (!searchAborted && e.name !== "AbortError") {
+      showError("خطا در جستجو: " + (e.message || "خطای نامشخص"));
+      console.error(e);
+    }
   } finally {
-    addBtn.disabled = false;
     stopStoreCycle();
     searchBtn.classList.remove("searching");
     setLoading(false);
     itemsList.classList.remove("locked");
+    addBtn.disabled = false;
+    clearBtn.classList.remove("hidden");
+
+    if (cancelBtn) cancelBtn.classList.add("hidden");
+
+    // پاک کردن کنترلر
+    searchController = null;
+
     document
       .querySelectorAll(".item-chip.active")
       .forEach((chip) => chip.classList.remove("active"));
+
     const slotStore = document.getElementById("slot-store");
     if (slotStore) {
       slotStore.style.removeProperty("--slot-color-bg");
@@ -1086,6 +1152,69 @@ function renderResults(data) {
   resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+// ================================================================
+// 🎯 BADGE ROTATION (فقط در موبایل)
+// ================================================================
+function initBadgeRotation() {
+  // پاک‌سازی اینتروال‌های قبلی
+  document.querySelectorAll(".store-badge-group-items").forEach((c) => {
+    if (c._rotationInterval) {
+      clearInterval(c._rotationInterval);
+      c._rotationInterval = null;
+    }
+  });
+
+  // در دسکتاپ: اسلایدر غیرفعال، همه‌ی ردیف‌ها توسط CSS نمایش داده می‌شوند
+  if (window.innerWidth > 900) {
+    document.querySelectorAll(".store-badge-row").forEach((r) => {
+      r.classList.remove("active", "slide-out-left");
+    });
+    return;
+  }
+
+  // در موبایل: چرخش فعال
+  document.querySelectorAll(".store-badge-group-items").forEach((container) => {
+    const rows = Array.from(container.querySelectorAll(".store-badge-row"));
+
+    if (rows.length < 2) {
+      container.classList.add("single");
+      rows.forEach((r) => r.classList.remove("active", "slide-out-left"));
+      return;
+    }
+
+    container.classList.remove("single");
+    rows.forEach((r, i) => {
+      r.classList.toggle("active", i === 0);
+      r.classList.remove("slide-out-left");
+    });
+
+    let idx = 0;
+    container._rotationInterval = setInterval(() => {
+      const all = container.querySelectorAll(".store-badge-row");
+      if (all.length < 2) return;
+
+      const current = all[idx];
+      const nextIdx = (idx + 1) % all.length;
+      const next = all[nextIdx];
+
+      current.classList.remove("active");
+      current.classList.add("slide-out-left");
+
+      setTimeout(() => current.classList.remove("slide-out-left"), 500);
+
+      next.classList.add("active");
+      idx = nextIdx;
+    }, 3500);
+  });
+}
+
+// ری‌اینیت هنگام تغییر سایز صفحه (debounced)
+let __badgeResizeTimer;
+window.addEventListener("resize", () => {
+  clearTimeout(__badgeResizeTimer);
+  __badgeResizeTimer = setTimeout(initBadgeRotation, 250);
+});
+
 function renderStoreSections(sortedStores) {
   if (!sortedStores || sortedStores.length === 0) return;
 
@@ -1114,11 +1243,13 @@ function renderStoreSections(sortedStores) {
   }
 
   storesContainer.innerHTML = html;
+
   requestAnimationFrame(() => {
     document.querySelectorAll("[data-strip-track]").forEach(initStripDrag);
     document.querySelectorAll("[data-grid-track]").forEach(initGridDrag);
     disableAllDraggable();
     updateAllWishlistButtons();
+    initBadgeRotation(); // ← این خط اضافه شه
     setTimeout(checkAllGridOverflows, 100);
   });
 }
@@ -1278,6 +1409,11 @@ function renderStoreSection(store, isBest) {
           <div class="store-name-row">${storeNameHtml}</div>
         </div>
         <div class="store-total">
+          <svg class="store-total-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="9" cy="21" r="1"></circle>
+            <circle cx="20" cy="21" r="1"></circle>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+          </svg>
           <span class="total-value">${formatPrice(store.total)}</span>
           <span class="total-currency">تومان</span>
         </div>
@@ -2065,6 +2201,20 @@ function initTheme() {
 if (themeToggle) themeToggle.addEventListener("click", toggleTheme);
 if (themeToggleTop) themeToggleTop.addEventListener("click", toggleTheme);
 initTheme();
+// ================================================================
+// 🎯 CANCEL BUTTON
+// ================================================================
+if (cancelBtn) {
+  cancelBtn.addEventListener("click", () => {
+    searchAborted = true;
+    cancelBtn.disabled = true;
+
+    // کنسل فوری fetch در حال اجرا
+    if (searchController) {
+      searchController.abort();
+    }
+  });
+}
 // ================================================================
 // 🎯 INIT
 // ================================================================
