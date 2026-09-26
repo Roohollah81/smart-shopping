@@ -2320,10 +2320,10 @@ body {
   width: 2rem;
   height: 2rem;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(8px);
-  border: 1.5px solid rgba(0, 0, 0, 0.08);
-  color: #64748b;
+  border: 1.5px solid rgba(239, 68, 68, 0.35); /* ← قرمز ملایم */
+  color: #f87171; /* ← قلب قرمز پژمرده */
   font-size: 1rem;
   line-height: 1;
   cursor: pointer;
@@ -2338,8 +2338,9 @@ body {
 .product-wishlist-btn:hover {
   transform: scale(1.15);
   background: #ffffff;
-  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
+  border-color: #ef4444;
   color: #ef4444;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
 }
 .product-wishlist-btn.active {
   background: linear-gradient(135deg, #ef4444, #dc2626);
@@ -2364,11 +2365,12 @@ body {
 }
 :root[data-theme="dark"] .product-wishlist-btn {
   background: rgba(30, 41, 59, 0.95);
-  color: #94a3b8;
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #fca5a5;
 }
 :root[data-theme="dark"] .product-wishlist-btn:hover {
   background: #1e293b;
+  border-color: #f87171;
   color: #f87171;
 }
 
@@ -2391,7 +2393,7 @@ body {
   width: 3.5rem;
   height: 3.5rem;
   border-radius: 50%;
-  background: linear-gradient(135deg, #ef4444, #dc2626);
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
   color: white;
   border: 3px solid var(--surface);
   cursor: pointer;
@@ -2399,7 +2401,7 @@ body {
   align-items: center;
   justify-content: center;
   z-index: 999;
-  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.45);
+  box-shadow: 0 6px 18px rgba(248, 113, 113, 0.35);
   transition: all 0.3s ease;
   padding: 0;
   animation: wishlistFloatIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -2416,7 +2418,7 @@ body {
 }
 .wishlist-float-btn:hover {
   transform: translateY(-4px) scale(1.08);
-  box-shadow: 0 12px 32px rgba(239, 68, 68, 0.6);
+  box-shadow: 0 10px 26px rgba(248, 113, 113, 0.45);
 }
 .wishlist-float-btn:active {
   transform: translateY(-2px) scale(1);
@@ -2445,7 +2447,8 @@ body {
   font-family: "Vazirmatn", sans-serif;
 }
 :root[data-theme="dark"] .wishlist-float-btn {
-  border-color: #1e293b;
+  background: linear-gradient(135deg, #fb7185 0%, #f43f5e 100%);
+  box-shadow: 0 6px 18px rgba(244, 63, 94, 0.35);
 }
 :root[data-theme="dark"] .wishlist-float-count {
   background: #f1f5f9;
