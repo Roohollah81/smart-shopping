@@ -2118,12 +2118,23 @@ function openImageModal(src, cap, alt) {
   if (imageModalCaption) imageModalCaption.textContent = cap || "";
   imageModal.classList.remove("hidden");
   document.body.style.overflow = "hidden";
+
+  // ثبت history برای اینکه دکمه برگشت، مودال رو ببنده نه اینکه از سایت خارج شه
+  history.pushState({ imageModal: true }, "");
 }
-function closeImageModal() {
+function closeImageModal(fromPopstate = false) {
   if (!imageModal) return;
+  if (imageModal.classList.contains("hidden")) return;
+
   imageModal.classList.add("hidden");
   imageModalImg.src = "";
   document.body.style.overflow = "";
+
+  // اگه کاربر خودش دکمه بستن رو زد (نه دکمه برگشت گوشی)،
+  // باید اون history entry رو هم پاک کنیم
+  if (!fromPopstate && history.state?.imageModal) {
+    history.back();
+  }
 }
 if (imageModalClose) imageModalClose.addEventListener("click", closeImageModal);
 if (imageModalBackdrop)
@@ -2215,6 +2226,15 @@ if (cancelBtn) {
     }
   });
 }
+// ================================================================
+// 🎯 HANDLE BROWSER BACK BUTTON FOR IMAGE MODAL
+// ================================================================
+window.addEventListener("popstate", (e) => {
+  // اگه مودال عکس باز بود، فقط همون رو ببند
+  if (imageModal && !imageModal.classList.contains("hidden")) {
+    closeImageModal(true);
+  }
+});
 // ================================================================
 // 🎯 INIT
 // ================================================================
