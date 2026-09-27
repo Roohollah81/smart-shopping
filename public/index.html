@@ -231,6 +231,24 @@
       </div>
     </div>
 
+    <!-- مودال مشاهده آیتم‌های دیگر -->
+    <div id="variants-modal" class="variants-modal hidden">
+      <div class="variants-modal-backdrop"></div>
+      <div class="variants-modal-content">
+        <div class="variants-modal-header">
+          <div class="variants-modal-title">
+            <span class="variants-modal-icon">📦</span>
+            <div>
+              <div id="variants-modal-name">مشاهده آیتم‌ها</div>
+              <div class="variants-modal-query" id="variants-modal-query"></div>
+            </div>
+          </div>
+          <button class="variants-modal-close" aria-label="بستن">✕</button>
+        </div>
+        <div class="variants-modal-body" id="variants-modal-body"></div>
+      </div>
+    </div>
+
     <!-- دیالوگ تأیید -->
     <div id="confirm-dialog" class="confirm-dialog hidden">
       <div class="confirm-dialog-backdrop"></div>
@@ -263,8 +281,15 @@
     <div id="image-modal" class="image-modal hidden">
       <div class="image-modal-backdrop"></div>
       <button class="image-modal-close" aria-label="بستن">✕</button>
+      <button class="image-modal-nav image-modal-prev" aria-label="قبلی">
+        ‹
+      </button>
+      <button class="image-modal-nav image-modal-next" aria-label="بعدی">
+        ›
+      </button>
       <div class="image-modal-content">
         <img id="image-modal-img" src="" alt="" />
+        <div class="image-modal-counter hidden" id="image-modal-counter"></div>
         <div class="image-modal-caption"></div>
       </div>
     </div>

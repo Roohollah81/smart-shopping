@@ -715,6 +715,7 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
           price,
           link,
           image,
+          images: image ? [image] : [],
         });
       });
 
@@ -757,6 +758,41 @@ function extractDigikalaImage(p) {
   return null;
 }
 
+function extractDigikalaImages(p) {
+  if (!p || !p.images) return [];
+  const urls = [];
+  const seen = new Set();
+
+  const push = (x) => {
+    if (!x) return;
+    if (typeof x === "string" && x.startsWith("http")) {
+      const clean = x.split("?")[0];
+      if (!seen.has(clean)) {
+        seen.add(clean);
+        urls.push(clean);
+      }
+    } else if (typeof x === "object" && !Array.isArray(x)) {
+      push(x.url);
+      push(x.webp_url);
+      push(x.src);
+      push(x.path);
+    } else if (Array.isArray(x)) {
+      x.forEach(push);
+    }
+  };
+
+  if (Array.isArray(p.images)) {
+    p.images.forEach(push);
+  } else {
+    push(p.images.main);
+    push(p.images.main_image);
+    push(p.images.thumbnail);
+    Object.values(p.images).forEach(push);
+  }
+
+  return urls;
+}
+
 async function searchDigikala(query, limit = 20) {
   try {
     const response = await axios.get("https://api.digikala.com/v1/search/", {
@@ -772,20 +808,25 @@ async function searchDigikala(query, limit = 20) {
 
     log("OK", `[دیجی‌کالا] ${products.length} products`);
 
-    return products.slice(0, limit).map((p) => ({
-      storeName: "دیجی‌کالا",
-      productTitle: p.title_fa || "—",
-      price:
-        parseInt(
-          String(p.default_variant?.price?.selling_price || "0").replace(
-            /[^\d]/g,
-            "",
-          ),
-          10,
-        ) / 10,
-      link: `https://www.digikala.com/product/dkp-${p.id}/`,
-      image: extractDigikalaImage(p),
-    }));
+    return products.slice(0, limit).map((p) => {
+      const imgs = extractDigikalaImages(p);
+      return {
+        storeName: "دیجی‌کالا",
+        productTitle: p.title_fa || "—",
+        price:
+          parseInt(
+            String(p.default_variant?.price?.selling_price || "0").replace(
+              /[^\d]/g,
+              "",
+            ),
+            10,
+          ) / 10,
+        link: `https://www.digikala.com/product/dkp-${p.id}/`,
+        image: imgs[0] || null,
+        images: imgs,
+        productId: p.id,
+      };
+    });
   } catch (error) {
     log("ERR", `[دیجی‌کالا] ${error.message}`);
     return [];
@@ -819,18 +860,26 @@ async function searchTorob(query, limit = 20) {
     );
     const products = response.data?.results || [];
     log("OK", `[ترب] ${products.length} products`);
-    return products.slice(0, limit).map((p) => ({
-      storeName: "ترب",
-      productTitle: p.name1 || p.name || "—",
-      price: parseInt(String(p.price || "0").replace(/[^\d]/g, ""), 10),
-      link: `https://torob.com/p/${p.random_key || p.id}/`,
-      image:
-        p.image_url ||
-        p.image ||
-        p.thumbnail ||
-        (p.images && p.images[0]) ||
-        null,
-    }));
+    return products.slice(0, limit).map((p) => {
+      const imgs = [];
+      if (Array.isArray(p.images)) imgs.push(...p.images);
+      if (p.image_url) imgs.push(p.image_url);
+      if (p.image) imgs.push(p.image);
+      if (p.thumbnail) imgs.push(p.thumbnail);
+      const images = [
+        ...new Set(
+          imgs.filter((x) => typeof x === "string" && x.startsWith("http")),
+        ),
+      ];
+      return {
+        storeName: "ترب",
+        productTitle: p.name1 || p.name || "—",
+        price: parseInt(String(p.price || "0").replace(/[^\d]/g, ""), 10),
+        link: `https://torob.com/p/${p.random_key || p.id}/`,
+        image: images[0] || null,
+        images,
+      };
+    });
   } catch (error) {
     log("ERR", `[ترب] ${error.message}`);
     return [];
@@ -847,7 +896,8 @@ async function searchMadjMarket(query, limit = 20) {
       headless: "new",
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
       // 🎯 اگر Chrome دانلودی کار نکرد، مسیر زیر را باز کنید:
-      executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      executablePath:
+        "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
     });
 
     const page = await browser.newPage();
@@ -937,6 +987,7 @@ async function searchMadjMarket(query, limit = 20) {
       price: p.price,
       link: p.link,
       image: p.image,
+      images: p.image ? [p.image] : [],
     }));
   } catch (error) {
     log("ERR", `[مجد مارکت] ${error.message.split("\n")[0]}`);
@@ -1100,11 +1151,15 @@ async function compareBasket(shoppingList) {
           price: cheapest.price,
           link: cheapest.link,
           image: cheapest.image || null,
+          images: cheapest.images || (cheapest.image ? [cheapest.image] : []),
+          productId: cheapest.productId || null,
           otherItems: others.map((o) => ({
             title: o.productTitle,
             price: o.price,
             link: o.link,
             image: o.image || null,
+            images: o.images || (o.image ? [o.image] : []),
+            productId: o.productId || null,
           })),
         });
       }
