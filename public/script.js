@@ -28,6 +28,7 @@ let wishlistLastChange = localStorage.getItem("wishlistLastChange") || null;
 
 let searchAborted = false;
 let searchController = null;
+let suppressNextPopstate = false;
 
 // گالری عکس‌ها
 const productDataMap = new Map();
@@ -1537,36 +1538,66 @@ function openVariantsModal(pid) {
   if (!data || !data.variants || data.variants.length === 0) return;
 
   const modal = document.getElementById("variants-modal");
+  const iconEl = document.getElementById("variants-modal-icon");
   const nameEl = document.getElementById("variants-modal-name");
   const queryEl = document.getElementById("variants-modal-query");
   const bodyEl = document.getElementById("variants-modal-body");
 
   if (!modal || !bodyEl) return;
 
-  if (nameEl)
-    nameEl.textContent = `مشاهده ${toPersianNum(data.variants.length)} آیتم`;
-  if (queryEl)
-    queryEl.textContent = data.variantsQuery
-      ? `برای: ${data.variantsQuery}`
-      : "";
+  const storeName = data.variantsStoreName || "";
+  const query = data.variantsQuery || "این محصول";
+  const count = data.variants.length;
+  const storeColor = data.variantsStoreColor || "var(--primary)";
+  const storeIconUrl = getStoreIconUrl(storeName);
+
+  // آیکن فروشگاه
+  if (iconEl) {
+    if (storeIconUrl) {
+      iconEl.innerHTML = `
+        <img src="${escapeHtml(storeIconUrl)}" alt="" class="variants-modal-store-icon"
+             loading="lazy" referrerpolicy="no-referrer"
+             onerror="this.onerror=null; this.parentElement.innerHTML='<span class=&quot;variants-modal-icon-fallback&quot;>🏪</span>';" />
+      `;
+      iconEl.style.background = "#ffffff";
+      iconEl.style.borderColor = storeColor;
+      iconEl.style.padding = "0.3rem";
+    } else {
+      iconEl.innerHTML = `<span class="variants-modal-icon-fallback">🏪</span>`;
+      iconEl.style.background = "#ffffff";
+      iconEl.style.borderColor = storeColor;
+    }
+  }
+
+  // عنوان اصلی
+  if (nameEl) {
+    nameEl.textContent = `پیشنهادهای موجود برای «${query}»`;
+  }
+
+  // زیرعنوان: تعداد + فروشگاه
+  if (queryEl) {
+    queryEl.innerHTML = `
+      <span class="variants-modal-store" style="color: ${storeColor}">${escapeHtml(storeName)}</span>
+      <span class="variants-modal-sep">·</span>
+      <span class="variants-modal-count">${toPersianNum(count)} مدل مختلف</span>
+    `;
+  }
 
   bodyEl.innerHTML = data.variants
-    .map((v) =>
-      renderVariantCard(v, data.variantsStoreColor, data.variantsStoreName),
-    )
+    .map((v) => renderVariantCard(v, storeColor, storeName))
     .join("");
 
   modal.classList.remove("hidden");
   document.body.style.overflow = "hidden";
   history.pushState({ variantsModal: true }, "");
 }
-
 function closeVariantsModal(fromPopstate = false) {
   const modal = document.getElementById("variants-modal");
   if (!modal || modal.classList.contains("hidden")) return;
   modal.classList.add("hidden");
   document.body.style.overflow = "";
   if (!fromPopstate && history.state?.variantsModal) {
+    suppressNextPopstate = true;
     history.back();
   }
 }
@@ -1804,7 +1835,11 @@ function closeImageModal(fromPopstate = false) {
   document.body.style.overflow = "";
   imageModalState.images = [];
   imageModalState.index = 0;
-  if (!fromPopstate && history.state?.imageModal) history.back();
+
+  if (!fromPopstate && history.state?.imageModal) {
+    suppressNextPopstate = true;
+    history.back();
+  }
 }
 
 function showPrevImage() {
@@ -2212,11 +2247,17 @@ document.addEventListener("click", (e) => {
 
 // popstate
 window.addEventListener("popstate", () => {
+  if (suppressNextPopstate) {
+    suppressNextPopstate = false;
+    return;
+  }
+
   const imgModal = document.getElementById("image-modal");
   if (imgModal && !imgModal.classList.contains("hidden")) {
     closeImageModal(true);
     return;
   }
+
   const varModal = document.getElementById("variants-modal");
   if (varModal && !varModal.classList.contains("hidden")) {
     closeVariantsModal(true);
