@@ -1034,6 +1034,9 @@ async function search() {
   addBtn.disabled = true;
   startStoreCycle();
 
+  // ← لیست گالری‌ها که در حین جستجو موازی fetch می‌شن
+  const galleryFetchPromises = [];
+
   try {
     const queryResults = [];
     for (let i = 0; i < items.length; i++) {
@@ -1041,6 +1044,7 @@ async function search() {
       const item = items[i];
       markChipActive(i);
       animateSlot("slot-item", item);
+
       try {
         const r = await fetch("/api/compare", {
           method: "POST",
@@ -1054,6 +1058,51 @@ async function search() {
         if (data.success && data.data?.queries?.[0]) {
           queryResults.push(data.data.queries[0]);
           markChipDone(i);
+
+          // ← ← ← این بلاک جدید: بلافاصله گالری این query رو fetch کن ← ← ←
+          const query = data.data.queries[0];
+          const galleryItems = [];
+          const seen = new Set();
+          for (const match of query.matches || []) {
+            for (const offer of match.offers || []) {
+              const key = `${offer.productId || ""}|${offer.link || ""}`;
+              if (seen.has(key)) continue;
+              seen.add(key);
+              galleryItems.push({
+                id: offer.productId || "",
+                url: offer.link || "",
+                store: offer.storeName || "",
+                cacheKey: key,
+              });
+            }
+          }
+
+          if (galleryItems.length > 0) {
+            // fire-and-forget، بدون await برای اینکه حلقه‌ی اصلی بلاک نشه
+            const p = fetch("/api/product-images-batch", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                items: galleryItems.map((x) => ({
+                  id: x.id,
+                  url: x.url,
+                  store: x.store,
+                })),
+              }),
+              signal,
+            })
+              .then((res) => res.json())
+              .then((d) => {
+                if (d.success && d.results) {
+                  for (const [key, images] of Object.entries(d.results)) {
+                    imageGalleryCache.set(key, Promise.resolve(images));
+                    updateBadgeByKey(key, images.length);
+                  }
+                }
+              })
+              .catch(() => {});
+            galleryFetchPromises.push(p);
+          }
         } else {
           markChipError(i);
         }
@@ -1098,6 +1147,11 @@ async function search() {
       slotStore.style.removeProperty("--slot-color-bg");
       slotStore.style.removeProperty("--slot-color-border");
     }
+
+    // ← منتظر بمان تا همه‌ی گالری‌ها تمام شن (ولی نتایج نمایش داده شده)
+    Promise.allSettled(galleryFetchPromises).then(() => {
+      // همه‌ی گالری‌ها آماده‌ست
+    });
   }
 }
 
@@ -1175,9 +1229,6 @@ function renderResults(data) {
   document.getElementById("top-sort")?.classList.remove("hidden");
   resultsSection.classList.remove("hidden");
   resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
-
-  // prefetch گالری‌ها به صورت موازی
-  prefetchGalleries(sorted);
 }
 
 function renderStoreSections(sortedStores) {
@@ -1401,13 +1452,16 @@ function renderProductCard(item, store, storeColor) {
     : [];
 
   const pid = `pd-${++productDataCounter}`;
+  const cacheKey = `${item.productId || ""}|${item.link || ""}`;
+  const currentImages =
+    Array.isArray(item.images) && item.images.length > 0
+      ? item.images
+      : item.image
+        ? [item.image]
+        : [];
+
   productDataMap.set(pid, {
-    images:
-      Array.isArray(item.images) && item.images.length > 0
-        ? item.images
-        : item.image
-          ? [item.image]
-          : [],
+    images: currentImages,
     productId: item.productId || "",
     productUrl: item.link || "",
     storeName: store.storeName || "",
@@ -1416,7 +1470,15 @@ function renderProductCard(item, store, storeColor) {
     variantsQuery: item.query || "",
     variantsStoreColor: storeColor,
     variantsStoreName: store.storeName || "",
+    cacheKey,
   });
+
+  // بج وضعیت گالری
+  const galleryCount = currentImages.length;
+  const galleryBadgeHtml =
+    galleryCount > 1
+      ? `<span class="product-gallery-badge has-multi">📷 ${toPersianNum(galleryCount)}</span>`
+      : `<span class="product-gallery-badge loading" data-cache-key="${escapeHtml(cacheKey)}">🕐</span>`;
 
   const expandButtonHtml = hasOthers
     ? `<button class="product-expand-button" type="button" draggable="false" data-variants-pd="${pid}">
@@ -1450,6 +1512,7 @@ function renderProductCard(item, store, storeColor) {
         <div class="product-image-wrapper ${hasImg ? "has-real-image clickable-image" : ""}" data-pd="${pid}">
           ${imgContent}
           ${wishlistBtn}
+          ${galleryBadgeHtml}
         </div>
         <div class="product-body">
           <div class="product-query">${escapeHtml(item.query)}</div>
@@ -1791,12 +1854,14 @@ async function openImageModal(
   storeName = "",
 ) {
   if (!imageModal) return;
+
   let arr = [];
   if (Array.isArray(images))
     arr = images.filter((x) => typeof x === "string" && x.length > 0);
   else if (typeof images === "string" && images.length > 0) arr = [images];
   if (arr.length === 0) return;
 
+  // اگه Promise توی کش هست، فوری ازش استفاده کن
   const key = `${productId || ""}|${productUrl || ""}`;
   if ((productId || productUrl) && imageGalleryCache.has(key)) {
     try {
@@ -1808,14 +1873,24 @@ async function openImageModal(
   imageModalState.images = arr;
   imageModalState.index = Math.max(0, Math.min(startIndex, arr.length - 1));
   imageModalState.caption = cap || "";
+
   renderImageModalContent();
   imageModal.classList.remove("hidden");
   document.body.style.overflow = "hidden";
   history.pushState({ imageModal: true }, "");
 
+  // اگه هنوز عکس‌ها نیومدن، با timeout ۵ ثانیه صبر کن
   if (arr.length <= 1 && (productId || productUrl)) {
-    fetchProductGallery(productId, productUrl, storeName).then((imgs) => {
+    const timeoutPromise = new Promise((resolve) =>
+      setTimeout(() => resolve(null), 5000),
+    );
+
+    Promise.race([
+      fetchProductGallery(productId, productUrl, storeName),
+      timeoutPromise,
+    ]).then((imgs) => {
       if (
+        imgs &&
         imgs.length > arr.length &&
         !imageModal.classList.contains("hidden")
       ) {
@@ -1870,7 +1945,51 @@ if (imageModalNext)
     e.stopPropagation();
     showNextImage();
   });
+// ================================================================
+// Swipe برای جابه‌جایی بین عکس‌ها (موبایل)
+// ================================================================
+let touchStartX = 0;
+let touchEndX = 0;
+let touchStartY = 0;
+let touchEndY = 0;
 
+if (imageModal) {
+  imageModal.addEventListener(
+    "touchstart",
+    (e) => {
+      if (imageModal.classList.contains("hidden")) return;
+      const t = e.changedTouches[0];
+      touchStartX = t.screenX;
+      touchStartY = t.screenY;
+    },
+    { passive: true },
+  );
+
+  imageModal.addEventListener(
+    "touchend",
+    (e) => {
+      if (imageModal.classList.contains("hidden")) return;
+      const t = e.changedTouches[0];
+      touchEndX = t.screenX;
+      touchEndY = t.screenY;
+
+      const dx = touchEndX - touchStartX;
+      const dy = touchEndY - touchStartY;
+
+      // فقط اگه حرکت افقی بود (نه عمودی)
+      if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx)) return;
+      if (imageModalState.images.length < 2) return;
+
+      // در RTL: کشیدن به چپ = عکس بعدی، کشیدن به راست = عکس قبلی
+      if (dx < -50) {
+        showNextImage();
+      } else if (dx > 50) {
+        showPrevImage();
+      }
+    },
+    { passive: true },
+  );
+}
 document.addEventListener("keydown", (e) => {
   if (!imageModal || imageModal.classList.contains("hidden")) return;
   if (e.key === "ArrowLeft") showNextImage();
@@ -1901,48 +2020,30 @@ function fetchProductGallery(productId, productUrl, storeName) {
   return promise;
 }
 
-async function prefetchGalleries(basketComparison) {
-  if (!basketComparison || basketComparison.length === 0) return;
-  prefetchAbort = false;
-
-  const all = [];
-  const seen = new Set();
-  for (const store of basketComparison) {
-    for (const item of store.items) {
-      const key = `${item.productId || ""}|${item.link || ""}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      all.push({
-        productId: item.productId,
-        productUrl: item.link,
-        storeName: store.storeName,
-      });
-    }
-  }
-
-  const todo = all.filter(
-    (x) => !imageGalleryCache.has(`${x.productId || ""}|${x.productUrl || ""}`),
+function updateBadgeByKey(cacheKey, count) {
+  const badges = document.querySelectorAll(
+    `.product-gallery-badge[data-cache-key="${CSS.escape(cacheKey)}"]`,
   );
-  if (todo.length === 0) return;
-
-  const CONCURRENCY = 4;
-  let idx = 0;
-  async function worker() {
-    while (idx < todo.length) {
-      if (prefetchAbort) return;
-      const task = todo[idx++];
-      try {
-        await fetchProductGallery(
-          task.productId,
-          task.productUrl,
-          task.storeName,
-        );
-      } catch {}
+  badges.forEach((badge) => {
+    if (count > 1) {
+      badge.textContent = `📷 ${toPersianNum(count)}`;
+      badge.classList.remove("loading");
+      badge.classList.add("has-multi");
+    } else {
+      // فقط ۱ عکس داره → بج رو حذف کن
+      badge.remove();
     }
-  }
-  await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
+  });
 }
 
+async function updateBadgeFromCache(badge) {
+  const key = badge.dataset.cacheKey;
+  if (!key) return;
+  try {
+    const imgs = await imageGalleryCache.get(key);
+    updateBadgeByKey(key, Array.isArray(imgs) ? imgs.length : 0);
+  } catch {}
+}
 // ----------------------------------------------------------------
 // SUPPORTED STORES STRIP
 // ----------------------------------------------------------------
@@ -2294,7 +2395,22 @@ function hideError() {
 // CANCEL BUTTON
 // ----------------------------------------------------------------
 if (cancelBtn) {
-  cancelBtn.addEventListener("click", () => {
+  cancelBtn.addEventListener("click", async () => {
+    // اگه قبلاً لغو شده یا دکمه غیرفعاله
+    if (cancelBtn.disabled || searchAborted) return;
+
+    const confirmed = await showConfirmDialog({
+      title: "لغو جستجو",
+      message:
+        "آیا مطمئن هستید که می‌خواهید جستجوی فعلی را لغو کنید؟ نتایج بدست‌آمده تا این لحظه نمایش داده نخواهند شد.",
+      icon: "⏹️",
+      confirmText: "بله، لغو کن",
+      cancelText: "ادامه بده",
+      variant: "danger",
+    });
+
+    if (!confirmed) return;
+
     searchAborted = true;
     cancelBtn.disabled = true;
     if (searchController) searchController.abort();
@@ -2345,8 +2461,27 @@ itemInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") addItem();
 });
 searchBtn.addEventListener("click", search);
-clearBtn.addEventListener("click", clearAll);
+clearBtn.addEventListener("click", async () => {
+  // اگه در حال جستجو هستیم، جستجو رو متوقف کن بعد پاک کن
+  if (itemsList.classList.contains("locked")) return;
 
+  // اگه هیچ آیتمی نیست، کاری نکن
+  if (items.length === 0 && !lastBasketComparison) return;
+
+  const confirmed = await showConfirmDialog({
+    title: "پاک کردن همه",
+    message: `آیا مطمئن هستید که می‌خواهید همه‌ی آیتم‌ها (${toPersianNum(
+      items.length,
+    )} مورد) و نتایج جستجو را پاک کنید؟ این عملیات قابل بازگشت نیست.`,
+    icon: "🗑️",
+    confirmText: "بله، پاک کن",
+    cancelText: "انصراف",
+    variant: "danger",
+  });
+
+  if (!confirmed) return;
+  clearAll();
+});
 const wishlistFloatBtn = document.getElementById("wishlist-float-btn");
 if (wishlistFloatBtn)
   wishlistFloatBtn.addEventListener("click", openWishlistModal);

@@ -19,9 +19,10 @@ app.post("/api/compare", async (req, res) => {
   const { items } = req.body;
 
   if (!Array.isArray(items) || items.length === 0) {
-    return res
-      .status(400)
-      .json({ success: false, error: "لیست خرید نمی‌تواند خالی باشد." });
+    return res.status(400).json({
+      success: false,
+      error: "لیست خرید نمی‌تواند خالی باشد.",
+    });
   }
   if (items.length > 10) {
     return res.status(400).json({
@@ -32,10 +33,63 @@ app.post("/api/compare", async (req, res) => {
 
   try {
     const result = await compareBasket(items);
+
+    // ============================================================
+    // جمع‌آوری همه‌ی محصولات از نتایج
+    // ============================================================
+    const allProducts = [];
+    const seen = new Set();
+    for (const q of result.queries || []) {
+      for (const match of q.matches || []) {
+        for (const offer of match.offers || []) {
+          const key = `${offer.productId || ""}|${offer.link || ""}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          allProducts.push({
+            id: offer.productId || "",
+            url: offer.link || "",
+            store: offer.storeName || "",
+            key,
+          });
+        }
+      }
+    }
+
+    console.log(
+      `[compare] fetching ${allProducts.length} product galleries in parallel...`,
+    );
+
+    // ============================================================
+    // fetch موازی گالری همه‌ی محصولات
+    // ============================================================
+    const galleryMap = {};
+    await Promise.all(
+      allProducts.map(async (p) => {
+        try {
+          const images = await getProductGalleryInternal(p.id, p.url, p.store);
+          galleryMap[p.key] = images;
+        } catch {
+          galleryMap[p.key] = [];
+        }
+      }),
+    );
+
+    const totalImages = Object.values(galleryMap).reduce(
+      (sum, arr) => sum + arr.length,
+      0,
+    );
+    console.log(
+      `[compare] got ${totalImages} total images for ${allProducts.length} products`,
+    );
+
+    result.galleryMap = galleryMap;
     res.json({ success: true, data: result });
   } catch (error) {
     console.error("خطا در مقایسه سبد:", error);
-    res.status(500).json({ success: false, error: "خطایی در سرور رخ داد." });
+    res.status(500).json({
+      success: false,
+      error: "خطایی در سرور رخ داد. لطفاً دوباره تلاش کنید.",
+    });
   }
 });
 
@@ -73,75 +127,370 @@ app.get("/api/dollar", async (req, res) => {
 });
 
 // ================================================================
-// API: گالری عکس محصول
+// HELPERS
 // ================================================================
-app.get("/api/product-images", async (req, res) => {
-  const productId = String(req.query.id || "").trim();
-  const productUrl = String(req.query.url || "").trim();
-  const store = String(req.query.store || "").trim();
 
-  if (!productId && !productUrl) {
-    return res.status(400).json({ success: false, error: "invalid params" });
-  }
-
-  // ---------- ترب: بلاک شده، نادیده بگیر (از عکس جستجو استفاده کن) ----------
-  if (store.includes("ترب")) {
-    return res.json({ success: true, images: [] });
-  }
-
-  // ---------- مجد مارکت: Puppeteer بدون Chrome کار نمی‌کنه، نادیده بگیر ----------
-  if (store.includes("مجد")) {
-    return res.json({ success: true, images: [] });
-  }
-
-  // ---------- دیجی‌کالا: از API ----------
-  if (store.includes("دیجی") && productId) {
-    try {
-      const id = String(productId).replace(/[^\d]/g, "");
-      if (!id) return res.json({ success: true, images: [] });
-
-      const r = await axios.get(`https://api.digikala.com/v1/product/${id}/`, {
-        timeout: 6000,
+function fetchHtmlWithTimeout(url, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error("timeout")),
+      timeoutMs + 500,
+    );
+    axios
+      .get(url, {
+        timeout: timeoutMs,
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
             "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          Accept: "application/json, text/plain, */*",
+          Accept:
+            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
           "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
-          "Accept-Encoding": "gzip, deflate, br",
+        },
+        validateStatus: () => true,
+        maxRedirects: 5,
+      })
+      .then((r) => {
+        clearTimeout(timer);
+        if (r.status === 200 && typeof r.data === "string") resolve(r.data);
+        else resolve(null);
+      })
+      .catch((e) => {
+        clearTimeout(timer);
+        reject(e);
+      });
+  });
+}
+
+async function fetchHtmlWithRetry(url, timeoutsMs = [4000, 6000]) {
+  for (let i = 0; i < timeoutsMs.length; i++) {
+    try {
+      const html = await fetchHtmlWithTimeout(url, timeoutsMs[i]);
+      if (html && html.length > 500) return html;
+    } catch (e) {
+      if (i === timeoutsMs.length - 1) throw e;
+    }
+  }
+  return null;
+}
+
+function normalizeImageUrl(u, baseUrl) {
+  if (!u || typeof u !== "string") return null;
+  if (u.startsWith("data:")) return null;
+  if (!u.startsWith("http")) {
+    try {
+      u = new URL(u, baseUrl).href;
+    } catch {
+      return null;
+    }
+  }
+  u = u.split("?")[0];
+  u = u.replace(/-\d+x\d+(?=\.(jpg|jpeg|png|webp|gif))/i, "");
+  return u;
+}
+
+function isBadImage(url) {
+  const low = url.toLowerCase();
+  const blacklist = [
+    "icon",
+    "logo",
+    "banner",
+    "avatar",
+    "flag",
+    "sprite",
+    "placeholder",
+    "loading",
+    "spinner",
+    "payment",
+    "social",
+    "footer",
+    "header",
+    "badge",
+  ];
+  return blacklist.some((w) => low.includes(w));
+}
+
+function extractFromNextData(html, baseUrl) {
+  try {
+    const match = html.match(
+      /<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/,
+    );
+    if (!match) return [];
+
+    const data = JSON.parse(match[1]);
+    const urls = [];
+    const seen = new Set();
+
+    const add = (u) => {
+      const n = normalizeImageUrl(u, baseUrl);
+      if (n && !isBadImage(n) && !seen.has(n)) {
+        seen.add(n);
+        urls.push(n);
+      }
+    };
+
+    const walk = (obj, depth = 0) => {
+      if (depth > 25 || !obj || typeof obj !== "object") return;
+      if (Array.isArray(obj)) {
+        obj.forEach((x) => walk(x, depth + 1));
+        return;
+      }
+      if (Array.isArray(obj.images)) {
+        obj.images.forEach((img) => {
+          if (typeof img === "string") add(img);
+          else if (img && typeof img === "object") {
+            ["url", "src", "path", "image_url", "imageUrl"].forEach((k) => {
+              const v = img[k];
+              if (typeof v === "string") add(v);
+              else if (Array.isArray(v))
+                v.forEach((x) => typeof x === "string" && add(x));
+            });
+          }
+        });
+      }
+      ["gallery", "photos", "pictures", "media"].forEach((k) => {
+        if (Array.isArray(obj[k])) {
+          obj[k].forEach((item) => {
+            if (typeof item === "string") add(item);
+            else if (item && typeof item === "object") {
+              ["url", "src", "path"].forEach((kk) => {
+                if (typeof item[kk] === "string") add(item[kk]);
+              });
+            }
+          });
+        }
+      });
+      Object.values(obj).forEach((v) => walk(v, depth + 1));
+    };
+
+    walk(data);
+    return urls.slice(0, 20);
+  } catch {
+    return [];
+  }
+}
+
+function scrapeImagesFromHtml(html, baseUrl) {
+  try {
+    const $ = cheerio.load(html);
+
+    const normalize = (u) => {
+      if (!u || typeof u !== "string") return null;
+      if (u.startsWith("data:")) return null;
+      if (!u.startsWith("http")) {
+        try {
+          u = new URL(u, baseUrl).href;
+        } catch {
+          return null;
+        }
+      }
+      u = u.split("?")[0];
+      u = u.replace(/-\d+x\d+(?=\.(jpg|jpeg|png|webp|gif))/i, "");
+      return u;
+    };
+
+    const isBadImage = (url) => {
+      const low = url.toLowerCase();
+      const blacklist = [
+        "icon",
+        "logo",
+        "banner",
+        "avatar",
+        "flag",
+        "sprite",
+        "placeholder",
+        "loading",
+        "spinner",
+        "payment",
+        "social",
+        "footer",
+        "header",
+        "badge",
+      ];
+      return blacklist.some((w) => low.includes(w));
+    };
+
+    // چک کن توی پوشه‌ی thumb هست یا نه
+    const isThumbPath = (url) => {
+      const low = url.toLowerCase();
+      return (
+        /\/(thumb|thumbs|thumbnail|thumbnails|small|mini|preview)\//i.test(
+          low,
+        ) || /_\d+\.(jpg|jpeg|png|webp|gif)$/i.test(low) // _60, _150, _300
+      );
+    };
+
+    const mainUrls = [];
+    const thumbUrls = [];
+    const seenMain = new Set();
+    const seenThumb = new Set();
+
+    const push = (u) => {
+      const n = normalize(u);
+      if (!n || isBadImage(n)) return;
+
+      if (isThumbPath(n)) {
+        if (!seenThumb.has(n)) {
+          seenThumb.add(n);
+          thumbUrls.push(n);
+        }
+      } else {
+        if (!seenMain.has(n)) {
+          seenMain.add(n);
+          mainUrls.push(n);
+        }
+      }
+    };
+
+    const EXCLUDE_CLOSEST =
+      ".related, .upsells, .cross-sells, .crosssell, " +
+      '[class*="related"], [class*="similar"], [class*="upsell"], ' +
+      '[class*="cross-sell"], [class*="crosssell"], [class*="recommend"], ' +
+      '[class*="suggest"], [class*="you-may"], [class*="also-like"], ' +
+      ".category-products, .products-grid, .product-grid, " +
+      ".archive-products, .shop-products, .product-list, " +
+      ".widget-products, .sidebar-products, .footer-products";
+
+    // 1) همه‌ی img های صفحه
+    $("img").each((i, el) => {
+      const $el = $(el);
+      if ($el.closest(EXCLUDE_CLOSEST).length > 0) return;
+      if (
+        $el.closest("header, footer, nav, .sidebar, .menu, #header, #footer")
+          .length > 0
+      )
+        return;
+
+      [
+        "data-large_image",
+        "data-large-image",
+        "data-full-src",
+        "data-original",
+        "data-src",
+        "data-lazy-src",
+        "data-zoom-image",
+        "src",
+      ].forEach((k) => push($el.attr(k)));
+
+      const srcset = $el.attr("srcset") || $el.attr("data-srcset") || "";
+      if (srcset) {
+        const parts = srcset
+          .split(",")
+          .map((p) => p.trim().split(/\s+/)[0])
+          .filter(Boolean);
+        if (parts.length) push(parts[parts.length - 1]);
+      }
+    });
+
+    // 2) لینک‌های مستقیم به عکس
+    $(
+      'a[href$=".jpg"], a[href$=".jpeg"], a[href$=".png"], a[href$=".webp"]',
+    ).each((i, el) => {
+      const $el = $(el);
+      if ($el.closest(EXCLUDE_CLOSEST).length > 0) return;
+      if ($el.closest("header, footer, nav, .sidebar, .menu").length > 0)
+        return;
+      push($el.attr("href"));
+    });
+
+    // ← ← ← کلید کار: اگه عکس اصلی داریم، فقط همون‌ها رو برگردون ← ← ←
+    if (mainUrls.length >= 1) {
+      return mainUrls.slice(0, 20);
+    }
+
+    // اگه فقط thumb داشتیم، همونا رو برگردون
+    if (thumbUrls.length > 0) {
+      return thumbUrls.slice(0, 20);
+    }
+
+    // 3) og:image + JSON-LD (fallback نهایی)
+    const finalUrls = [];
+    const finalSeen = new Set();
+    const pushFinal = (u) => {
+      const n = normalize(u);
+      if (!n || isBadImage(n) || finalSeen.has(n)) return;
+      finalSeen.add(n);
+      finalUrls.push(n);
+    };
+
+    pushFinal($('meta[property="og:image"]').attr("content"));
+
+    $('script[type="application/ld+json"]').each((i, el) => {
+      try {
+        const data = JSON.parse($(el).html() || "{}");
+        const walk = (obj) => {
+          if (!obj || typeof obj !== "object") return;
+          if (Array.isArray(obj)) {
+            obj.forEach(walk);
+            return;
+          }
+          const type = obj["@type"];
+          if (
+            type === "Product" ||
+            (Array.isArray(type) && type.includes("Product"))
+          ) {
+            if (obj.image) {
+              if (Array.isArray(obj.image)) obj.image.forEach(pushFinal);
+              else pushFinal(obj.image);
+            }
+          }
+          Object.values(obj).forEach(walk);
+        };
+        walk(data);
+      } catch {}
+    });
+
+    return finalUrls.slice(0, 20);
+  } catch (e) {
+    return [];
+  }
+}
+// ================================================================
+// CORE: گرفتن گالری یک محصول (بدون res)
+// ================================================================
+async function getProductGalleryInternal(productId, productUrl, store) {
+  productId = String(productId || "").trim();
+  productUrl = String(productUrl || "").trim();
+  store = String(store || "").trim();
+
+  if (!productId && !productUrl) return [];
+  if (store.includes("ترب")) return [];
+
+  // تلاش اول: HTML
+  if (productUrl) {
+    try {
+      const html = await fetchHtmlWithRetry(productUrl, [4000, 6000]);
+      if (html) {
+        const nextImages = extractFromNextData(html, productUrl);
+        if (nextImages.length > 0) {
+          return nextImages;
+        }
+        const scrapedImages = scrapeImagesFromHtml(html, productUrl);
+        if (scrapedImages.length > 0) {
+          return scrapedImages;
+        }
+      }
+    } catch (e) {
+      // بی‌صدا رد شو
+    }
+  }
+
+  // تلاش دوم: API دیجی‌کالا
+  if (store.includes("دیجی") && productId) {
+    try {
+      const id = String(productId).replace(/[^\d]/g, "");
+      if (!id) return [];
+      const r = await axios.get(`https://api.digikala.com/v1/product/${id}/`, {
+        timeout: 6000,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          Accept: "application/json",
           Referer: `https://www.digikala.com/product/dkp-${id}/`,
-          Origin: "https://www.digikala.com",
-          "Sec-Fetch-Dest": "empty",
-          "Sec-Fetch-Mode": "cors",
-          "Sec-Fetch-Site": "same-site",
-          "x-web-client": "desktop",
-          "x-web-version": "1.0.0",
         },
         validateStatus: () => true,
       });
-
-      // اگه v1 جواب نداد، v2 رو امتحان کن
-      let data = r.data;
-      if (r.status !== 200) {
-        try {
-          const r2 = await axios.get(
-            `https://api.digikala.com/v2/product/${id}/`,
-            {
-              timeout: 6000,
-              headers: {
-                "User-Agent":
-                  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                Accept: "application/json",
-                Referer: `https://www.digikala.com/product/dkp-${id}/`,
-              },
-              validateStatus: () => true,
-            },
-          );
-          if (r2.status === 200) data = r2.data;
-        } catch {}
-      }
-
-      const imgs = data?.data?.product?.images || [];
+      const imgs = r.data?.data?.product?.images || [];
       const urls = [];
       for (const img of imgs) {
         const raw = img?.url;
@@ -153,147 +502,78 @@ app.get("/api/product-images", async (req, res) => {
           }
         }
       }
-      console.log(`[gallery] دیجی‌کالا → ${urls.length} images`);
-      return res.json({ success: true, images: urls });
-    } catch (e) {
-      console.error(`[gallery] دیجی‌کالا → خطا:`, e.message);
-      return res.json({ success: true, images: [] });
+      return urls;
+    } catch {
+      return [];
     }
   }
 
-  // ---------- فروشگاه‌های دیگر: اسکرپ HTML ----------
-  if (productUrl) {
-    try {
-      const r = await axios.get(productUrl, {
-        timeout: 6000,
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          Accept:
-            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
-        },
-        validateStatus: () => true,
-        maxRedirects: 5,
-      });
+  return [];
+}
 
-      if (r.status !== 200 || typeof r.data !== "string") {
-        console.log(`[gallery] ${store} → HTTP ${r.status}`);
-        return res.json({ success: true, images: [] });
+// ================================================================
+// API: گالری یک محصول
+// ================================================================
+app.get("/api/product-images", async (req, res) => {
+  const productId = String(req.query.id || "").trim();
+  const productUrl = String(req.query.url || "").trim();
+  const store = String(req.query.store || "").trim();
+
+  if (!productId && !productUrl) {
+    return res.status(400).json({ success: false, error: "invalid params" });
+  }
+
+  try {
+    const images = await getProductGalleryInternal(
+      productId,
+      productUrl,
+      store,
+    );
+    if (images.length > 0) {
+      console.log(`[gallery] ${store} → ${images.length} images`);
+    } else {
+      console.log(`[gallery] ${store} → 0 images`);
+    }
+    res.json({ success: true, images });
+  } catch (e) {
+    console.error(`[gallery] ${store} → error:`, e.message);
+    res.json({ success: true, images: [] });
+  }
+});
+
+// ================================================================
+// API: گالری چند محصول (batch — موازی)
+// ================================================================
+app.post("/api/product-images-batch", async (req, res) => {
+  const items = Array.isArray(req.body?.items) ? req.body.items : [];
+  if (items.length === 0) {
+    return res.status(400).json({ success: false, error: "empty" });
+  }
+
+  console.log(`[gallery] batch → ${items.length} items`);
+
+  const results = await Promise.all(
+    items.map(async (item) => {
+      const { id, url, store } = item;
+      const key = `${id || ""}|${url || ""}`;
+      try {
+        const images = await getProductGalleryInternal(id, url, store);
+        return { key, images };
+      } catch {
+        return { key, images: [] };
       }
+    }),
+  );
 
-      const $ = cheerio.load(r.data);
-      const urls = [];
-      const seen = new Set();
-
-      const normalize = (u) => {
-        if (!u || typeof u !== "string") return null;
-        if (u.startsWith("data:")) return null;
-        if (!u.startsWith("http")) {
-          try {
-            u = new URL(u, productUrl).href;
-          } catch {
-            return null;
-          }
-        }
-        u = u.split("?")[0];
-        u = u.replace(/-\d+x\d+(?=\.(jpg|jpeg|png|webp|gif))/i, "");
-        return u;
-      };
-
-      const add = (raw) => {
-        const u = normalize(raw);
-        if (u && !seen.has(u)) {
-          seen.add(u);
-          urls.push(u);
-        }
-      };
-
-      $(
-        ".woocommerce-product-gallery__image img, .woocommerce-product-gallery img",
-      ).each((i, el) => {
-        const $el = $(el);
-        add($el.attr("data-large_image"));
-        add($el.attr("data-large-image"));
-        add($el.attr("data-full-src"));
-        add($el.attr("data-original"));
-        add($el.attr("data-src"));
-        const srcset = $el.attr("srcset") || $el.attr("data-srcset") || "";
-        if (srcset) {
-          const big = srcset
-            .split(",")
-            .map((p) => p.trim().split(/\s+/)[0])
-            .filter(Boolean)
-            .pop();
-          if (big) add(big);
-        }
-        add($el.attr("src"));
-      });
-
-      $(
-        ".flex-control-thumbs img, .flex-control-nav img, .thumbnails img, .gallery-thumbnails img",
-      ).each((i, el) => {
-        const $el = $(el);
-        add($el.attr("data-large_image"));
-        add($el.attr("data-src"));
-        add($el.attr("src"));
-      });
-
-      $(
-        '.product-gallery img, .product-images img, .gallery-item img, [class*="product-gallery"] img, [class*="productGallery"] img',
-      ).each((i, el) => {
-        const $el = $(el);
-        add($el.attr("data-large_image"));
-        add($el.attr("data-original"));
-        add($el.attr("data-src"));
-        add($el.attr("src"));
-      });
-
-      $('a[href$=".jpg"], a[href$=".jpeg"], a[href$=".png"], a[href$=".webp"]')
-        .slice(0, 20)
-        .each((i, el) => {
-          const href = $(el).attr("href");
-          if (
-            href &&
-            !href.includes("icon") &&
-            !href.includes("logo") &&
-            !href.includes("banner")
-          ) {
-            add(href);
-          }
-        });
-
-      add($('meta[property="og:image"]').attr("content"));
-
-      $('script[type="application/ld+json"]').each((i, el) => {
-        try {
-          const data = JSON.parse($(el).html() || "{}");
-          const walk = (obj) => {
-            if (!obj || typeof obj === "string") return;
-            if (Array.isArray(obj)) {
-              obj.forEach(walk);
-              return;
-            }
-            if (obj.image) {
-              if (Array.isArray(obj.image)) obj.image.forEach(add);
-              else add(obj.image);
-            }
-            Object.values(obj).forEach(walk);
-          };
-          walk(data);
-        } catch {}
-      });
-
-      console.log(`[gallery] ${store} → ${urls.length} images`);
-      return res.json({ success: true, images: urls.slice(0, 20) });
-    } catch (e) {
-      console.error(`[gallery] ${store} → خطا:`, e.message);
-      return res.json({ success: true, images: [] });
-    }
+  const map = {};
+  let totalFound = 0;
+  for (const r of results) {
+    map[r.key] = r.images;
+    totalFound += r.images.length;
   }
+  console.log(`[gallery] batch → ${totalFound} total images`);
 
-  res.json({ success: true, images: [] });
+  res.json({ success: true, results: map });
 });
 
 // ================================================================

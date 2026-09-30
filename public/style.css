@@ -4734,3 +4734,80 @@ a img,
     font-size: 1.15rem;
   }
 }
+/* ================================================================
+   IMAGE MODAL NAV — مخفی در موبایل
+   ================================================================ */
+@media (max-width: 640px) {
+  .image-modal-nav {
+    display: none !important;
+  }
+  .image-modal-counter {
+    top: 0.75rem;
+    font-size: 0.72rem;
+    padding: 0.3rem 0.7rem;
+  }
+}
+/* ================================================================
+   PRODUCT GALLERY BADGE
+   ================================================================ */
+.product-gallery-badge {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  background: rgba(0, 0, 0, 0.65);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 0.25rem 0.55rem;
+  border-radius: 0.5rem;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events: none;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background 0.25s ease,
+    opacity 0.25s ease;
+}
+
+.product-gallery-badge.loading {
+  background: rgba(99, 102, 241, 0.75);
+  animation: galleryBadgePulse 1.4s ease-in-out infinite;
+}
+
+.product-gallery-badge.has-multi {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+@keyframes galleryBadgePulse {
+  0%,
+  100% {
+    opacity: 0.65;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+:root[data-theme="dark"] .product-gallery-badge {
+  background: rgba(255, 255, 255, 0.15);
+}
+:root[data-theme="dark"] .product-gallery-badge.loading {
+  background: rgba(129, 140, 248, 0.8);
+}
+:root[data-theme="dark"] .product-gallery-badge.has-multi {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+@media (max-width: 640px) {
+  .product-gallery-badge {
+    font-size: 0.6rem;
+    padding: 0.2rem 0.45rem;
+    bottom: 0.35rem;
+    right: 0.35rem;
+  }
+}
