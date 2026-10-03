@@ -172,6 +172,50 @@
         <div id="stores-container" class="stores-container"></div>
       </section>
 
+      <!-- دکمه‌ی مخفی debug (فقط با دابل‌کلیک روی لوگو فعال می‌شه) -->
+      <button
+        id="debug-btn"
+        class="debug-btn hidden"
+        type="button"
+        title="نمایش محصولات رد شده"
+      >
+        🐞
+      </button>
+
+      <!-- مودال debug -->
+      <div id="debug-modal" class="debug-modal hidden">
+        <div class="debug-modal-backdrop"></div>
+        <div class="debug-modal-content">
+          <div class="debug-modal-header">
+            <div class="debug-modal-title">
+              <span>🐞</span>
+              <div>
+                <div>محصولات رد شده (Debug)</div>
+                <div
+                  class="debug-modal-subtitle"
+                  id="debug-modal-subtitle"
+                ></div>
+              </div>
+            </div>
+            <button class="debug-modal-close" aria-label="بستن">✕</button>
+          </div>
+          <div class="debug-modal-toolbar">
+            <input
+              type="text"
+              id="debug-search"
+              placeholder="جستجو در عنوان یا فروشگاه..."
+              class="debug-search-input"
+            />
+            <select id="debug-sort" class="debug-sort-select">
+              <option value="score">بر اساس score</option>
+              <option value="ratio">بر اساس ratio</option>
+              <option value="store">بر اساس فروشگاه</option>
+            </select>
+          </div>
+          <div class="debug-modal-body" id="debug-modal-body"></div>
+        </div>
+      </div>
+
       <!-- خطا -->
       <div id="error-box" class="error-box hidden"></div>
     </div>

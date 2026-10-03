@@ -94,36 +94,107 @@ app.post("/api/compare", async (req, res) => {
 });
 
 // ================================================================
-// API: نرخ دلار
+// API: حالت Debug — همه‌ی rejected items
 // ================================================================
-app.get("/api/dollar", async (req, res) => {
-  const sources = [
-    async () => {
-      const r = await axios.get("https://api.bitpin.ir/v1/mkt/markets/", {
-        timeout: 5000,
-      });
-      const usdt = (r.data?.results || []).find((m) =>
-        /USDT_IRT|USDTIRT/i.test(m.code || ""),
-      );
-      const p = parseFloat(usdt?.price);
-      if (!p || p < 50000) throw new Error("bad");
-      return Math.round(p);
-    },
-    async () => {
-      const r = await axios.get("https://api.nobitex.ir/v2/orderbook/USDTIRT", {
-        timeout: 5000,
-      });
-      const p = parseFloat(r.data?.lastTradePrice);
-      if (!p || p < 500000) throw new Error("bad");
-      return Math.round(p / 10);
-    },
-  ];
-  for (const s of sources) {
-    try {
-      return res.json({ success: true, price: await s() });
-    } catch {}
+app.post("/api/compare-debug", async (req, res) => {
+  const { items } = req.body;
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ success: false, error: "empty" });
   }
-  res.status(502).json({ success: false });
+
+  try {
+    const result = await compareBasket(items);
+
+    // جمع‌آوری همه‌ی rejected از همه‌ی queryها
+    const allRejected = [];
+    for (const q of result.queries || []) {
+      for (const r of q.rejectedProducts || []) {
+        allRejected.push({
+          query: q.query,
+          ...r,
+        });
+      }
+    }
+
+    // جمع‌آوری همه‌ی accepted
+    const allAccepted = [];
+    for (const q of result.queries || []) {
+      for (const match of q.matches || []) {
+        for (const offer of match.offers || []) {
+          allAccepted.push({
+            query: q.query,
+            storeName: offer.storeName,
+            title: offer.productTitle,
+            price: offer.price,
+          });
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      queries: (result.queries || []).map((q) => q.query),
+      accepted: allAccepted,
+      rejected: allRejected,
+    });
+  } catch (e) {
+    console.error("debug compare error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ================================================================
+// API: نرخ دلار (نرخ بازار آزاد از Bitpin Academy)
+// ================================================================
+app.get('/api/dollar', async (req, res) => {
+  try {
+    const r = await axios.get('https://bitpin.ir/academy/live/currency/', {
+      timeout: 8000,
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+          '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml',
+        'Accept-Language': 'fa-IR,fa;q=0.9,en;q=0.8',
+      },
+      validateStatus: () => true,
+    });
+
+    if (r.status !== 200 || typeof r.data !== 'string') {
+      throw new Error(`HTTP ${r.status}`);
+    }
+
+    const html = r.data;
+
+    // استخراج نرخ دلار از بلوک data-price-symbol="USDIRT"
+    // الگو: data-price-symbol="USDIRT" ... data-price-value>265,500</p>
+    const match = html.match(
+      /data-price-symbol="USDIRT"[\s\S]*?data-price-value[^>]*>\s*([\d,،٬۰-۹]+)\s*</,
+    );
+
+    if (!match || !match[1]) {
+      throw new Error('dollar rate not found in HTML');
+    }
+
+    // تبدیل اعداد فارسی/عربی به انگلیسی و حذف جداکننده‌ها
+    const normalized = match[1]
+      .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+      .replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+      .replace(/[,،٬]/g, '');
+
+    const price = parseInt(normalized, 10);
+
+    if (!price || price < 50000 || price > 1000000) {
+      throw new Error(`invalid price: ${price}`);
+    }
+
+    console.log(`[dollar] Bitpin Academy (USDIRT): ${price.toLocaleString()} تومان`);
+    res.json({ success: true, price });
+  } catch (e) {
+    console.error('[dollar] خطا:', e.message);
+    res.status(502).json({ success: false, error: e.message });
+  }
 });
 
 // ================================================================
@@ -310,37 +381,97 @@ function scrapeImagesFromHtml(html, baseUrl) {
       return blacklist.some((w) => low.includes(w));
     };
 
-    // چک کن توی پوشه‌ی thumb هست یا نه
     const isThumbPath = (url) => {
       const low = url.toLowerCase();
       return (
         /\/(thumb|thumbs|thumbnail|thumbnails|small|mini|preview)\//i.test(
           low,
-        ) || /_\d+\.(jpg|jpeg|png|webp|gif)$/i.test(low) // _60, _150, _300
+        ) || /_\d+\.(jpg|jpeg|png|webp|gif)$/i.test(low)
       );
     };
 
-    const mainUrls = [];
-    const thumbUrls = [];
-    const seenMain = new Set();
-    const seenThumb = new Set();
-
-    const push = (u) => {
-      const n = normalize(u);
-      if (!n || isBadImage(n)) return;
-
-      if (isThumbPath(n)) {
-        if (!seenThumb.has(n)) {
-          seenThumb.add(n);
-          thumbUrls.push(n);
-        }
-      } else {
-        if (!seenMain.has(n)) {
-          seenMain.add(n);
-          mainUrls.push(n);
-        }
-      }
+    const makePush = () => {
+      const arr = [];
+      const seen = new Set();
+      return {
+        arr,
+        push(u) {
+          const n = normalize(u);
+          if (!n || isBadImage(n) || seen.has(n)) return;
+          seen.add(n);
+          arr.push(n);
+        },
+      };
     };
+
+    // ============================================================
+    // مرحله 1: گالری ووکامرس
+    // ============================================================
+    const wooMain = makePush();
+    const wooThumb = makePush();
+
+    const wooContainer = $(
+      ".woocommerce-product-gallery, .woocommerce-product-gallery__wrapper",
+    );
+
+    if (wooContainer.length > 0) {
+      wooContainer
+        .find(
+          'img, a[href$=".jpg"], a[href$=".jpeg"], a[href$=".png"], a[href$=".webp"]',
+        )
+        .each((i, el) => {
+          const $el = $(el);
+          if ($el.closest(".woocommerce-product-gallery__trigger").length > 0)
+            return;
+
+          const candidates = [];
+          if ($el.is("img")) {
+            [
+              "data-large_image",
+              "data-large-image",
+              "data-full-src",
+              "data-original",
+              "data-src",
+              "data-lazy-src",
+              "data-zoom-image",
+              "src",
+            ].forEach((k) => candidates.push($el.attr(k)));
+            const srcset = $el.attr("srcset") || $el.attr("data-srcset") || "";
+            if (srcset) {
+              const parts = srcset
+                .split(",")
+                .map((p) => p.trim().split(/\s+/)[0])
+                .filter(Boolean);
+              if (parts.length) candidates.push(parts[parts.length - 1]);
+            }
+          } else {
+            candidates.push($el.attr("href"));
+          }
+
+          for (const c of candidates) {
+            const n = normalize(c);
+            if (!n || isBadImage(n)) continue;
+            if (isThumbPath(n)) wooThumb.push(n);
+            else wooMain.push(n);
+          }
+        });
+    }
+
+    // ← ← ← تغییر کلیدی: اگه گالری ووکامرس وجود داشت، همون رو برگردون (حتی با ۱ عکس) ← ← ←
+    // چون وجود این کانتینر یعنی صفحه یه محصول ووکامرسه و عکس‌های اصلی همون‌جان
+    if (wooContainer.length > 0 && wooMain.arr.length >= 1) {
+      return wooMain.arr.slice(0, 20);
+    }
+    // اگه کانتینر وجود داشت ولی فقط thumb داشت، اون‌ها رو برگردون
+    if (wooContainer.length > 0 && wooThumb.arr.length >= 1) {
+      return wooThumb.arr.slice(0, 20);
+    }
+
+    // ============================================================
+    // مرحله 2: اسکن عمومی صفحه با فیلتر سختگیرانه (مهستان، مجد، ...)
+    // ============================================================
+    const genericMain = makePush();
+    const genericThumb = makePush();
 
     const EXCLUDE_CLOSEST =
       ".related, .upsells, .cross-sells, .crosssell, " +
@@ -349,9 +480,10 @@ function scrapeImagesFromHtml(html, baseUrl) {
       '[class*="suggest"], [class*="you-may"], [class*="also-like"], ' +
       ".category-products, .products-grid, .product-grid, " +
       ".archive-products, .shop-products, .product-list, " +
-      ".widget-products, .sidebar-products, .footer-products";
+      ".widget-products, .sidebar-products, .footer-products, " +
+      ".swiper-wrapper, .carousel-inner, .banner-slider, .hero-slider, " +
+      ".slider, .carousel, .categories-menu, .menu-categories";
 
-    // 1) همه‌ی img های صفحه
     $("img").each((i, el) => {
       const $el = $(el);
       if ($el.closest(EXCLUDE_CLOSEST).length > 0) return;
@@ -361,59 +493,49 @@ function scrapeImagesFromHtml(html, baseUrl) {
       )
         return;
 
-      [
-        "data-large_image",
-        "data-large-image",
-        "data-full-src",
-        "data-original",
-        "data-src",
-        "data-lazy-src",
-        "data-zoom-image",
-        "src",
-      ].forEach((k) => push($el.attr(k)));
-
+      const candidates = [
+        $el.attr("data-large_image"),
+        $el.attr("data-large-image"),
+        $el.attr("data-full-src"),
+        $el.attr("data-original"),
+        $el.attr("data-src"),
+        $el.attr("data-lazy-src"),
+        $el.attr("data-zoom-image"),
+        $el.attr("src"),
+      ];
       const srcset = $el.attr("srcset") || $el.attr("data-srcset") || "";
       if (srcset) {
         const parts = srcset
           .split(",")
           .map((p) => p.trim().split(/\s+/)[0])
           .filter(Boolean);
-        if (parts.length) push(parts[parts.length - 1]);
+        if (parts.length) candidates.push(parts[parts.length - 1]);
+      }
+
+      for (const c of candidates) {
+        const n = normalize(c);
+        if (!n || isBadImage(n)) continue;
+        if (isThumbPath(n)) genericThumb.push(n);
+        else genericMain.push(n);
       }
     });
 
-    // 2) لینک‌های مستقیم به عکس
-    $(
-      'a[href$=".jpg"], a[href$=".jpeg"], a[href$=".png"], a[href$=".webp"]',
-    ).each((i, el) => {
-      const $el = $(el);
-      if ($el.closest(EXCLUDE_CLOSEST).length > 0) return;
-      if ($el.closest("header, footer, nav, .sidebar, .menu").length > 0)
-        return;
-      push($el.attr("href"));
-    });
-
-    // ← ← ← کلید کار: اگه عکس اصلی داریم، فقط همون‌ها رو برگردون ← ← ←
-    if (mainUrls.length >= 1) {
-      return mainUrls.slice(0, 20);
+    // ============================================================
+    // مرحله 3: انتخاب بهترین نتیجه
+    // ============================================================
+    // اولویت: main -> thumb -> og:image
+    if (genericMain.arr.length >= 1) {
+      return genericMain.arr.slice(0, 20);
+    }
+    if (genericThumb.arr.length >= 1) {
+      return genericThumb.arr.slice(0, 20);
     }
 
-    // اگه فقط thumb داشتیم، همونا رو برگردون
-    if (thumbUrls.length > 0) {
-      return thumbUrls.slice(0, 20);
-    }
-
-    // 3) og:image + JSON-LD (fallback نهایی)
-    const finalUrls = [];
-    const finalSeen = new Set();
-    const pushFinal = (u) => {
-      const n = normalize(u);
-      if (!n || isBadImage(n) || finalSeen.has(n)) return;
-      finalSeen.add(n);
-      finalUrls.push(n);
-    };
-
-    pushFinal($('meta[property="og:image"]').attr("content"));
+    // ============================================================
+    // مرحله 4: fallback نهایی (og:image + JSON-LD)
+    // ============================================================
+    const final = makePush();
+    final.push($('meta[property="og:image"]').attr("content"));
 
     $('script[type="application/ld+json"]').each((i, el) => {
       try {
@@ -430,8 +552,9 @@ function scrapeImagesFromHtml(html, baseUrl) {
             (Array.isArray(type) && type.includes("Product"))
           ) {
             if (obj.image) {
-              if (Array.isArray(obj.image)) obj.image.forEach(pushFinal);
-              else pushFinal(obj.image);
+              if (Array.isArray(obj.image))
+                obj.image.forEach((u) => final.push(u));
+              else final.push(obj.image);
             }
           }
           Object.values(obj).forEach(walk);
@@ -440,7 +563,7 @@ function scrapeImagesFromHtml(html, baseUrl) {
       } catch {}
     });
 
-    return finalUrls.slice(0, 20);
+    return final.arr.slice(0, 20);
   } catch (e) {
     return [];
   }

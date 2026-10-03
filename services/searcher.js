@@ -1035,6 +1035,7 @@ async function compareBasket(shoppingList) {
     console.log("");
 
     const relevantProducts = [];
+    const rejectedProducts = []; // ← ← ← جدید
     let acceptedCount = 0,
       rejectedCount = 0,
       zeroPriceRejected = 0;
@@ -1062,6 +1063,21 @@ async function compareBasket(shoppingList) {
           "SKIP",
           `[${p.storeName}] "${p.productTitle.substring(0, 45)}..." | score: ${matchInfo.score.toFixed(2)} | ratio: ${matchInfo.ratio.toFixed(2)} | ${matchInfo.reason || "low match"}`,
         );
+
+        // ← ← ← جدید: ذخیره‌ی rejected با جزئیات
+        rejectedProducts.push({
+          storeName: p.storeName,
+          title: p.productTitle,
+          price: p.price,
+          link: p.link,
+          image: p.image || null,
+          score: matchInfo.score,
+          ratio: matchInfo.ratio,
+          reason: matchInfo.reason || "low match",
+          matchedTokens: matchInfo.matchedTokens || [],
+          missedTokens: matchInfo.missedTokens || [],
+          queryTokens: tokenize(query), // ← برای debug
+        });
       }
     }
 
@@ -1108,7 +1124,7 @@ async function compareBasket(shoppingList) {
       });
 
     log("DONE", `Query "${query}" → ${matches.length} clusters`);
-    queries.push({ query, matches });
+    queries.push({ query, matches, rejectedProducts });
     await new Promise((r) => setTimeout(r, 800));
   }
 

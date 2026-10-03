@@ -2453,6 +2453,185 @@ if (themeToggle) themeToggle.addEventListener("click", toggleTheme);
 if (themeToggleTop) themeToggleTop.addEventListener("click", toggleTheme);
 initTheme();
 
+// ================================================================
+// 🎯 DEBUG MODE
+// ================================================================
+const debugBtn = document.getElementById("debug-btn");
+const debugModal = document.getElementById("debug-modal");
+let debugData = null;
+
+// فعال‌سازی با دابل‌کلیک روی لوگو
+const mainLogo = document.querySelector(".logo");
+if (mainLogo) {
+  mainLogo.addEventListener("dblclick", () => {
+    debugBtn?.classList.toggle("hidden");
+    showToast(
+      "حالت Debug",
+      debugBtn.classList.contains("hidden")
+        ? "غیرفعال شد"
+        : "فعال شد — روی 🐞 بزن",
+      "info",
+      3000,
+    );
+  });
+}
+
+function openDebugModal() {
+  if (!debugModal) return;
+
+  if (!lastBasketComparison || items.length === 0) {
+    showToast("اطلاعات کافی نیست", "اول یه جستجو بزن", "info", 3000);
+    return;
+  }
+
+  // درخواست به endpoint debug
+  fetch("/api/compare-debug", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items }),
+  })
+    .then((r) => r.json())
+    .then((data) => {
+      if (!data.success) throw new Error("failed");
+      debugData = data;
+      renderDebugModal();
+      debugModal.classList.remove("hidden");
+      document.body.style.overflow = "hidden";
+      history.pushState({ debugModal: true }, "");
+    })
+    .catch((e) => {
+      showToast("خطا", "دریافت اطلاعات Debug ناموفق بود", "remove", 4000);
+      console.error(e);
+    });
+}
+
+function renderDebugModal() {
+  const body = document.getElementById("debug-modal-body");
+  const subtitle = document.getElementById("debug-modal-subtitle");
+  const search = document.getElementById("debug-search");
+  const sortSelect = document.getElementById("debug-sort");
+
+  if (!body) return;
+
+  const render = () => {
+    const q = search?.value.toLowerCase().trim() || "";
+    const sortBy = sortSelect?.value || "score";
+
+    let list = [...(debugData.rejected || [])];
+
+    // فیلتر
+    if (q) {
+      list = list.filter(
+        (x) =>
+          x.title.toLowerCase().includes(q) ||
+          x.storeName.toLowerCase().includes(q) ||
+          x.query.toLowerCase().includes(q),
+      );
+    }
+
+    // مرتب‌سازی
+    if (sortBy === "score") list.sort((a, b) => b.score - a.score);
+    else if (sortBy === "ratio") list.sort((a, b) => b.ratio - a.ratio);
+    else if (sortBy === "store")
+      list.sort((a, b) => a.storeName.localeCompare(b.storeName, "fa"));
+
+    if (subtitle) {
+      subtitle.textContent = `${list.length} محصول رد شده از ${debugData.rejected.length} | ${debugData.accepted.length} محصول قبول شده`;
+    }
+
+    if (list.length === 0) {
+      body.innerHTML = `<div class="debug-empty">هیچ موردی پیدا نشد</div>`;
+      return;
+    }
+
+    body.innerHTML = list
+      .map((item) => {
+        const missedHtml = (item.missedTokens || [])
+          .map(
+            (t) =>
+              `<span class="debug-badge token-miss">✗ ${escapeHtml(t)}</span>`,
+          )
+          .join("");
+        const matchedHtml = (item.matchedTokens || [])
+          .map(
+            (t) => `<span class="debug-badge token">✓ ${escapeHtml(t)}</span>`,
+          )
+          .join("");
+
+        return `
+        <div class="debug-item">
+          <div class="debug-item-header">
+            <span class="debug-item-store" style="color: ${getStoreColor(item.storeName)}">${escapeHtml(item.storeName)}</span>
+            <span class="debug-badge reason">${escapeHtml(item.reason)}</span>
+          </div>
+          <div class="debug-item-title">${escapeHtml(item.title)}</div>
+          <div class="debug-item-meta">
+            <span class="debug-badge score">Score: ${item.score.toFixed(2)}</span>
+            <span class="debug-badge ratio">Ratio: ${item.ratio.toFixed(2)}</span>
+            <span style="color: var(--text-muted); font-size: 0.7rem;">Query: "${escapeHtml(item.query)}"</span>
+            ${
+              item.link
+                ? `<a class="debug-item-link" href="${escapeHtml(item.link)}" target="_blank" rel="noopener">مشاهده ↗</a>`
+                : ""
+            }
+          </div>
+          ${
+            matchedHtml || missedHtml
+              ? `<div class="debug-item-meta">${matchedHtml}${missedHtml}</div>`
+              : ""
+          }
+        </div>
+      `;
+      })
+      .join("");
+  };
+
+  if (search) {
+    search.removeEventListener("input", render);
+    search.addEventListener("input", render);
+  }
+  if (sortSelect) {
+    sortSelect.removeEventListener("change", render);
+    sortSelect.addEventListener("change", render);
+  }
+
+  render();
+}
+
+function closeDebugModal(fromPopstate = false) {
+  if (!debugModal || debugModal.classList.contains("hidden")) return;
+  debugModal.classList.add("hidden");
+  document.body.style.overflow = "";
+  if (!fromPopstate && history.state?.debugModal) {
+    suppressNextPopstate = true;
+    history.back();
+  }
+}
+
+if (debugBtn) debugBtn.addEventListener("click", openDebugModal);
+
+// بستن مودال
+document.addEventListener("click", (e) => {
+  if (!debugModal || debugModal.classList.contains("hidden")) return;
+  if (
+    e.target.closest(".debug-modal-close") ||
+    e.target.classList.contains("debug-modal-backdrop")
+  ) {
+    closeDebugModal();
+  }
+});
+
+// popstate
+window.addEventListener("popstate", () => {
+  if (suppressNextPopstate) {
+    suppressNextPopstate = false;
+    return;
+  }
+  if (debugModal && !debugModal.classList.contains("hidden")) {
+    closeDebugModal(true);
+  }
+});
+
 // ----------------------------------------------------------------
 // INIT
 // ----------------------------------------------------------------
