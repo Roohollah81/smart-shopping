@@ -1034,8 +1034,12 @@ async function search() {
   addBtn.disabled = true;
   startStoreCycle();
 
-  // ← لیست گالری‌ها که در حین جستجو موازی fetch می‌شن
-  const galleryFetchPromises = [];
+  // ← ← ← ثبت لاگ جستجو ← ← ←
+  fetch("/api/log-search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items: [...items] }),
+  }).catch(() => {});
 
   try {
     const queryResults = [];
@@ -1044,7 +1048,6 @@ async function search() {
       const item = items[i];
       markChipActive(i);
       animateSlot("slot-item", item);
-
       try {
         const r = await fetch("/api/compare", {
           method: "POST",
@@ -1058,51 +1061,6 @@ async function search() {
         if (data.success && data.data?.queries?.[0]) {
           queryResults.push(data.data.queries[0]);
           markChipDone(i);
-
-          // ← ← ← این بلاک جدید: بلافاصله گالری این query رو fetch کن ← ← ←
-          const query = data.data.queries[0];
-          const galleryItems = [];
-          const seen = new Set();
-          for (const match of query.matches || []) {
-            for (const offer of match.offers || []) {
-              const key = `${offer.productId || ""}|${offer.link || ""}`;
-              if (seen.has(key)) continue;
-              seen.add(key);
-              galleryItems.push({
-                id: offer.productId || "",
-                url: offer.link || "",
-                store: offer.storeName || "",
-                cacheKey: key,
-              });
-            }
-          }
-
-          if (galleryItems.length > 0) {
-            // fire-and-forget، بدون await برای اینکه حلقه‌ی اصلی بلاک نشه
-            const p = fetch("/api/product-images-batch", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                items: galleryItems.map((x) => ({
-                  id: x.id,
-                  url: x.url,
-                  store: x.store,
-                })),
-              }),
-              signal,
-            })
-              .then((res) => res.json())
-              .then((d) => {
-                if (d.success && d.results) {
-                  for (const [key, images] of Object.entries(d.results)) {
-                    imageGalleryCache.set(key, Promise.resolve(images));
-                    updateBadgeByKey(key, images.length);
-                  }
-                }
-              })
-              .catch(() => {});
-            galleryFetchPromises.push(p);
-          }
         } else {
           markChipError(i);
         }
@@ -1147,11 +1105,6 @@ async function search() {
       slotStore.style.removeProperty("--slot-color-bg");
       slotStore.style.removeProperty("--slot-color-border");
     }
-
-    // ← منتظر بمان تا همه‌ی گالری‌ها تمام شن (ولی نتایج نمایش داده شده)
-    Promise.allSettled(galleryFetchPromises).then(() => {
-      // همه‌ی گالری‌ها آماده‌ست
-    });
   }
 }
 
@@ -2459,6 +2412,12 @@ initTheme();
 const debugBtn = document.getElementById("debug-btn");
 const debugModal = document.getElementById("debug-modal");
 let debugData = null;
+let debugCacheKey = null; // ← کلید کش
+
+// محاسبه‌ی کلید کش بر اساس لیست آیتم‌های فعلی
+function computeDebugCacheKey() {
+  return JSON.stringify(items);
+}
 
 // فعال‌سازی با دابل‌کلیک روی لوگو
 const mainLogo = document.querySelector(".logo");
@@ -2476,7 +2435,7 @@ if (mainLogo) {
   });
 }
 
-function openDebugModal() {
+async function openDebugModal() {
   if (!debugModal) return;
 
   if (!lastBasketComparison || items.length === 0) {
@@ -2484,25 +2443,37 @@ function openDebugModal() {
     return;
   }
 
-  // درخواست به endpoint debug
-  fetch("/api/compare-debug", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ items }),
-  })
-    .then((r) => r.json())
-    .then((data) => {
-      if (!data.success) throw new Error("failed");
-      debugData = data;
-      renderDebugModal();
-      debugModal.classList.remove("hidden");
-      document.body.style.overflow = "hidden";
-      history.pushState({ debugModal: true }, "");
-    })
-    .catch((e) => {
-      showToast("خطا", "دریافت اطلاعات Debug ناموفق بود", "remove", 4000);
-      console.error(e);
+  const currentKey = computeDebugCacheKey();
+
+  // ← ← ← اگه داده‌ی cache معتبر داریم، مستقیم نشون بده ← ← ←
+  if (debugData && debugCacheKey === currentKey) {
+    renderDebugModal();
+    debugModal.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+    history.pushState({ debugModal: true }, "");
+    return;
+  }
+
+  // در غیر این صورت، از سرور بگیر
+  try {
+    const r = await fetch("/api/compare-debug", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items }),
     });
+    const data = await r.json();
+    if (!data.success) throw new Error("failed");
+
+    debugData = data;
+    debugCacheKey = currentKey; // ← ذخیره‌ی کلید
+    renderDebugModal();
+    debugModal.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+    history.pushState({ debugModal: true }, "");
+  } catch (e) {
+    showToast("خطا", "دریافت اطلاعات Debug ناموفق بود", "remove", 4000);
+    console.error(e);
+  }
 }
 
 function renderDebugModal() {
@@ -2519,7 +2490,6 @@ function renderDebugModal() {
 
     let list = [...(debugData.rejected || [])];
 
-    // فیلتر
     if (q) {
       list = list.filter(
         (x) =>
@@ -2529,7 +2499,6 @@ function renderDebugModal() {
       );
     }
 
-    // مرتب‌سازی
     if (sortBy === "score") list.sort((a, b) => b.score - a.score);
     else if (sortBy === "ratio") list.sort((a, b) => b.ratio - a.ratio);
     else if (sortBy === "store")
@@ -2610,7 +2579,6 @@ function closeDebugModal(fromPopstate = false) {
 
 if (debugBtn) debugBtn.addEventListener("click", openDebugModal);
 
-// بستن مودال
 document.addEventListener("click", (e) => {
   if (!debugModal || debugModal.classList.contains("hidden")) return;
   if (
@@ -2621,7 +2589,6 @@ document.addEventListener("click", (e) => {
   }
 });
 
-// popstate
 window.addEventListener("popstate", () => {
   if (suppressNextPopstate) {
     suppressNextPopstate = false;

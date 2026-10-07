@@ -109,18 +109,70 @@ const CATEGORY_CONFLICTS = [
 
 function normalize(text) {
   if (!text) return "";
-  return text
-    .toString()
-    .replace(/[۰-۹]/g, (d) => PERSIAN_DIGITS.indexOf(d))
-    .replace(/[٠-٩]/g, (d) => ARABIC_DIGITS.indexOf(d))
-    .replace(/ي/g, "ی")
-    .replace(/ك/g, "ک")
-    .replace(/ة/g, "ه")
-    .replace(/[\u064B-\u065F\u0670]/g, "")
-    .replace(/[-_.,،;:()\[\]{}«»"'\u060C\u061B\u061F]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
+  return (
+    text
+      .toString()
+      // اعداد فارسی و عربی → انگلیسی
+      .replace(/[۰-۹]/g, (d) => PERSIAN_DIGITS.indexOf(d))
+      .replace(/[٠-٩]/g, (d) => ARABIC_DIGITS.indexOf(d))
+      // حروف عربی → فارسی
+      .replace(/ي/g, "ی")
+      .replace(/ك/g, "ک")
+      .replace(/ة/g, "ه")
+      .replace(/ۀ/g, "ه")
+      .replace(/أ|إ|آ/g, "ا") // ← همه‌ی انواع الف → ا
+      .replace(/ؤ/g, "و")
+      .replace(/ئ/g, "ی")
+      // حذف اعراب
+      .replace(/[\u064B-\u065F\u0670]/g, "")
+      // حذف نیم‌فاصله و جایگزینی با فاصله
+      .replace(/\u200c/g, " ")
+      // حذف علائم
+      .replace(/[-_.,،;:()\[\]{}«»"'\u060C\u061B\u061F]/g, " ")
+      // چند فاصله → یکی
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase()
+  );
+}
+
+// نسخه‌ی فشرده: بدون فاصله، برای مقایسه‌ی چسبیده/جدا
+function normalizeCompact(text) {
+  return normalize(text).replace(/\s+/g, "");
+}
+
+// چک کن آیا token در ترکیب دو یا سه توکن مجاور عنوان هست
+// مثلاً: token = "سرگرد" → title = ["قلمو", "سر", "گرد", ...] → ترکیب "سر"+"گرد" = "سرگرد" ✓
+function tokenMatchesJoined(token, titleTokens) {
+  const tokenLen = token.length;
+
+  // تک توکن
+  for (const t of titleTokens) {
+    if (t === token) return true;
+    if (t.includes(token) || token.includes(t)) {
+      if (Math.min(t.length, tokenLen) >= 3) return true;
+    }
+  }
+
+  // ترکیب دو توکن مجاور
+  for (let i = 0; i < titleTokens.length - 1; i++) {
+    const joined = titleTokens[i] + titleTokens[i + 1];
+    if (joined === token) return true;
+    if (joined.includes(token) || token.includes(joined)) {
+      if (Math.min(joined.length, tokenLen) >= 3) return true;
+    }
+  }
+
+  // ترکیب سه توکن مجاور
+  for (let i = 0; i < titleTokens.length - 2; i++) {
+    const joined = titleTokens[i] + titleTokens[i + 1] + titleTokens[i + 2];
+    if (joined === token) return true;
+    if (joined.includes(token) || token.includes(joined)) {
+      if (Math.min(joined.length, tokenLen) >= 3) return true;
+    }
+  }
+
+  return false;
 }
 
 function tokenize(text) {
@@ -151,15 +203,20 @@ function tokensMatch(queryToken, titleToken) {
 
   if (shorter.length < 3) return false;
 
-  if (shorter.length <= 4) {
-    const suffixes = ["ی", "ها", "های", "تر", "ترین", "و"];
-    for (const s of suffixes) {
-      if (longer === shorter + s) return true;
-    }
-    return false;
+  // اگه یکی توی اون یکی هست (با طول ≥ ۳)
+  if (longer.includes(shorter)) return true;
+
+  // حالت خاص: کلمه‌ی چسبیده vs جدا
+  // مثلاً: "سرگرد" (شورت) و "سرگردان" (لانگ) — اما اگه یکی ازینا با ترکیب دو کلمه ساخته شده
+  // راه‌حل: اگه هر دو کلمه‌ی چسبیده‌ی «شورت» به صورت جدا داخل متن اصلی بودن، قبول کن
+  // ولی اینجا فقط token مقایسه می‌کنیم
+
+  const suffixes = ["ی", "ها", "های", "تر", "ترین", "و"];
+  for (const s of suffixes) {
+    if (longer === shorter + s) return true;
   }
 
-  return longer.includes(shorter);
+  return false;
 }
 
 function findUnwantedModifier(query, title) {
@@ -263,18 +320,25 @@ function queryMatchScore(query, title) {
     matchedCount = 0;
   const matchedTokens = [],
     missedTokens = [];
+
   for (const token of qt) {
     const weight = isCriticalIdentifier(token)
       ? 10
       : Math.pow(token.length, 1.5);
     totalWeight += weight;
-    const isMatched = tt.some((t) => tokensMatch(token, t));
+
+    // ← ← ← استفاده از tokensMatchJoined به جای tokensMatch ← ← ←
+    const isMatched = tokenMatchesJoined(token, tt);
+
     if (isMatched) {
       matchedWeight += weight;
       matchedCount++;
       matchedTokens.push(token);
-    } else missedTokens.push(token);
+    } else {
+      missedTokens.push(token);
+    }
   }
+
   const score = totalWeight > 0 ? matchedWeight / totalWeight : 0;
   const ratio = qt.length > 0 ? matchedCount / qt.length : 0;
   return { score, ratio, matchedTokens, missedTokens, reason: null };
