@@ -532,8 +532,13 @@ async function renderAdminPage(req) {
         .map((i) => `<span class="item-tag">${escapeHtml(i)}</span>`)
         .join("");
       const timeStr = new Date(log.timestamp).toLocaleString("fa-IR");
+      // فیلتر: اگه region عددی بود، نشون نده
+      const regionDisplay =
+        log.region && !/^\d+$/.test(String(log.region).trim())
+          ? log.region
+          : "";
       const locationStr = log.city
-        ? `<span class="location">📍 ${escapeHtml(log.city)}${log.region ? "، " + escapeHtml(log.region) : ""}</span>`
+        ? `<span class="location">📍 ${escapeHtml(log.city)}${regionDisplay ? "، " + escapeHtml(regionDisplay) : ""}</span>`
         : '<span class="location empty-loc">نامشخص</span>';
       return `
         <tr>
