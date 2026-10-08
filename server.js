@@ -88,9 +88,86 @@ async function sendTelegramNotification(logEntry) {
 }
 
 // ================================================================
+// 🗺️ گرفتن موقعیت مکانی از IP
+// ================================================================
+async function getLocationFromIp(ip) {
+  // IPهای داخلی/خصوصی
+  if (
+    !ip ||
+    ip === "127.0.0.1" ||
+    ip === "::1" ||
+    ip.startsWith("192.168.") ||
+    ip.startsWith("10.") ||
+    ip.startsWith("172.16.") ||
+    ip.startsWith("172.17.") ||
+    ip.startsWith("172.18.") ||
+    ip.startsWith("172.19.") ||
+    ip.startsWith("172.2") ||
+    ip.startsWith("172.30.") ||
+    ip.startsWith("172.31.")
+  ) {
+    return { city: "", region: "", country: "" };
+  }
+
+  // تلاش ۱: ip-api.com
+  try {
+    const r = await axios.get(`http://ip-api.com/json/${ip}`, {
+      timeout: 5000,
+      params: { fields: "status,message,city,regionName,countryCode" },
+    });
+    if (r.data && r.data.status === "success") {
+      console.log(
+        `[geo] ${ip} → ${r.data.city || "?"}, ${r.data.regionName || "?"} (ip-api)`,
+      );
+      return {
+        city: r.data.city || "",
+        region: r.data.regionName || "",
+        country: r.data.countryCode || "",
+      };
+    } else {
+      console.log(
+        `[geo] ${ip} → ip-api failed: ${r.data?.message || "unknown"}`,
+      );
+    }
+  } catch (e) {
+    console.log(`[geo] ${ip} → ip-api error: ${e.message}`);
+  }
+
+  // تلاش ۲: ipapi.co
+  try {
+    const r = await axios.get(`https://ipapi.co/${ip}/json/`, {
+      timeout: 5000,
+      headers: {
+        "User-Agent": "smart-shopping/1.0",
+        Accept: "application/json",
+      },
+    });
+    if (r.data && !r.data.error) {
+      console.log(
+        `[geo] ${ip} → ${r.data.city || "?"}, ${r.data.region || "?"} (ipapi.co)`,
+      );
+      return {
+        city: r.data.city || "",
+        region: r.data.region || "",
+        country: r.data.country_code || "",
+      };
+    } else {
+      console.log(
+        `[geo] ${ip} → ipapi.co failed: ${r.data?.reason || "unknown"}`,
+      );
+    }
+  } catch (e) {
+    console.log(`[geo] ${ip} → ipapi.co error: ${e.message}`);
+  }
+
+  console.log(`[geo] ${ip} → همه‌ی منابع شکست خوردن`);
+  return { city: "", region: "", country: "" };
+}
+
+// ================================================================
 // 📝 LOG
 // ================================================================
-function logSearch(req, items) {
+async function logSearch(req, items) {
   if (!db) return;
 
   try {
@@ -100,19 +177,10 @@ function logSearch(req, items) {
       "";
     const cleanIp = rawIp.replace(/^::ffff:/, "").replace(/^::1$/, "127.0.0.1");
 
-    let city = "",
-      region = "",
-      country = "";
-    try {
-      if (cleanIp && cleanIp !== "127.0.0.1") {
-        const geo = geoip.lookup(cleanIp);
-        if (geo) {
-          city = geo.city || "";
-          region = geo.region || "";
-          country = geo.country || "";
-        }
-      }
-    } catch {}
+    const location = await getLocationFromIp(cleanIp);
+    const city = location.city;
+    const region = location.region;
+    const country = location.country;
 
     const logEntry = {
       timestamp: new Date().toISOString(),
