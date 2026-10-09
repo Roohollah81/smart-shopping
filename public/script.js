@@ -30,10 +30,9 @@ let searchAborted = false;
 let searchController = null;
 let suppressNextPopstate = false;
 
-// گالری عکس‌ها
 const productDataMap = new Map();
 let productDataCounter = 0;
-const imageGalleryCache = new Map(); // key → Promise<string[]>
+const imageGalleryCache = new Map();
 let prefetchAbort = false;
 
 // ----------------------------------------------------------------
@@ -284,6 +283,33 @@ const STORE_META = {
 };
 
 // ----------------------------------------------------------------
+// FUN MESSAGES (تسک ۳۵)
+// ----------------------------------------------------------------
+const FUN_MESSAGES = {
+  none: [
+    "هیچی پیدا نشد... شاید باید دقیق‌تر بنویسی 🤔",
+    "فروشگاه‌ها گیج شدن! یه بار دیگه امتحان کن 🙃",
+    "این یکی رو نداشتیم! ولی ناامید نشو 😅",
+    "هیچ نتیجه‌ای نیومد. یه کلمه دیگه امتحان کن ✨",
+  ],
+  success: [
+    "عالی بود! 🎉 ارزون‌ترینش رو پیدا کردیم",
+    "دیدیم و اومدیم! 👀 مقایسه آماده‌ست",
+    "خب اینم از جیب‌دوزی امروز 💸",
+    "همه‌چیز آماده‌ست، بریم خرید 🛒",
+  ],
+  loading: [
+    "داریم زیر و رو می‌کنیم... 🔍",
+    "یه لحظه، داریم همه فروشگاه‌ها رو می‌گردیم 🏃",
+    "داره گرم می‌شه! 🔥",
+  ],
+};
+
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// ----------------------------------------------------------------
 // HELPERS
 // ----------------------------------------------------------------
 function getStoreMeta(storeName) {
@@ -393,7 +419,7 @@ function stopStoreCycle() {
 }
 
 // ----------------------------------------------------------------
-// TOAST
+// TOAST (تسک ۲۵ — بستن با کلیک، نگه‌داشتن با هاور)
 // ----------------------------------------------------------------
 function showToast(title, message, type = "success", duration = 5000) {
   const container = document.getElementById("toast-container");
@@ -418,10 +444,27 @@ function showToast(title, message, type = "success", duration = 5000) {
     </div>
   `;
   container.appendChild(toast);
-  setTimeout(() => {
+
+  let closeTimer = setTimeout(dismiss, duration);
+  let dismissed = false;
+
+  function dismiss() {
+    if (dismissed) return;
+    dismissed = true;
+    clearTimeout(closeTimer);
     toast.classList.add("toast-out");
     setTimeout(() => toast.remove(), 350);
-  }, duration);
+  }
+
+  toast.addEventListener("click", (e) => {
+    if (e.target.closest("a")) return;
+    dismiss();
+  });
+
+  toast.addEventListener("mouseenter", () => clearTimeout(closeTimer));
+  toast.addEventListener("mouseleave", () => {
+    if (!dismissed) closeTimer = setTimeout(dismiss, 1500);
+  });
 }
 
 // ----------------------------------------------------------------
@@ -528,6 +571,9 @@ function toggleWishlist(item) {
       link: item.link,
       image: item.image || null,
       storeName: item.storeName,
+      addedAt: new Date().toISOString(),
+      initialPrice: item.price,
+      history: [{ price: item.price, at: new Date().toISOString() }],
     });
     showToast("به علاقه‌مندی‌ها اضافه شد ❤️", item.title, "success", 5000);
   }
@@ -535,6 +581,51 @@ function toggleWishlist(item) {
   updateAllWishlistButtons();
   const modal = document.getElementById("wishlist-modal");
   if (modal && !modal.classList.contains("hidden")) renderWishlistModal();
+}
+
+// ─── تسک ۵۲: بروزرسانی قیمت علاقه‌مندی‌ها ───
+function updateWishlistPrices(queryResults) {
+  if (!queryResults || queryResults.length === 0) return;
+  const priceMap = new Map();
+  for (const q of queryResults) {
+    for (const m of q.matches || []) {
+      for (const o of m.offers || []) {
+        const key = `${o.storeName}::${o.productTitle}`;
+        const current = priceMap.get(key);
+        if (!current || o.price < current) {
+          priceMap.set(key, o.price);
+        }
+      }
+    }
+  }
+  let changes = 0;
+  let totalDiff = 0;
+  wishlist.forEach((w) => {
+    const key = getWishlistKey(w);
+    const newPrice = priceMap.get(key);
+    if (newPrice && newPrice !== w.price) {
+      const diff = w.price - newPrice;
+      w.history = w.history || [];
+      w.history.push({ price: newPrice, at: new Date().toISOString() });
+      if (w.history.length > 30) w.history = w.history.slice(-30);
+      w.price = newPrice;
+      w.lastChange = { diff, at: new Date().toISOString() };
+      changes++;
+      totalDiff += diff;
+    }
+  });
+  if (changes > 0) {
+    saveWishlist();
+    const emoji = totalDiff > 0 ? "🔻" : "🔺";
+    showToast(
+      `${changes} محصول تغییر قیمت داد ${emoji}`,
+      totalDiff > 0
+        ? `جمعاً ${formatPrice(Math.abs(totalDiff))} تومان ارزون‌تر شد`
+        : `جمعاً ${formatPrice(Math.abs(totalDiff))} تومان گرون‌تر شد`,
+      "info",
+      6000,
+    );
+  }
 }
 
 function removeFromWishlist(item) {
@@ -652,6 +743,25 @@ function renderWishlistModal() {
       const linkAttrs = hasLink
         ? `href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer"`
         : "";
+
+      let priceChangeHtml = "";
+      if (
+        item.lastChange &&
+        item.initialPrice &&
+        item.initialPrice !== item.price
+      ) {
+        const diff = item.initialPrice - item.price;
+        const pct = Math.round((Math.abs(diff) / item.initialPrice) * 100);
+        const isDown = diff > 0;
+        const color = isDown ? "#10b981" : "#ef4444";
+        const arrow = isDown ? "🔻" : "🔺";
+        priceChangeHtml = `
+          <div class="wishlist-item-change" style="color: ${color}; font-size: 0.7rem; font-weight: 700; margin-top: 0.2rem;">
+            ${arrow} ${toPersianNum(pct)}٪ ${isDown ? "ارزون‌تر" : "گرون‌تر"}
+          </div>
+        `;
+      }
+
       return `
         <${tag} class="wishlist-item ${hasLink ? "wishlist-item-link" : ""}" ${linkAttrs} draggable="false">
           <div class="wishlist-item-image">${imgHtml}</div>
@@ -665,6 +775,7 @@ function renderWishlistModal() {
           <div class="wishlist-item-price">
             <span class="wishlist-item-price-value">${formatPrice(item.price)}</span>
             <span class="wishlist-item-price-currency">تومان</span>
+            ${priceChangeHtml}
           </div>
           <button class="wishlist-item-remove" data-index="${index}" title="حذف از علاقه‌مندی‌ها" type="button">✕</button>
         </${tag}>
@@ -704,6 +815,91 @@ async function clearAllWishlist() {
     "remove",
     4500,
   );
+}
+
+// ----------------------------------------------------------------
+// BASKET PERSISTENCE (تسک ۲۹)
+// ----------------------------------------------------------------
+const BASKET_KEY = "basketItems";
+
+function saveBasket() {
+  localStorage.setItem(BASKET_KEY, JSON.stringify(items));
+}
+
+function loadBasket() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(BASKET_KEY) || "[]");
+    if (Array.isArray(raw)) items = raw.slice(0, 10);
+  } catch {}
+}
+
+// ----------------------------------------------------------------
+// RECENT SEARCHES (تسک ۵۱)
+// ----------------------------------------------------------------
+const RECENT_KEY = "recentSearches";
+const RECENT_LIMIT = 8;
+
+function getRecentSearches() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(RECENT_KEY) || "[]");
+    return Array.isArray(raw) ? raw : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentSearch(itemsArr) {
+  if (!itemsArr || itemsArr.length === 0) return;
+  const existing = getRecentSearches();
+  const combined = [...itemsArr, ...existing];
+  const unique = [];
+  const seen = new Set();
+  for (const it of combined) {
+    const key = String(it).trim().toLowerCase();
+    if (key && !seen.has(key) && unique.length < RECENT_LIMIT) {
+      seen.add(key);
+      unique.push(it);
+    }
+  }
+  localStorage.setItem(RECENT_KEY, JSON.stringify(unique));
+  renderSuggestions();
+}
+
+// ----------------------------------------------------------------
+// SUGGESTIONS (تسک ۲۸ + ۵۱)
+// ----------------------------------------------------------------
+const SAMPLE_ITEMS = [
+  "قلمو سرگرد شماره ۴",
+  "مقوا A4",
+  "آبرنگ ۱۲ رنگ",
+  "مداد HB",
+  "دفتر اسکچ",
+  "پاک‌کن اتود",
+];
+
+function renderSuggestions() {
+  const container = document.getElementById("suggestions-box");
+  if (!container) return;
+
+  const recent = getRecentSearches();
+  const suggestions = recent.length >= 3 ? recent : SAMPLE_ITEMS;
+  const title =
+    recent.length >= 3 ? "🕐 اخیراً جستجو کردی:" : "✨ پیشنهاد شروع:";
+
+  container.innerHTML = `
+    <div class="suggestions-title">${title}</div>
+    <div class="suggestions-list">
+      ${suggestions
+        .map(
+          (s) => `
+        <button class="suggestion-chip" type="button" data-value="${escapeHtml(s)}">
+          ${escapeHtml(s)}
+        </button>
+      `,
+        )
+        .join("")}
+    </div>
+  `;
 }
 
 // ----------------------------------------------------------------
@@ -934,12 +1130,14 @@ function addItem() {
   itemInput.value = "";
   itemInput.focus();
   renderItems();
+  saveBasket();
 }
 
 function removeItem(i) {
   if (itemsList.classList.contains("locked")) return;
   items.splice(i, 1);
   renderItems();
+  saveBasket();
 }
 
 function renderItems() {
@@ -961,6 +1159,7 @@ function clearAll() {
   if (itemsList.classList.contains("locked")) return;
   items = [];
   renderItems();
+  saveBasket();
   resultsSection.classList.add("hidden");
   document.getElementById("top-sort")?.classList.add("hidden");
   document.getElementById("sticky-sort")?.classList.add("hidden");
@@ -969,19 +1168,19 @@ function clearAll() {
   searchBtn.classList.remove("searching");
   setLoading(false);
   lastBasketComparison = null;
+  window.__lastQueries = null;
 
-  // پاک کردن کش
   prefetchAbort = true;
   imageGalleryCache.clear();
   productDataMap.clear();
   productDataCounter = 0;
 
-  // بستن مودال variants
   const varModal = document.getElementById("variants-modal");
   if (varModal && !varModal.classList.contains("hidden")) {
     varModal.classList.add("hidden");
     document.body.style.overflow = "";
   }
+  renderSuggestions();
 }
 
 function markChipActive(index) {
@@ -1009,10 +1208,70 @@ function markChipError(index) {
 }
 
 // ----------------------------------------------------------------
-// SEARCH
+// LOG SEARCH (باگ ۰.۲)
+// ----------------------------------------------------------------
+function logSearch(payload) {
+  fetch("/api/log-search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }).catch(() => {});
+}
+
+// ----------------------------------------------------------------
+// SKELETON LOADING (تسک ۲۷)
+// ----------------------------------------------------------------
+function renderSkeleton() {
+  const skeletons = [];
+  for (let s = 0; s < 2; s++) {
+    const cards = [];
+    for (let i = 0; i < 3; i++) {
+      cards.push(`
+        <div class="skeleton-card">
+          <div class="skeleton-image shimmer"></div>
+          <div class="skeleton-body">
+            <div class="skeleton-line skeleton-line-sm shimmer"></div>
+            <div class="skeleton-line skeleton-line-lg shimmer"></div>
+            <div class="skeleton-line skeleton-line-md shimmer"></div>
+          </div>
+        </div>
+      `);
+    }
+    skeletons.push(`
+      <div class="store-section skeleton-store">
+        <div class="store-header-row">
+          <div class="skeleton-circle shimmer"></div>
+          <div class="skeleton-header-lines">
+            <div class="skeleton-line skeleton-line-md shimmer"></div>
+            <div class="skeleton-line skeleton-line-sm shimmer"></div>
+          </div>
+        </div>
+        <div class="skeleton-cards-row">${cards.join("")}</div>
+      </div>
+    `);
+  }
+  return `
+    <div class="skeleton-container">
+      <div class="skeleton-title shimmer"></div>
+      ${skeletons.join("")}
+    </div>
+  `;
+}
+
+function showSkeleton() {
+  if (!storesContainer) return;
+  storesContainer.innerHTML = renderSkeleton();
+  resultsSection.classList.remove("hidden");
+}
+
+// ----------------------------------------------------------------
+// SEARCH (باگ ۰.۱ + ۳۵)
 // ----------------------------------------------------------------
 async function search() {
-  if (items.length === 0) return;
+  if (items.length === 0) {
+    showToast("سبد خالیه", pickRandom(FUN_MESSAGES.none), "info", 3000);
+    return;
+  }
   hideError();
   setLoading(true);
   searchAborted = false;
@@ -1034,12 +1293,9 @@ async function search() {
   addBtn.disabled = true;
   startStoreCycle();
 
-  // ← ← ← ثبت لاگ جستجو ← ← ←
-  fetch("/api/log-search", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ items: [...items] }),
-  }).catch(() => {});
+  showSkeleton();
+
+  const searchStartTime = Date.now();
 
   try {
     const queryResults = [];
@@ -1073,16 +1329,64 @@ async function search() {
 
     if (searchAborted) {
       showToast("جستجو لغو شد", "عملیات توسط شما متوقف شد", "remove", 3000);
+      resultsSection.classList.add("hidden");
       return;
     }
 
     const validQueries = queryResults.filter(Boolean);
+    const durationMs = Date.now() - searchStartTime;
+
     if (validQueries.length === 0) {
-      showError("هیچ نتیجه‌ای یافت نشد.");
+      showError(pickRandom(FUN_MESSAGES.none));
+      resultsSection.classList.add("hidden");
+      logSearch({
+        items: [...items],
+        totalResults: 0,
+        acceptedCount: 0,
+        rejectedCount: 0,
+        storesWithResults: [],
+        storesWithoutResults: SUPPORTED_STORES.map((s) => s.name),
+        durationMs,
+      });
       return;
     }
+
+    window.__lastQueries = validQueries;
+
     const basketComparison = computeBasketComparison(validQueries);
     renderResults({ queries: validQueries, basketComparison });
+    saveRecentSearch(items);
+    updateWishlistPrices(validQueries);
+
+    const storesWithResultsSet = new Set();
+    let totalResults = 0;
+    let totalAccepted = 0;
+    let totalRejected = 0;
+
+    for (const q of validQueries) {
+      for (const m of q.matches || []) {
+        for (const o of m.offers || []) storesWithResultsSet.add(o.storeName);
+        totalResults += (m.offers || []).length;
+      }
+      if (q.stats) {
+        totalAccepted += q.stats.accepted || 0;
+        totalRejected += q.stats.rejected || 0;
+      }
+    }
+
+    const storesWithoutResults = SUPPORTED_STORES.map((s) => s.name).filter(
+      (s) => !storesWithResultsSet.has(s),
+    );
+
+    logSearch({
+      items: [...items],
+      totalResults,
+      acceptedCount: totalAccepted,
+      rejectedCount: totalRejected,
+      storesWithResults: Array.from(storesWithResultsSet),
+      storesWithoutResults,
+      durationMs,
+    });
   } catch (e) {
     if (!searchAborted && e.name !== "AbortError") {
       showError("خطا در جستجو: " + (e.message || "خطای نامشخص"));
@@ -1169,7 +1473,7 @@ function computeBasketComparison(queries) {
 function renderResults(data) {
   const { basketComparison } = data;
   if (!basketComparison || basketComparison.length === 0) {
-    showError("هیچ نتیجه‌ای یافت نشد.");
+    showError(pickRandom(FUN_MESSAGES.none));
     resultsSection.classList.add("hidden");
     document.getElementById("top-sort")?.classList.add("hidden");
     document.getElementById("sticky-sort")?.classList.add("hidden");
@@ -1182,6 +1486,15 @@ function renderResults(data) {
   document.getElementById("top-sort")?.classList.remove("hidden");
   resultsSection.classList.remove("hidden");
   resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  setTimeout(() => {
+    showToast(
+      "آماده شد! ✅",
+      pickRandom(FUN_MESSAGES.success),
+      "success",
+      3500,
+    );
+  }, 400);
 }
 
 function renderStoreSections(sortedStores) {
@@ -1369,9 +1682,6 @@ function renderStoreSection(store, isBest) {
   `;
 }
 
-// ----------------------------------------------------------------
-// PRODUCT CARD
-// ----------------------------------------------------------------
 function renderProductCard(item, store, storeColor) {
   const icon = getProductIcon(item.title);
   const hasLink = item.link && item.link !== "#";
@@ -1426,7 +1736,6 @@ function renderProductCard(item, store, storeColor) {
     cacheKey,
   });
 
-  // بج وضعیت گالری
   const galleryCount = currentImages.length;
   const galleryBadgeHtml =
     galleryCount > 1
@@ -1567,7 +1876,6 @@ function openVariantsModal(pid) {
   const storeColor = data.variantsStoreColor || "var(--primary)";
   const storeIconUrl = getStoreIconUrl(storeName);
 
-  // آیکن فروشگاه
   if (iconEl) {
     if (storeIconUrl) {
       iconEl.innerHTML = `
@@ -1585,12 +1893,10 @@ function openVariantsModal(pid) {
     }
   }
 
-  // عنوان اصلی
   if (nameEl) {
     nameEl.textContent = `پیشنهادهای موجود برای «${query}»`;
   }
 
-  // زیرعنوان: تعداد + فروشگاه
   if (queryEl) {
     queryEl.innerHTML = `
       <span class="variants-modal-store" style="color: ${storeColor}">${escapeHtml(storeName)}</span>
@@ -1607,6 +1913,7 @@ function openVariantsModal(pid) {
   document.body.style.overflow = "hidden";
   history.pushState({ variantsModal: true }, "");
 }
+
 function closeVariantsModal(fromPopstate = false) {
   const modal = document.getElementById("variants-modal");
   if (!modal || modal.classList.contains("hidden")) return;
@@ -1713,7 +2020,7 @@ window.addEventListener("resize", () => {
 });
 
 // ----------------------------------------------------------------
-// BADGE ROTATION (فقط در موبایل)
+// BADGE ROTATION (موبایل)
 // ----------------------------------------------------------------
 function initBadgeRotation() {
   document.querySelectorAll(".store-badge-group-items").forEach((c) => {
@@ -1814,7 +2121,6 @@ async function openImageModal(
   else if (typeof images === "string" && images.length > 0) arr = [images];
   if (arr.length === 0) return;
 
-  // اگه Promise توی کش هست، فوری ازش استفاده کن
   const key = `${productId || ""}|${productUrl || ""}`;
   if ((productId || productUrl) && imageGalleryCache.has(key)) {
     try {
@@ -1832,7 +2138,6 @@ async function openImageModal(
   document.body.style.overflow = "hidden";
   history.pushState({ imageModal: true }, "");
 
-  // اگه هنوز عکس‌ها نیومدن، با timeout ۵ ثانیه صبر کن
   if (arr.length <= 1 && (productId || productUrl)) {
     const timeoutPromise = new Promise((resolve) =>
       setTimeout(() => resolve(null), 5000),
@@ -1898,9 +2203,7 @@ if (imageModalNext)
     e.stopPropagation();
     showNextImage();
   });
-// ================================================================
-// Swipe برای جابه‌جایی بین عکس‌ها (موبایل)
-// ================================================================
+
 let touchStartX = 0;
 let touchEndX = 0;
 let touchStartY = 0;
@@ -1929,11 +2232,9 @@ if (imageModal) {
       const dx = touchEndX - touchStartX;
       const dy = touchEndY - touchStartY;
 
-      // فقط اگه حرکت افقی بود (نه عمودی)
       if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx)) return;
       if (imageModalState.images.length < 2) return;
 
-      // در RTL: کشیدن به چپ = عکس بعدی، کشیدن به راست = عکس قبلی
       if (dx < -50) {
         showNextImage();
       } else if (dx > 50) {
@@ -1951,7 +2252,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ----------------------------------------------------------------
-// GALLERY FETCHER (Promise cache)
+// GALLERY FETCHER
 // ----------------------------------------------------------------
 function fetchProductGallery(productId, productUrl, storeName) {
   const key = `${productId || ""}|${productUrl || ""}`;
@@ -1983,7 +2284,6 @@ function updateBadgeByKey(cacheKey, count) {
       badge.classList.remove("loading");
       badge.classList.add("has-multi");
     } else {
-      // فقط ۱ عکس داره → بج رو حذف کن
       badge.remove();
     }
   });
@@ -1997,6 +2297,7 @@ async function updateBadgeFromCache(badge) {
     updateBadgeByKey(key, Array.isArray(imgs) ? imgs.length : 0);
   } catch {}
 }
+
 // ----------------------------------------------------------------
 // SUPPORTED STORES STRIP
 // ----------------------------------------------------------------
@@ -2210,7 +2511,6 @@ document.addEventListener("click", (e) => {
     return;
   }
 
-  // strip-item images (اگه جایی باقی مونده)
   const stripImg = e.target.closest(
     ".strip-item-image-wrapper.clickable-image",
   );
@@ -2232,7 +2532,6 @@ document.addEventListener("click", (e) => {
     }
   }
 
-  // product images
   const prodImg = e.target.closest(".product-image-wrapper.clickable-image");
   if (prodImg) {
     if (e.target.closest(".product-wishlist-btn")) return;
@@ -2252,7 +2551,6 @@ document.addEventListener("click", (e) => {
     }
   }
 
-  // variant card images
   const variantImg = e.target.closest(
     ".variant-card-image-wrapper.clickable-image",
   );
@@ -2275,7 +2573,6 @@ document.addEventListener("click", (e) => {
   }
 });
 
-// بستن wishlist modal
 document.addEventListener("click", (e) => {
   const modal = document.getElementById("wishlist-modal");
   if (!modal || modal.classList.contains("hidden")) return;
@@ -2287,7 +2584,6 @@ document.addEventListener("click", (e) => {
   }
 });
 
-// بستن variants modal
 document.addEventListener("click", (e) => {
   const modal = document.getElementById("variants-modal");
   if (!modal || modal.classList.contains("hidden")) return;
@@ -2299,7 +2595,6 @@ document.addEventListener("click", (e) => {
   }
 });
 
-// popstate
 window.addEventListener("popstate", () => {
   if (suppressNextPopstate) {
     suppressNextPopstate = false;
@@ -2349,7 +2644,6 @@ function hideError() {
 // ----------------------------------------------------------------
 if (cancelBtn) {
   cancelBtn.addEventListener("click", async () => {
-    // اگه قبلاً لغو شده یا دکمه غیرفعاله
     if (cancelBtn.disabled || searchAborted) return;
 
     const confirmed = await showConfirmDialog({
@@ -2371,7 +2665,7 @@ if (cancelBtn) {
 }
 
 // ----------------------------------------------------------------
-// THEME (دو دکمه)
+// THEME
 // ----------------------------------------------------------------
 const themeToggle = document.getElementById("theme-toggle");
 const themeToggleTop = document.getElementById("theme-toggle-top");
@@ -2407,19 +2701,12 @@ if (themeToggleTop) themeToggleTop.addEventListener("click", toggleTheme);
 initTheme();
 
 // ================================================================
-// 🎯 DEBUG MODE
+// 🎯 DEBUG MODE (باگ ۰.۳ — بدون endpoint جدید)
 // ================================================================
 const debugBtn = document.getElementById("debug-btn");
 const debugModal = document.getElementById("debug-modal");
 let debugData = null;
-let debugCacheKey = null; // ← کلید کش
 
-// محاسبه‌ی کلید کش بر اساس لیست آیتم‌های فعلی
-function computeDebugCacheKey() {
-  return JSON.stringify(items);
-}
-
-// فعال‌سازی با دابل‌کلیک روی لوگو
 const mainLogo = document.querySelector(".logo");
 if (mainLogo) {
   mainLogo.addEventListener("dblclick", () => {
@@ -2438,42 +2725,28 @@ if (mainLogo) {
 async function openDebugModal() {
   if (!debugModal) return;
 
-  if (!lastBasketComparison || items.length === 0) {
+  if (!window.__lastQueries || window.__lastQueries.length === 0) {
     showToast("اطلاعات کافی نیست", "اول یه جستجو بزن", "info", 3000);
     return;
   }
 
-  const currentKey = computeDebugCacheKey();
-
-  // ← ← ← اگه داده‌ی cache معتبر داریم، مستقیم نشون بده ← ← ←
-  if (debugData && debugCacheKey === currentKey) {
-    renderDebugModal();
-    debugModal.classList.remove("hidden");
-    document.body.style.overflow = "hidden";
-    history.pushState({ debugModal: true }, "");
-    return;
+  const rejected = [];
+  const accepted = [];
+  for (const q of window.__lastQueries) {
+    for (const r of q.rejectedProducts || []) {
+      rejected.push({ ...r, query: q.query });
+    }
+    for (const m of q.matches || []) {
+      for (const o of m.offers || []) {
+        accepted.push({ ...o, query: q.query });
+      }
+    }
   }
-
-  // در غیر این صورت، از سرور بگیر
-  try {
-    const r = await fetch("/api/compare-debug", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items }),
-    });
-    const data = await r.json();
-    if (!data.success) throw new Error("failed");
-
-    debugData = data;
-    debugCacheKey = currentKey; // ← ذخیره‌ی کلید
-    renderDebugModal();
-    debugModal.classList.remove("hidden");
-    document.body.style.overflow = "hidden";
-    history.pushState({ debugModal: true }, "");
-  } catch (e) {
-    showToast("خطا", "دریافت اطلاعات Debug ناموفق بود", "remove", 4000);
-    console.error(e);
-  }
+  debugData = { rejected, accepted };
+  renderDebugModal();
+  debugModal.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+  history.pushState({ debugModal: true }, "");
 }
 
 function renderDebugModal() {
@@ -2482,7 +2755,7 @@ function renderDebugModal() {
   const search = document.getElementById("debug-search");
   const sortSelect = document.getElementById("debug-sort");
 
-  if (!body) return;
+  if (!body || !debugData) return;
 
   const render = () => {
     const q = search?.value.toLowerCase().trim() || "";
@@ -2535,8 +2808,8 @@ function renderDebugModal() {
           </div>
           <div class="debug-item-title">${escapeHtml(item.title)}</div>
           <div class="debug-item-meta">
-            <span class="debug-badge score">Score: ${item.score.toFixed(2)}</span>
-            <span class="debug-badge ratio">Ratio: ${item.ratio.toFixed(2)}</span>
+            <span class="debug-badge score">Score: ${(item.score || 0).toFixed(2)}</span>
+            <span class="debug-badge ratio">Ratio: ${(item.ratio || 0).toFixed(2)}</span>
             <span style="color: var(--text-muted); font-size: 0.7rem;">Query: "${escapeHtml(item.query)}"</span>
             ${
               item.link
@@ -2607,11 +2880,9 @@ itemInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") addItem();
 });
 searchBtn.addEventListener("click", search);
-clearBtn.addEventListener("click", async () => {
-  // اگه در حال جستجو هستیم، جستجو رو متوقف کن بعد پاک کن
-  if (itemsList.classList.contains("locked")) return;
 
-  // اگه هیچ آیتمی نیست، کاری نکن
+clearBtn.addEventListener("click", async () => {
+  if (itemsList.classList.contains("locked")) return;
   if (items.length === 0 && !lastBasketComparison) return;
 
   const confirmed = await showConfirmDialog({
@@ -2628,6 +2899,7 @@ clearBtn.addEventListener("click", async () => {
   if (!confirmed) return;
   clearAll();
 });
+
 const wishlistFloatBtn = document.getElementById("wishlist-float-btn");
 if (wishlistFloatBtn)
   wishlistFloatBtn.addEventListener("click", openWishlistModal);
@@ -2635,6 +2907,28 @@ const wishlistClearAllBtn = document.getElementById("wishlist-clear-all");
 if (wishlistClearAllBtn)
   wishlistClearAllBtn.addEventListener("click", clearAllWishlist);
 
+// کلیک روی چیپ‌های پیشنهادی
+document.addEventListener("click", (e) => {
+  const chip = e.target.closest(".suggestion-chip");
+  if (!chip) return;
+  const val = chip.dataset.value;
+  if (!val) return;
+  if (itemsList.classList.contains("locked")) return;
+  if (items.includes(val)) {
+    itemInput.value = val;
+  } else {
+    if (items.length >= 10) return;
+    items.push(val);
+    renderItems();
+    saveBasket();
+  }
+  itemInput.focus();
+});
+
+// راه‌اندازی
+loadBasket();
+renderItems();
+renderSuggestions();
 renderSupportedStores();
 disableAllDraggable();
 initSortToggle();

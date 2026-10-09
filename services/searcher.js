@@ -1,6 +1,5 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
-const puppeteer = require("puppeteer");
 
 const PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
 const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
@@ -700,7 +699,7 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
         Accept: "text/html,application/xhtml+xml",
         "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
       },
-      timeout: 30000,
+      timeout: 8000,
       validateStatus: () => true,
     });
 
@@ -950,114 +949,114 @@ async function searchTorob(query, limit = 20) {
   }
 }
 
-// ================================================================
-// MAJD MARKET — Puppeteer (Vue SPA)
-// ================================================================
 async function searchMadjMarket(query, limit = 20) {
-  let browser = null;
   try {
-    browser = await puppeteer.launch({
-      headless: "new",
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      // 🎯 اگر Chrome دانلودی کار نکرد، مسیر زیر را باز کنید:
-      executablePath:
-        "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-    });
-
-    const page = await browser.newPage();
-    await page.setUserAgent(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    );
-
     const url = `https://majdmarket.com/products?search=${encodeURIComponent(query)}`;
-    log("INFO", `[مجد مارکت] Loading page...`);
-
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
-    await new Promise((r) => setTimeout(r, 3500));
-
-    await page.evaluate(() => window.scrollTo(0, 500));
-    await new Promise((r) => setTimeout(r, 1000));
-
-    const products = await page.evaluate(() => {
-      const result = [];
-      const seen = new Set();
-
-      document.querySelectorAll("a[href]").forEach((a) => {
-        const href = a.getAttribute("href") || "";
-        if (!href.includes("/products/")) return;
-        if (href.includes("/products?") || href === "/products") return;
-
-        let card = a;
-        for (let i = 0; i < 5; i++) {
-          if (!card.parentElement) break;
-          card = card.parentElement;
-          const txt = card.textContent || "";
-          if (/\d{3,}/.test(txt) && txt.length < 800) break;
-        }
-
-        const fullText = card.textContent || "";
-        const priceMatch = fullText.match(/([\d۰-۹]{1,3}(?:[،,][\d۰-۹]{3})+)/);
-        if (!priceMatch) return;
-
-        let priceStr = priceMatch[1]
-          .replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
-          .replace(/[،,]/g, "");
-        const price = parseInt(priceStr, 10);
-        if (isNaN(price) || price < 1000 || price > 500000000) return;
-
-        let title = "";
-        const titleEl = card.querySelector(
-          'h1, h2, h3, h4, h5, .title, [class*="title"], [class*="name"]',
-        );
-        if (titleEl) {
-          title = titleEl.textContent.trim();
-        } else {
-          title = a.textContent.trim();
-        }
-        title = title.replace(/\s+/g, " ").substring(0, 150);
-        if (!title || title.length < 5) return;
-        if (seen.has(title)) return;
-        seen.add(title);
-
-        const img = card.querySelector("img");
-        let image = null;
-        if (img) {
-          image =
-            img.getAttribute("data-src") ||
-            img.getAttribute("src") ||
-            img.getAttribute("data-lazy-src") ||
-            null;
-          if (image && image.startsWith("data:")) image = null;
-          if (image && !image.startsWith("http")) {
-            image = new URL(image, location.origin).href;
-          }
-        }
-
-        const fullLink = a.href.startsWith("http")
-          ? a.href
-          : new URL(a.href, location.origin).href;
-
-        result.push({ title, price, link: fullLink, image });
-      });
-
-      return result;
+    const r = await axios.get(url, {
+      timeout: 8000,
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml",
+        "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
+      },
+      validateStatus: () => true,
     });
 
-    log("OK", `[مجد مارکت] ${products.length} products (Puppeteer)`);
+    if (r.status !== 200 || typeof r.data !== "string") {
+      log("WARN", `[مجد مارکت] HTTP ${r.status}`);
+      return [];
+    }
 
-    return products.slice(0, limit).map((p) => ({
-      storeName: "مجد مارکت",
-      productTitle: p.title,
-      price: p.price,
-      link: p.link,
-      image: p.image,
-      images: p.image ? [p.image] : [],
-    }));
+    const html = r.data;
+    const products = [];
+
+    // تلاش __NEXT_DATA__
+    const nextMatch = html.match(
+      /<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/,
+    );
+    if (nextMatch) {
+      try {
+        const data = JSON.parse(nextMatch[1]);
+        const walk = (obj, depth = 0) => {
+          if (depth > 20 || !obj || typeof obj !== "object") return;
+          if (Array.isArray(obj)) {
+            obj.forEach((x) => walk(x, depth + 1));
+            return;
+          }
+          if (obj.title && obj.price && obj.slug) {
+            const price = parseInt(String(obj.price).replace(/[^\d]/g, ""), 10);
+            if (price > 1000 && products.length < limit) {
+              let image = obj.image || obj.thumbnail || obj.cover;
+              if (Array.isArray(image)) image = image[0];
+              if (image && typeof image === "object")
+                image = image.url || image.src;
+              products.push({
+                storeName: "مجد مارکت",
+                productTitle: obj.title,
+                price,
+                link: `https://majdmarket.com/products/${obj.slug}`,
+                image: image || null,
+                images: image ? [image] : [],
+              });
+            }
+          }
+          Object.values(obj).forEach((v) => walk(v, depth + 1));
+        };
+        walk(data);
+      } catch {}
+    }
+
+    if (products.length > 0) {
+      log("OK", `[مجد مارکت] ${products.length} products (NEXT_DATA)`);
+      return products.slice(0, limit);
+    }
+
+    // fallback cheerio
+    const $ = cheerio.load(html);
+    const seen = new Set();
+    $('a[href*="/products/"]').each((i, el) => {
+      if (products.length >= limit) return false;
+      const $el = $(el);
+      const href = $el.attr("href") || "";
+      if (href.includes("/products?") || href === "/products") return;
+      const title =
+        $el.find("h1, h2, h3, h4, .title").first().text().trim() ||
+        $el.text().trim().substring(0, 100);
+      if (!title || title.length < 3) return;
+      const priceMatch = $el.text().match(/([\d۰-۹]{1,3}(?:[،,][\d۰-۹]{3})+)/);
+      if (!priceMatch) return;
+      const price = parseInt(
+        priceMatch[1]
+          .replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
+          .replace(/[،,]/g, ""),
+        10,
+      );
+      if (price < 1000) return;
+      if (seen.has(title)) return;
+      seen.add(title);
+      const img = $el.find("img").first();
+      let image = img.attr("data-src") || img.attr("src") || null;
+      if (image && !image.startsWith("http")) {
+        try {
+          image = new URL(image, "https://majdmarket.com").href;
+        } catch {}
+      }
+      products.push({
+        storeName: "مجد مارکت",
+        productTitle: title,
+        price,
+        link: href.startsWith("http") ? href : `https://majdmarket.com${href}`,
+        image,
+        images: image ? [image] : [],
+      });
+    });
+
+    log("OK", `[مجد مارکت] ${products.length} products (cheerio)`);
+    return products.slice(0, limit);
   } catch (error) {
     log("ERR", `[مجد مارکت] ${error.message.split("\n")[0]}`);
     return [];
-  } finally {
-    if (browser) await browser.close();
   }
 }
 
@@ -1080,12 +1079,14 @@ async function compareBasket(shoppingList) {
 
     const otherStores = NEW_STORES_CONFIG.filter((s) => s.name !== "مجد مارکت");
 
-    const allResults = await Promise.all([
+    const allResults = await Promise.allSettled([
       searchDigikala(query, 20),
       searchTorob(query, 20),
       ...otherStores.map((s) => searchWooCommerceStore(s, query, 20)),
       searchMadjMarket(query, 20),
-    ]);
+    ]).then((results) =>
+      results.map((r) => (r.status === "fulfilled" ? r.value : [])),
+    );
     const allProducts = allResults.flat();
 
     const queryTokens = tokenize(query);
@@ -1188,7 +1189,17 @@ async function compareBasket(shoppingList) {
       });
 
     log("DONE", `Query "${query}" → ${matches.length} clusters`);
-    queries.push({ query, matches, rejectedProducts });
+    queries.push({
+      query,
+      matches,
+      rejectedProducts,
+      stats: {
+        totalReceived: allProducts.length,
+        accepted: acceptedCount,
+        rejected: rejectedCount,
+        zeroPrice: zeroPriceRejected,
+      },
+    });
     await new Promise((r) => setTimeout(r, 800));
   }
 

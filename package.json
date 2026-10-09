@@ -14,6 +14,7 @@
     "axios-cookiejar-support": "^7.0.0",
     "cheerio": "^1.2.0",
     "cors": "^2.8.6",
+    "dotenv": "^18.0.6",
     "express": "^5.2.1",
     "geoip-lite": "^1.4.10",
     "mysql2": "^3.24.5",
