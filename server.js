@@ -1007,10 +1007,14 @@ async function renderAdminPage(req) {
      GROUP BY day ORDER BY day DESC`,
   );
 
-  let visitStats = { total: 0, today: 0 };
+  let visitStats = { total: 0, today: 0, since: null };
   try {
-    const [v] = await db.query(`SELECT COUNT(*) as c FROM page_visits`);
+    const [v] = await db.query(
+      `SELECT COUNT(*) as c, MIN(timestamp) as first FROM page_visits`,
+    );
     visitStats.total = v[0].c;
+    visitStats.since = v[0].first;
+
     const [vt] = await db.query(
       `SELECT COUNT(*) as c FROM page_visits WHERE DATE(timestamp) = CURDATE()`,
     );
@@ -1477,6 +1481,15 @@ async function renderAdminPage(req) {
           color: var(--text-muted);
           font-weight: 700;
         }
+        .visits-since {
+          margin-top: 0.6rem;
+          font-size: 0.7rem;
+          color: var(--text-muted);
+          font-weight: 600;
+          text-align: center;
+          padding-top: 0.5rem;
+          border-top: 1px dashed var(--border);
+        }
         .stat-list {
           list-style: none; padding: 0; margin: 0;
           display: flex; flex-direction: column; gap: 0.5rem;
@@ -1660,6 +1673,11 @@ async function renderAdminPage(req) {
                 <div class="visit-label">امروز</div>
               </div>
             </div>
+            ${
+              visitStats.since
+                ? `<div class="visits-since">شروع رصد از ${new Date(visitStats.since).toLocaleDateString("fa-IR-u-ca-persian", { year: "numeric", month: "long", day: "numeric" })}</div>`
+                : ""
+            }
           </div>
         </div>
         
