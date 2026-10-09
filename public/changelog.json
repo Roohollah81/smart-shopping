@@ -1,5 +1,5 @@
 {
-  "latestVersion": "1.8.0",
+  "latestVersion": "1.9.0",
   "welcome": {
     "title": "به خرید هوشمند خوش اومدی! 👋",
     "tagline": "اینجا می‌تونی لیست خریدت رو وارد کنی و ببینی کدوم فروشگاه ارزون‌تره",
@@ -32,6 +32,25 @@
     ]
   },
   "versions": [
+    {
+      "version": "1.9.0",
+      "date": "2026-10-10T02:47:00+03:30",
+      "title": "خوش‌آمدگویی و بهبود نمایش",
+      "userChanges": [
+        "کاربران جدید با یه پیام خوش‌آمدگویی کوتاه آشنا می‌شن",
+        "رنگ‌بندی چیپ‌های پیشنهادی زیباتر و هماهنگ‌تر شد",
+        "قیمت آیتم‌های علاقه‌مندی حتی بدون سرچ مجدد هم چک می‌شه",
+        "نام شهرها و استان‌ها حالا همیشه فارسی نمایش داده می‌شه"
+      ],
+      "allChanges": [
+        "feat(admin): show visit-tracking start date in stats card",
+        "feat(changelog,geo): welcome modal, release notes, and Persian geo translation",
+        "feat(admin): sticky single-row header and themed suggestion chips",
+        "fix(changelog): keep date+time inline and improve admin table date styling",
+        "chore(public): add changelog.json for release notes",
+        "feat(changelog): add release notes modal and auto-check wishlist prices in background"
+      ]
+    },
     {
       "version": "1.8.0",
       "date": "2026-10-09T22:44:00+03:30",
