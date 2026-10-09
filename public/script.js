@@ -1387,7 +1387,6 @@ function renderSkeleton() {
   }
   return `
     <div class="skeleton-container">
-      <div class="skeleton-title shimmer"></div>
       ${skeletons.join("")}
     </div>
   `;

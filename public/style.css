@@ -1463,14 +1463,6 @@ body {
   animation: fadeIn 0.3s ease;
 }
 
-.skeleton-title {
-  height: 2rem;
-  width: 40%;
-  margin: 0 auto 1rem;
-  border-radius: 0.75rem;
-  background: var(--border);
-}
-
 .skeleton-store {
   pointer-events: none;
   user-select: none;
@@ -1592,9 +1584,6 @@ body {
 @media (max-width: 640px) {
   .skeleton-cards-row {
     grid-template-columns: 1fr;
-  }
-  .skeleton-title {
-    width: 70%;
   }
 }
 
