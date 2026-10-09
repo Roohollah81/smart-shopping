@@ -1,0 +1,30 @@
+{
+  "latestVersion": "1.8.0",
+  "versions": [
+    {
+      "version": "1.8.0",
+      "date": "2026-10-09T22:44:00Z",
+      "title": "پیشنهادهای هوشمند و ذخیره‌ی لیست خرید",
+      "userChanges": [
+        "لیست خرید شما حالا ذخیره می‌شه و با رفرش از بین نمی‌ره",
+        "پیشنهادهای هوشمند بر اساس جستجوهای اخیر شما نمایش داده می‌شه",
+        "پرطرفدارترین جستجوهای کاربران به شما پیشنهاد داده می‌شه",
+        "وقتی آیتمی رو به سبد اضافه می‌کنید، از لیست پیشنهادها حذف می‌شه",
+        "اگه قیمت چیزی که ذخیره کردی تغییر کنه، بهت خبر می‌دیم",
+        "جستجو سریع‌تر و روان‌تر به نظر می‌رسه",
+        "پیام‌های تشویقی دوستانه برای خالی نبودن روی صفحه اضافه شد",
+        "کیفیت نتایج جستجو حالا با معیار دقیق‌تری سنجیده می‌شه"
+      ],
+      "allChanges": [
+        "style(logs): add blank line between consecutive search queries",
+        "fix(skeleton): remove title placeholder that has no matching element in results",
+        "refactor(logs): use [timestamp] [level] [scope] format and map store names to English",
+        "feat(quality): score searches by store coverage instead of absolute counts",
+        "feat(suggestions): smart suggestions with basket sync and popular searches",
+        "feat(analytics): session-based visit tracking to prevent refresh over-counting",
+        "refactor(logs): switch all log output to concise English",
+        "add skeleton loading, suggestions, persistence and price tracking"
+      ]
+    }
+  ]
+}

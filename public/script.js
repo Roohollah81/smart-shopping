@@ -577,6 +577,7 @@ function toggleWishlist(item) {
       history: [{ price: item.price, at: new Date().toISOString() }],
     });
     showToast("به علاقه‌مندی‌ها اضافه شد ❤️", item.title, "success", 5000);
+    localStorage.removeItem(WISHLIST_LAST_CHECK_KEY);
   }
   saveWishlist();
   updateAllWishlistButtons();
@@ -625,6 +626,84 @@ function updateWishlistPrices(queryResults) {
         : `جمعاً ${formatPrice(Math.abs(totalDiff))} تومان گرون‌تر شد`,
       "info",
       6000,
+    );
+  }
+}
+
+const WISHLIST_LAST_CHECK_KEY = "wishlistLastCheck";
+const WISHLIST_CHECK_INTERVAL = 60 * 60 * 1000; // 1 ساعت
+
+async function backgroundCheckWishlistPrices() {
+  if (wishlist.length === 0) return;
+  if (document.hidden) return; // اگه تب فعال نیست، چک نکن
+
+  // throttle: بیشتر از هر ۱ ساعت چک نکن
+  const lastCheck = parseInt(
+    localStorage.getItem(WISHLIST_LAST_CHECK_KEY) || "0",
+    10,
+  );
+  if (Date.now() - lastCheck < WISHLIST_CHECK_INTERVAL) return;
+
+  const payload = wishlist
+    .map((w) => ({ title: w.title, storeName: w.storeName }))
+    .slice(0, 30);
+
+  let data;
+  try {
+    const r = await fetch("/api/check-prices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: payload }),
+    });
+    if (!r.ok) return;
+    data = await r.json();
+  } catch {
+    return; // silent
+  }
+
+  if (!data?.success || !Array.isArray(data.results)) return;
+
+  localStorage.setItem(WISHLIST_LAST_CHECK_KEY, String(Date.now()));
+
+  let changes = 0;
+  let totalDiff = 0;
+
+  for (const result of data.results) {
+    const key = `${result.storeName}::${result.title}`;
+    const w = wishlist.find((x) => getWishlistKey(x) === key);
+    if (!w) continue;
+    if (!result.price || result.price === w.price) continue;
+
+    const diff = w.price - result.price;
+    w.history = w.history || [];
+    w.history.push({ price: result.price, at: new Date().toISOString() });
+    if (w.history.length > 30) w.history = w.history.slice(-30);
+
+    w.price = result.price;
+    w.lastChange = { diff, at: new Date().toISOString() };
+
+    // آپدیت لینک و تصویر اگه جدیدتره
+    if (result.link) w.link = result.link;
+    if (result.image && !w.image) w.image = result.image;
+
+    changes++;
+    totalDiff += diff;
+  }
+
+  if (changes > 0) {
+    saveWishlist();
+    updateAllWishlistButtons();
+
+    const modal = document.getElementById("wishlist-modal");
+    if (modal && !modal.classList.contains("hidden")) renderWishlistModal();
+
+    const emoji = totalDiff > 0 ? "🔻" : "🔺";
+    const direction = totalDiff > 0 ? "ارزون‌تر" : "گرون‌تر";
+    showToast(
+      `${toPersianNum(changes)} محصول تغییر قیمت داد ${emoji}`,
+      `جمعاً ${formatPrice(Math.abs(totalDiff))} تومان ${direction} شد`,
+      "info",
+      7000,
     );
   }
 }
@@ -3051,6 +3130,116 @@ function trackVisit() {
   }).catch(() => {});
 }
 
+// ================================================================
+// 📋 CHANGELOG — نمایش تاریخچه‌ی نسخه‌ها
+// ================================================================
+const CHANGELOG_SEEN_KEY = "changelogSeenVersion";
+const HAS_VISITED_KEY = "hasVisitedBefore";
+
+function formatChangelogDate(iso) {
+  try {
+    const d = new Date(iso);
+    return new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(d);
+  } catch {
+    return "";
+  }
+}
+
+function showChangelogModal(version) {
+  const modal = document.getElementById("changelog-modal");
+  const dateEl = document.getElementById("changelog-modal-date");
+  const taglineEl = document.getElementById("changelog-modal-tagline");
+  const bodyEl = document.getElementById("changelog-modal-body");
+
+  if (!modal || !bodyEl) return;
+
+  if (dateEl) {
+    dateEl.textContent = `نسخه ${version.version} · ${formatChangelogDate(version.date)}`;
+  }
+  if (taglineEl) {
+    taglineEl.textContent = version.title || "";
+  }
+
+  bodyEl.innerHTML = (version.userChanges || [])
+    .map(
+      (change) => `
+      <div class="changelog-change-item">
+        <span class="changelog-change-icon">✅</span>
+        <span>${escapeHtml(change)}</span>
+      </div>
+    `,
+    )
+    .join("");
+
+  modal.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+}
+
+function closeChangelogModal() {
+  const modal = document.getElementById("changelog-modal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  document.body.style.overflow = "";
+}
+
+async function checkChangelog() {
+  try {
+    const res = await fetch("/changelog.json");
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.latestVersion || !Array.isArray(data.versions)) return;
+
+    const hasVisited = localStorage.getItem(HAS_VISITED_KEY) === "1";
+
+    // کاربر جدید → نمایش نده، فقط نسخه رو ذخیره کن
+    if (!hasVisited) {
+      localStorage.setItem(HAS_VISITED_KEY, "1");
+      localStorage.setItem(CHANGELOG_SEEN_KEY, data.latestVersion);
+      return;
+    }
+
+    // کاربر قبلی → اگه نسخه جدید اومده نشون بده
+    const seen = localStorage.getItem(CHANGELOG_SEEN_KEY);
+    if (seen === data.latestVersion) return;
+
+    const latest = data.versions.find((v) => v.version === data.latestVersion);
+    if (!latest) return;
+
+    showChangelogModal(latest);
+    localStorage.setItem(CHANGELOG_SEEN_KEY, data.latestVersion);
+  } catch (e) {
+    // silent
+  }
+}
+
+// لیسنرهای بستن
+document.addEventListener("click", (e) => {
+  const modal = document.getElementById("changelog-modal");
+  if (!modal || modal.classList.contains("hidden")) return;
+  if (
+    e.target.closest(".changelog-modal-close") ||
+    e.target.closest("#changelog-modal-ok") ||
+    e.target.classList.contains("changelog-modal-backdrop")
+  ) {
+    closeChangelogModal();
+  }
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    const modal = document.getElementById("changelog-modal");
+    if (modal && !modal.classList.contains("hidden")) closeChangelogModal();
+  }
+});
+
 // ----------------------------------------------------------------
 // INIT
 // ----------------------------------------------------------------
@@ -3106,6 +3295,12 @@ document.addEventListener("click", (e) => {
   itemInput.focus();
 });
 
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) {
+    backgroundCheckWishlistPrices();
+  }
+});
+
 // راه‌اندازی
 loadBasket();
 renderItems();
@@ -3119,6 +3314,8 @@ fetchDollarRate();
 setInterval(updateDateTime, 1000);
 setInterval(fetchDollarRate, 600000);
 initStickyHeader();
+setTimeout(backgroundCheckWishlistPrices, 3000);
+setTimeout(checkChangelog, 1500);
 trackVisit();
 loadPopularItems();
 

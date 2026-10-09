@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const fs = require("fs");
 const axios = require("axios");
 const cheerio = require("cheerio");
 const mysql = require("mysql2/promise");
@@ -558,6 +559,63 @@ app.get("/api/popular-searches", async (req, res) => {
 });
 
 // ================================================================
+// API: چک قیمت آیتم‌های علاقه‌مندی (background)
+// ================================================================
+app.post("/api/check-prices", async (req, res) => {
+  const { items } = req.body || {};
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.json({ success: true, results: [] });
+  }
+  if (items.length > 30) {
+    return res.status(400).json({ success: false, error: "too many items" });
+  }
+
+  const results = [];
+  const CONCURRENCY = 2;
+  let idx = 0;
+
+  async function worker() {
+    while (idx < items.length) {
+      const i = idx++;
+      const { title, storeName } = items[i];
+      if (!title || !storeName) continue;
+
+      try {
+        const searchResult = await compareBasket([title]);
+        const query = searchResult.queries?.[0];
+        if (!query) continue;
+
+        let found = null;
+        for (const match of query.matches || []) {
+          for (const offer of match.offers || []) {
+            if (offer.storeName === storeName && offer.price > 0) {
+              if (!found || offer.price < found.price) {
+                found = {
+                  title,
+                  storeName,
+                  price: offer.price,
+                  link: offer.link || "",
+                  image: offer.image || null,
+                };
+              }
+            }
+          }
+        }
+        if (found) results.push(found);
+      } catch (e) {
+        // silent — این چک پس‌زمینه‌ست، خطا مهم نیست
+      }
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(CONCURRENCY, items.length) }, () => worker()),
+  );
+
+  res.json({ success: true, results });
+});
+
+// ================================================================
 // 📊 ADMIN PANEL
 // ================================================================
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
@@ -718,6 +776,16 @@ const QUALITY_LABELS = {
   suspicious: { label: "مشکوک", color: "#f97316", bg: "rgba(249,115,22,0.15)" },
 };
 
+function loadChangelog() {
+  try {
+    const filePath = path.join(__dirname, "public", "changelog.json");
+    const raw = fs.readFileSync(filePath, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return { latestVersion: "", versions: [] };
+  }
+}
+
 async function renderAdminPage(req) {
   const limit = Math.min(parseInt(req.query.limit) || 200, 1000);
   const search = String(req.query.search || "").trim();
@@ -833,6 +901,56 @@ async function renderAdminPage(req) {
     })
     .join("");
 
+  const changelog = loadChangelog();
+
+  const changelogHtml = (changelog.versions || [])
+    .map((v) => {
+      const isLatest = v.version === changelog.latestVersion;
+      const dateStr = new Date(v.date).toLocaleString("fa-IR");
+      const userList = (v.userChanges || [])
+        .map((c) => `<li>${escapeHtml(c)}</li>`)
+        .join("");
+      const allList = (v.allChanges || [])
+        .map((c) => `<li><code>${escapeHtml(c)}</code></li>`)
+        .join("");
+      return `
+      <div class="changelog-card ${isLatest ? "latest" : ""}">
+        <div class="changelog-card-header">
+          <div>
+            <span class="changelog-version">v${escapeHtml(v.version)}</span>
+            ${isLatest ? '<span class="changelog-badge">آخرین نسخه</span>' : ""}
+          </div>
+          <span class="changelog-date">${dateStr}</span>
+        </div>
+        ${v.title ? `<div class="changelog-title">${escapeHtml(v.title)}</div>` : ""}
+        ${
+          userList
+            ? `<div class="changelog-section">
+                 <h4>👤 تغییرات قابل مشاهده برای کاربر</h4>
+                 <ul class="changelog-user-list">${userList}</ul>
+               </div>`
+            : ""
+        }
+        ${
+          allList
+            ? `<details class="changelog-details">
+                 <summary>🛠️ همه‌ی تغییرات فنی (${(v.allChanges || []).length})</summary>
+                 <ul class="changelog-all-list">${allList}</ul>
+               </details>`
+            : ""
+        }
+      </div>
+    `;
+    })
+    .join("");
+
+  const changelogSectionHtml = `
+    <div class="changelog-wrapper">
+      <h3 class="changelog-wrapper-title">📋 تاریخچه‌ی نسخه‌ها</h3>
+      ${changelogHtml || '<p class="empty-list">تاریخچه‌ای ثبت نشده</p>'}
+    </div>
+  `;
+
   return `
     <!DOCTYPE html>
     <html lang="fa" dir="rtl">
@@ -924,6 +1042,124 @@ async function renderAdminPage(req) {
         .stat-card h3 {
           font-size: 0.85rem; font-weight: 800; color: var(--text-muted);
           margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.4rem;
+        }
+        /* ============================================================
+           CHANGELOG (Admin)
+        ============================================================ */
+        .changelog-wrapper {
+          background: var(--surface);
+          border: 1.5px solid var(--border);
+          border-radius: 1.25rem;
+          padding: 1.25rem;
+          margin-bottom: 1rem;
+          box-shadow: var(--shadow);
+        }
+        .changelog-wrapper-title {
+          font-size: 1rem;
+          font-weight: 800;
+          color: var(--text);
+          margin-bottom: 1rem;
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+        }
+        .changelog-card {
+          padding: 1rem;
+          background: var(--bg);
+          border: 1.5px solid var(--border);
+          border-radius: 0.875rem;
+          margin-bottom: 0.75rem;
+        }
+        .changelog-card:last-child { margin-bottom: 0; }
+        .changelog-card.latest {
+          border-color: var(--primary);
+          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        .changelog-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 0.5rem;
+          margin-bottom: 0.5rem;
+          flex-wrap: wrap;
+        }
+        .changelog-version {
+          font-size: 1rem;
+          font-weight: 800;
+          color: var(--primary);
+          font-variant-numeric: tabular-nums;
+        }
+        .changelog-badge {
+          font-size: 0.68rem;
+          font-weight: 800;
+          padding: 0.15rem 0.5rem;
+          background: linear-gradient(135deg, #10b981, #059669);
+          color: white;
+          border-radius: 0.4rem;
+          margin-inline-start: 0.5rem;
+        }
+        .changelog-date {
+          font-size: 0.72rem;
+          color: var(--text-muted);
+          font-weight: 600;
+          font-variant-numeric: tabular-nums;
+        }
+        .changelog-title {
+          font-size: 0.85rem;
+          font-weight: 700;
+          color: var(--text);
+          margin-bottom: 0.75rem;
+        }
+        .changelog-section h4 {
+          font-size: 0.75rem;
+          font-weight: 800;
+          color: var(--text-muted);
+          margin-bottom: 0.4rem;
+        }
+        .changelog-user-list {
+          list-style: none;
+          padding: 0;
+          margin: 0 0 0.75rem 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.3rem;
+        }
+        .changelog-user-list li {
+          font-size: 0.8rem;
+          color: var(--text);
+          padding: 0.35rem 0.6rem;
+          background: rgba(16, 185, 129, 0.08);
+          border-right: 3px solid #10b981;
+          border-radius: 0.4rem;
+          line-height: 1.5;
+        }
+        .changelog-details {
+          margin-top: 0.5rem;
+        }
+        .changelog-details summary {
+          cursor: pointer;
+          font-size: 0.75rem;
+          font-weight: 700;
+          color: var(--text-muted);
+          padding: 0.3rem 0;
+          user-select: none;
+        }
+        .changelog-details summary:hover { color: var(--primary); }
+        .changelog-all-list {
+          list-style: none;
+          padding: 0.5rem 0 0 0;
+          margin: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+        .changelog-all-list li {
+          font-size: 0.7rem;
+          color: var(--text-muted);
+          padding: 0.25rem 0.5rem;
+          background: var(--surface);
+          border-radius: 0.35rem;
+          font-family: 'Courier New', monospace;
         }
         .visit-number {
           font-size: 2.25rem;
@@ -1100,6 +1336,8 @@ async function renderAdminPage(req) {
             <div class="visit-label">امروز: <strong>${visitStats.today}</strong> بازدید</div>
           </div>
         </div>
+        
+        ${changelogSectionHtml}
 
         <form class="search-form" method="GET" action="/admin">
           <input type="text" name="search" placeholder="جستجو در آیتم‌ها، شهر یا IP..." value="${escapeHtml(search)}" />
