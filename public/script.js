@@ -296,7 +296,7 @@ const FUN_MESSAGES = {
   success: [
     "عالی بود! 🎉 ارزون‌ترینش رو پیدا کردیم",
     "دیدیم و اومدیم! 👀 مقایسه آماده‌ست",
-    "خب اینم از جیب‌دوزی امروز 💸",
+    "قیمت‌ها رو با هم چیدیم 🛍️",
     "همه‌چیز آماده‌ست، بریم خرید 🛒",
   ],
   loading: [
@@ -919,6 +919,8 @@ function loadBasket() {
 const RECENT_KEY = "recentSearches";
 const RECENT_LIMIT = 8;
 const HAS_SEARCHED_KEY = "hasSearchedBefore";
+const CHANGELOG_SEEN_KEY = "changelogSeenVersion";
+const HAS_VISITED_KEY = "hasVisitedBefore";
 
 function hasSearchedBefore() {
   return localStorage.getItem(HAS_SEARCHED_KEY) === "1";
@@ -3138,8 +3140,6 @@ function trackVisit() {
 // ================================================================
 // 📋 CHANGELOG — نمایش تاریخچه‌ی نسخه‌ها
 // ================================================================
-const CHANGELOG_SEEN_KEY = "changelogSeenVersion";
-const HAS_VISITED_KEY = "hasVisitedBefore";
 
 function formatChangelogDate(iso) {
   try {
@@ -3201,11 +3201,80 @@ function showChangelogModal(version) {
   document.body.style.overflow = "hidden";
 }
 
+function showWelcomeModal(welcome) {
+  const modal = document.getElementById("changelog-modal");
+  const dateEl = document.getElementById("changelog-modal-date");
+  const taglineEl = document.getElementById("changelog-modal-tagline");
+  const bodyEl = document.getElementById("changelog-modal-body");
+
+  if (!modal || !bodyEl) return;
+
+  // آیکن: 👋 به‌جای ✨
+  const iconEl = modal.querySelector(".changelog-modal-icon");
+  if (iconEl) iconEl.textContent = "👋";
+
+  // تاریخ: پنهان می‌کنیم
+  if (dateEl) {
+    dateEl.textContent = "";
+    dateEl.style.display = "none";
+  }
+
+  // عنوان
+  const titleEl = modal.querySelector(
+    ".changelog-modal-title > div > div:first-child",
+  );
+  if (titleEl && welcome.title) {
+    titleEl.textContent = welcome.title;
+  }
+
+  // تگ‌لاین
+  if (taglineEl) {
+    taglineEl.textContent = welcome.tagline || "";
+  }
+
+  // بدنه: فیچرها با آیکن + عنوان + توضیح
+  bodyEl.innerHTML = (welcome.features || [])
+    .map(
+      (f) => `
+      <div class="changelog-welcome-item">
+        <div class="changelog-welcome-icon">${escapeHtml(f.icon || "✨")}</div>
+        <div class="changelog-welcome-content">
+          <div class="changelog-welcome-title">${escapeHtml(f.title || "")}</div>
+          <div class="changelog-welcome-desc">${escapeHtml(f.desc || "")}</div>
+        </div>
+      </div>
+    `,
+    )
+    .join("");
+
+  // دکمه
+  const okBtn = document.getElementById("changelog-modal-ok");
+  if (okBtn) okBtn.textContent = "بزن بریم! 🚀";
+
+  modal.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+}
+
 function closeChangelogModal() {
   const modal = document.getElementById("changelog-modal");
   if (!modal) return;
   modal.classList.add("hidden");
   document.body.style.overflow = "";
+
+  // ریست برای دفعه‌ی بعد
+  const iconEl = modal.querySelector(".changelog-modal-icon");
+  if (iconEl) iconEl.textContent = "✨";
+
+  const dateEl = document.getElementById("changelog-modal-date");
+  if (dateEl) dateEl.style.display = "";
+
+  const titleEl = modal.querySelector(
+    ".changelog-modal-title > div > div:first-child",
+  );
+  if (titleEl) titleEl.textContent = "به‌روزرسانی جدید";
+
+  const okBtn = document.getElementById("changelog-modal-ok");
+  if (okBtn) okBtn.textContent = "باشه، فهمیدم 👍";
 }
 
 async function checkChangelog() {
@@ -3213,19 +3282,23 @@ async function checkChangelog() {
     const res = await fetch("/changelog.json");
     if (!res.ok) return;
     const data = await res.json();
-    if (!data.latestVersion || !Array.isArray(data.versions)) return;
+    if (!data.latestVersion) return;
 
     const hasVisited = localStorage.getItem(HAS_VISITED_KEY) === "1";
+    const seen = localStorage.getItem(CHANGELOG_SEEN_KEY);
 
-    // کاربر جدید → نمایش نده، فقط نسخه رو ذخیره کن
+    // ─── کاربر جدید → مودال خوش‌آمدگویی ───
     if (!hasVisited) {
       localStorage.setItem(HAS_VISITED_KEY, "1");
       localStorage.setItem(CHANGELOG_SEEN_KEY, data.latestVersion);
+      if (data.welcome) {
+        setTimeout(() => showWelcomeModal(data.welcome), 1200);
+      }
       return;
     }
 
-    // کاربر قبلی → اگه نسخه جدید اومده نشون بده
-    const seen = localStorage.getItem(CHANGELOG_SEEN_KEY);
+    // ─── کاربر قدیمی → اگه نسخه جدید اومده، release notes ───
+    if (!Array.isArray(data.versions)) return;
     if (seen === data.latestVersion) return;
 
     const latest = data.versions.find((v) => v.version === data.latestVersion);

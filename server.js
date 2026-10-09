@@ -169,6 +169,187 @@ const IRAN_REGIONS = {
   30: "البرز",
 };
 
+// ================================================================
+// 🏙️ ترجمه‌ی نام شهرها و استان‌ها به فارسی
+// ================================================================
+const PERSIAN_CITIES = {
+  // شهرهای بزرگ
+  tehran: "تهران",
+  esfahan: "اصفهان",
+  isfahan: "اصفهان",
+  mashhad: "مشهد",
+  shiraz: "شیراز",
+  karaj: "کرج",
+  tabriz: "تبریز",
+  qom: "قم",
+  ahvaz: "اهواز",
+  kermanshah: "کرمانشاه",
+  urmia: "ارومیه",
+  rasht: "رشت",
+  zahedan: "زاهدان",
+  hamadan: "همدان",
+  hamedan: "همدان",
+  kerman: "کرمان",
+  yazd: "یزد",
+  ardabil: "اردبیل",
+  "bandar abbas": "بندرعباس",
+  bandarabbas: "بندرعباس",
+  arak: "اراک",
+  zanjan: "زنجان",
+  sanandaj: "سنندج",
+  qazvin: "قزوین",
+  khorramabad: "خرم‌آباد",
+  gorgan: "گرگان",
+  sari: "ساری",
+  bushehr: "بوشهر",
+  birjand: "بیرجند",
+  ilam: "ایلام",
+  shahrekord: "شهرکرد",
+  yasuj: "یاسوج",
+  semnan: "سمنان",
+  bojnourd: "بجنورد",
+  bojnord: "بجنورد",
+  "shahr-e kord": "شهرکرد",
+  "bandar-e abbas": "بندرعباس",
+
+  // شهرهای کوچیک‌تر که ممکنه بیاد
+  kashan: "کاشان",
+  najafabad: "نجف‌آباد",
+  khomeynishahr: "خمینی‌شهر",
+  "shahin shahr": "شاهین‌شهر",
+  dehaghan: "دهاقان",
+  falavarjan: "فلاورجان",
+  khomeyn: "خمین",
+  saveh: "ساوه",
+  borujerd: "بروجرد",
+  dezful: "دزفول",
+  abadan: "آبادان",
+  khorramshahr: "خرمشهر",
+  sabzevar: "سبزوار",
+  neyshabur: "نیشابور",
+  neyshabour: "نیشابور",
+  "torbat-e heydarieh": "تربت حیدریه",
+  maragheh: "مراغه",
+  marand: "مرند",
+  khoy: "خوی",
+  maku: "ماکو",
+  lاهیجان: "لاهیجان",
+  lahijan: "لاهیجان",
+  anzali: "انزلی",
+  "bandar anzali": "بندر انزلی",
+  chalus: "چالوس",
+  ramsar: "رامسر",
+  nowshahr: "نوشهر",
+  amol: "آمل",
+  babol: "بابل",
+  qaemshahr: "قائم‌شهر",
+  behshahr: "بهشهر",
+  semnan: "سمنان",
+  shahrud: "شاهرود",
+  damghan: "دامغان",
+
+  // کشورها
+  iran: "ایران",
+  iraq: "عراق",
+  turkey: "ترکیه",
+  türkiye: "ترکیه",
+  afghanistan: "افغانستان",
+  pakistan: "پاکستان",
+  azerbaijan: "آذربایجان",
+  armenia: "ارمنستان",
+  turkmenistan: "ترکمنستان",
+  "united arab emirates": "امارات",
+  uae: "امارات",
+  germany: "آلمان",
+  "united states": "آمریکا",
+  usa: "آمریکا",
+  "united kingdom": "بریتانیا",
+  uk: "بریتانیا",
+  canada: "کانادا",
+  france: "فرانسه",
+  netherlands: "هلند",
+  sweden: "سوئد",
+  australia: "استرالیا",
+  india: "هند",
+  china: "چین",
+  russia: "روسیه",
+  japan: "ژاپن",
+};
+
+// استان‌های ایران به انگلیسی → فارسی
+const PERSIAN_REGIONS = {
+  tehran: "تهران",
+  esfahan: "اصفهان",
+  isfahan: "اصفهان",
+  fars: "فارس",
+  "khorasan razavi": "خراسان رضوی",
+  "khorasan-e razavi": "خراسان رضوی",
+  "khorasan shomali": "خراسان شمالی",
+  "khorasan jonubi": "خراسان جنوبی",
+  alborz: "البرز",
+  "east azerbaijan": "آذربایجان شرقی",
+  "west azerbaijan": "آذربایجان غربی",
+  "azerbaijan-e sharghi": "آذربایجان شرقی",
+  "azerbaijan-e gharbi": "آذربایجان غربی",
+  khuzestan: "خوزستان",
+  kerman: "کرمان",
+  kermanshah: "کرمانشاه",
+  gilan: "گیلان",
+  mazandaran: "مازندران",
+  qom: "قم",
+  yazd: "یزد",
+  hormozgan: "هرمزگان",
+  markazi: "مرکزی",
+  hamadan: "همدان",
+  hamedan: "همدان",
+  lorestan: "لرستان",
+  kurdistan: "کردستان",
+  golestan: "گلستان",
+  ardabil: "اردبیل",
+  qazvin: "قزوین",
+  zanjan: "زنجان",
+  semnan: "سمنان",
+  bushehr: "بوشهر",
+  ilam: "ایلام",
+  "chaharmahal and bakhtiari": "چهارمحال و بختیاری",
+  "chaharmahal va bakhtiari": "چهارمحال و بختیاری",
+  "kohgiluyeh and boyer-ahmad": "کهگیلویه و بویراحمد",
+  "kohgiluyeh va buyer ahmad": "کهگیلویه و بویراحمد",
+  "sistan and baluchestan": "سیستان و بلوچستان",
+  "sistan va baluchestan": "سیستان و بلوچستان",
+  "north khorasan": "خراسان شمالی",
+  "south khorasan": "خراسان جنوبی",
+  "razavi khorasan": "خراسان رضوی",
+};
+
+function toPersianLocation(value) {
+  if (!value || typeof value !== "string") return value || "";
+
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  // اگه از قبل فارسیه (شامل کاراکتر فارسی)، دست نزن
+  if (/[\u0600-\u06FF]/.test(trimmed)) return trimmed;
+
+  const lower = trimmed.toLowerCase();
+
+  // جستجو در دیکشنری شهرها
+  if (PERSIAN_CITIES[lower]) return PERSIAN_CITIES[lower];
+
+  // جستجو در دیکشنری استان‌ها
+  if (PERSIAN_REGIONS[lower]) return PERSIAN_REGIONS[lower];
+
+  // حذف پسوندهای رایج و تلاش دوباره
+  const cleaned = lower
+    .replace(/\s+(province|county|city|state|ostan)$/i, "")
+    .trim();
+  if (PERSIAN_CITIES[cleaned]) return PERSIAN_CITIES[cleaned];
+  if (PERSIAN_REGIONS[cleaned]) return PERSIAN_REGIONS[cleaned];
+
+  // اگه پیدا نشد، همون اصلی رو برگردون
+  return trimmed;
+}
+
 function formatRegion(region) {
   if (!region) return "";
   const str = String(region).trim();
@@ -193,7 +374,19 @@ async function getLocationFromIp(ip) {
     return { city: "شبکه محلی", region: "", country: "IR" };
   }
 
-  // ── تلاش ۱: ip-api.com با زبان فارسی ──
+  // ── تلاش ۱: geoip-lite (محلی، برای IPهای ایران دقیق‌تره) ──
+  try {
+    const geo = geoip.lookup(ip);
+    if (geo && (geo.city || geo.region)) {
+      return {
+        city: toPersianLocation(geo.city),
+        region: toPersianLocation(formatRegion(geo.region)),
+        country: geo.country || "",
+      };
+    }
+  } catch (e) {}
+
+  // ── تلاش ۲: ip-api.com با زبان فارسی ──
   try {
     const r = await axios.get(`http://ip-api.com/json/${ip}`, {
       timeout: 5000,
@@ -204,33 +397,21 @@ async function getLocationFromIp(ip) {
     });
     if (r.data?.status === "success" && (r.data.city || r.data.regionName)) {
       return {
-        city: r.data.city || "",
-        region: r.data.regionName || "",
+        city: toPersianLocation(r.data.city),
+        region: toPersianLocation(r.data.regionName),
         country: r.data.countryCode || "IR",
       };
     }
   } catch (e) {}
 
-  // ── تلاش ۲: ipwho.is ──
+  // ── تلاش ۳: ipwho.is ──
   try {
     const r = await axios.get(`https://ipwho.is/${ip}`, { timeout: 5000 });
     if (r.data?.success && (r.data.city || r.data.region)) {
       return {
-        city: r.data.city || "",
-        region: r.data.region || "",
+        city: toPersianLocation(r.data.city),
+        region: toPersianLocation(r.data.region),
         country: r.data.country_code || "IR",
-      };
-    }
-  } catch (e) {}
-
-  // ── تلاش ۳: geoip-lite (محلی) ──
-  try {
-    const geo = geoip.lookup(ip);
-    if (geo && (geo.city || geo.region)) {
-      return {
-        city: geo.city || "",
-        region: formatRegion(geo.region),
-        country: geo.country || "",
       };
     }
   } catch (e) {}
@@ -243,8 +424,8 @@ async function getLocationFromIp(ip) {
     });
     if (r.data && !r.data.error) {
       return {
-        city: r.data.city || "",
-        region: formatRegion(r.data.region),
+        city: toPersianLocation(r.data.city),
+        region: toPersianLocation(formatRegion(r.data.region)),
         country: r.data.country_code || "",
       };
     }
