@@ -517,6 +517,54 @@ app.post("/api/track-visit", async (req, res) => {
 });
 
 // ================================================================
+// API: پرطرفدارترین جستجوها
+// ================================================================
+let popularCache = { data: [], expires: 0 };
+const POPULAR_CACHE_TTL = 10 * 60 * 1000; // 10 دقیقه
+
+app.get("/api/popular-searches", async (req, res) => {
+  if (!db) return res.json({ success: true, items: [] });
+
+  const now = Date.now();
+  if (popularCache.expires > now) {
+    return res.json({ success: true, items: popularCache.data });
+  }
+
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 10, 20);
+
+    // جستجوهای ۳۰ روز اخیر
+    const [rows] = await db.query(
+      `SELECT items FROM search_logs
+       WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)`,
+    );
+
+    const counts = new Map();
+    for (const row of rows) {
+      try {
+        const arr = JSON.parse(row.items || "[]");
+        for (const item of arr) {
+          const key = String(item).trim();
+          if (!key || key.length < 2) continue;
+          counts.set(key, (counts.get(key) || 0) + 1);
+        }
+      } catch {}
+    }
+
+    const sorted = [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([item]) => item);
+
+    popularCache = { data: sorted, expires: now + POPULAR_CACHE_TTL };
+    res.json({ success: true, items: sorted });
+  } catch (e) {
+    console.error("[popular] error:", e.message);
+    res.json({ success: false, items: [] });
+  }
+});
+
+// ================================================================
 // 📊 ADMIN PANEL
 // ================================================================
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
@@ -670,32 +718,11 @@ const QUALITY_LABELS = {
     label: "کاملاً موفق",
     color: "#10b981",
     bg: "rgba(16,185,129,0.15)",
-    icon: "🟩",
   },
-  good: {
-    label: "خوب",
-    color: "#34d399",
-    bg: "rgba(52,211,153,0.12)",
-    icon: "🟢",
-  },
-  low: {
-    label: "کم نتیجه",
-    color: "#f59e0b",
-    bg: "rgba(245,158,11,0.15)",
-    icon: "🟡",
-  },
-  none: {
-    label: "بدون نتیجه",
-    color: "#ef4444",
-    bg: "rgba(239,68,68,0.15)",
-    icon: "🔴",
-  },
-  suspicious: {
-    label: "مشکوک",
-    color: "#f97316",
-    bg: "rgba(249,115,22,0.15)",
-    icon: "🟠",
-  },
+  good: { label: "خوب", color: "#34d399", bg: "rgba(52,211,153,0.12)" },
+  low: { label: "کم نتیجه", color: "#f59e0b", bg: "rgba(245,158,11,0.15)" },
+  none: { label: "بدون نتیجه", color: "#ef4444", bg: "rgba(239,68,68,0.15)" },
+  suspicious: { label: "مشکوک", color: "#f97316", bg: "rgba(249,115,22,0.15)" },
 };
 
 async function renderAdminPage(req) {
@@ -769,7 +796,7 @@ async function renderAdminPage(req) {
         <span class="quality-badge"
               style="color: ${qualityInfo.color}; background: ${qualityInfo.bg};"
               title="${qualityInfo.label}">
-          ${qualityInfo.icon} ${qualityInfo.label}
+          ${qualityInfo.label}
         </span>
       `;
 

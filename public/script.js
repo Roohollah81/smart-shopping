@@ -34,6 +34,7 @@ const productDataMap = new Map();
 let productDataCounter = 0;
 const imageGalleryCache = new Map();
 let prefetchAbort = false;
+let popularItems = []; // پرطرفدارها از سرور
 
 // ----------------------------------------------------------------
 // STORES
@@ -838,6 +839,17 @@ function loadBasket() {
 // ----------------------------------------------------------------
 const RECENT_KEY = "recentSearches";
 const RECENT_LIMIT = 8;
+const HAS_SEARCHED_KEY = "hasSearchedBefore";
+
+function hasSearchedBefore() {
+  return localStorage.getItem(HAS_SEARCHED_KEY) === "1";
+}
+
+function markHasSearched() {
+  if (!localStorage.getItem(HAS_SEARCHED_KEY)) {
+    localStorage.setItem(HAS_SEARCHED_KEY, "1");
+  }
+}
 
 function getRecentSearches() {
   try {
@@ -850,18 +862,65 @@ function getRecentSearches() {
 
 function saveRecentSearch(itemsArr) {
   if (!itemsArr || itemsArr.length === 0) return;
+  markHasSearched(); // ← کاربر یه بار جستجو کرد
+
   const existing = getRecentSearches();
   const combined = [...itemsArr, ...existing];
   const unique = [];
   const seen = new Set();
   for (const it of combined) {
     const key = String(it).trim().toLowerCase();
-    if (key && !seen.has(key) && unique.length < RECENT_LIMIT) {
+    if (!key || seen.has(key)) continue;
+    // آیتم‌هایی که تو سبد هستن، به recent اضافه نشن
+    if (items.some((x) => String(x).trim().toLowerCase() === key)) continue;
+    if (unique.length < RECENT_LIMIT) {
       seen.add(key);
       unique.push(it);
     }
   }
   localStorage.setItem(RECENT_KEY, JSON.stringify(unique));
+  renderSuggestions();
+}
+
+function removeFromRecent(val) {
+  if (!val) return;
+  const key = String(val).trim().toLowerCase();
+  const recent = getRecentSearches().filter(
+    (x) => String(x).trim().toLowerCase() !== key,
+  );
+  localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
+  renderSuggestions();
+}
+
+function addToRecent(val) {
+  if (!val) return;
+  const key = String(val).trim().toLowerCase();
+  if (!key) return;
+  const recent = getRecentSearches();
+  const filtered = recent.filter((x) => String(x).trim().toLowerCase() !== key);
+  const updated = [val, ...filtered].slice(0, RECENT_LIMIT);
+  localStorage.setItem(RECENT_KEY, JSON.stringify(updated));
+  renderSuggestions();
+}
+
+function removeFromRecent(val) {
+  if (!val) return;
+  const key = String(val).trim().toLowerCase();
+  const recent = getRecentSearches().filter(
+    (x) => String(x).trim().toLowerCase() !== key,
+  );
+  localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
+  renderSuggestions();
+}
+
+function addToRecent(val) {
+  if (!val) return;
+  const key = String(val).trim().toLowerCase();
+  if (!key) return;
+  const recent = getRecentSearches();
+  const filtered = recent.filter((x) => String(x).trim().toLowerCase() !== key);
+  const updated = [val, ...filtered].slice(0, RECENT_LIMIT);
+  localStorage.setItem(RECENT_KEY, JSON.stringify(updated));
   renderSuggestions();
 }
 
@@ -882,14 +941,55 @@ function renderSuggestions() {
   if (!container) return;
 
   const recent = getRecentSearches();
-  const suggestions = recent.length >= 3 ? recent : SAMPLE_ITEMS;
-  const title =
-    recent.length >= 3 ? "🕐 اخیراً جستجو کردی:" : "✨ پیشنهاد شروع:";
+
+  // ── اولویت منابع ──
+  // ۱. اخیرها (که تو سبد نباشن)
+  // ۲. پرطرفدارها از سرور
+  // ۳. نمونه‌های ثابت
+  let pool = [];
+  if (recent.length > 0) {
+    pool = [...recent, ...popularItems, ...SAMPLE_ITEMS];
+  } else if (popularItems.length > 0) {
+    pool = [...popularItems, ...SAMPLE_ITEMS];
+  } else {
+    pool = [...SAMPLE_ITEMS];
+  }
+
+  // ── فیلتر: نه تکراری، نه تو سبد ──
+  const basketKeys = new Set(items.map((x) => String(x).trim().toLowerCase()));
+  const seen = new Set();
+  const filtered = [];
+  for (const item of pool) {
+    const key = String(item).trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    if (basketKeys.has(key)) continue; // ← تو سبد هست، نشون نده
+    seen.add(key);
+    filtered.push(item);
+    if (filtered.length >= 6) break;
+  }
+
+  // ── اگه چیزی نمونده، مخفی کن ──
+  if (filtered.length === 0) {
+    container.innerHTML = "";
+    return;
+  }
+
+  // ── عنوان ──
+  let title;
+  if (recent.length > 0) {
+    title = "🕐 اخیراً جستجو کردی:";
+  } else if (hasSearchedBefore()) {
+    title = "🔍 پیشنهاد بر اساس جستجوهای شما:";
+  } else if (popularItems.length > 0) {
+    title = "🔥 پرطرفدارترین جستجوها:";
+  } else {
+    title = "✨ پیشنهاد شروع:";
+  }
 
   container.innerHTML = `
     <div class="suggestions-title">${title}</div>
     <div class="suggestions-list">
-      ${suggestions
+      ${filtered
         .map(
           (s) => `
         <button class="suggestion-chip" type="button" data-value="${escapeHtml(s)}">
@@ -1023,6 +1123,17 @@ async function fetchDollarRate() {
   }
 }
 
+async function loadPopularItems() {
+  try {
+    const r = await fetch("/api/popular-searches?limit=10");
+    const data = await r.json();
+    if (data.success && Array.isArray(data.items) && data.items.length > 0) {
+      popularItems = data.items;
+      renderSuggestions();
+    }
+  } catch {}
+}
+
 // ----------------------------------------------------------------
 // STICKY HEADER
 // ----------------------------------------------------------------
@@ -1127,6 +1238,7 @@ function addItem() {
     return;
   }
   items.push(value);
+  removeFromRecent(value);
   itemInput.value = "";
   itemInput.focus();
   renderItems();
@@ -1135,7 +1247,9 @@ function addItem() {
 
 function removeItem(i) {
   if (itemsList.classList.contains("locked")) return;
+  const removedItem = items[i];
   items.splice(i, 1);
+  addToRecent(removedItem);
   renderItems();
   saveBasket();
 }
@@ -1156,6 +1270,27 @@ function renderItems() {
 }
 
 function clearAll() {
+  if (itemsList.classList.contains("locked")) return;
+
+  // قبل از خالی کردن، آیتم‌ها رو به recent برگردون
+  const itemsToRestore = [...items];
+  items = [];
+
+  itemsToRestore.reverse().forEach((it) => {
+    const key = String(it).trim().toLowerCase();
+    const recent = getRecentSearches().filter(
+      (x) => String(x).trim().toLowerCase() !== key,
+    );
+    recent.unshift(it);
+    localStorage.setItem(
+      RECENT_KEY,
+      JSON.stringify(recent.slice(0, RECENT_LIMIT)),
+    );
+  });
+
+  renderItems();
+  saveBasket();
+
   if (itemsList.classList.contains("locked")) return;
   items = [];
   renderItems();
@@ -2959,11 +3094,13 @@ document.addEventListener("click", (e) => {
   const val = chip.dataset.value;
   if (!val) return;
   if (itemsList.classList.contains("locked")) return;
+
   if (items.includes(val)) {
     itemInput.value = val;
   } else {
     if (items.length >= 10) return;
     items.push(val);
+    removeFromRecent(val);
     renderItems();
     saveBasket();
   }
@@ -2984,6 +3121,7 @@ setInterval(updateDateTime, 1000);
 setInterval(fetchDollarRate, 600000);
 initStickyHeader();
 trackVisit();
+loadPopularItems();
 
 // Global exposure for inline onclick in item chips
 window.removeItem = removeItem;
