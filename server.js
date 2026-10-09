@@ -257,29 +257,22 @@ async function getLocationFromIp(ip) {
 // ================================================================
 function calculateQuality({
   totalResults,
-  acceptedCount,
   storesWithResults,
   storesWithoutResults,
 }) {
   const storesCount = storesWithResults.length;
+  const totalStores = storesCount + storesWithoutResults.length;
 
   if (totalResults === 0 || storesCount === 0) {
     return "none";
   }
 
-  if (storesCount === 1 && totalResults <= 3) {
-    return "low";
-  }
+  const coverage = totalStores > 0 ? storesCount / totalStores : 0;
 
-  if (storesCount <= 2) {
-    return "good";
-  }
-
-  if (storesCount >= 3 && totalResults >= 5) {
-    return "excellent";
-  }
-
-  return "good";
+  if (coverage >= 0.6 && totalResults >= 5) return "excellent";
+  if (coverage >= 0.4 && totalResults >= 3) return "good";
+  if (coverage >= 0.2) return "low";
+  return "none";
 }
 
 // ================================================================
