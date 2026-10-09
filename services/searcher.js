@@ -7,9 +7,11 @@ const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
 // ================================================================
 // LOGGER — timestamp + clean output
 // ================================================================
-function log(icon, message) {
+function log(level, scope, message) {
   const time = new Date().toTimeString().slice(0, 8);
-  console.log(`[${time}] ${icon.padEnd(4)} ${message}`);
+  const tag = `[${String(level).padEnd(5)}]`;
+  const sc = scope ? `[${String(scope).padEnd(12)}] ` : "";
+  console.log(`[${time}] ${tag} ${sc}${message}`);
 }
 
 const STOPWORDS = new Set([
@@ -51,6 +53,21 @@ const STOPWORDS = new Set([
   "عالی",
   "درجه",
 ]);
+
+// ─── نگاشت نام فروشگاه برای لاگ ───
+const STORE_EN_NAME = {
+  دیجی‌کالا: "Digikala",
+  ترب: "Torob",
+  قلم‌تراش: "Ghalamtarash",
+  "آرمان آرت": "ArmanArt",
+  عالم‌زاده: "Alemzadeh",
+  "مهستان آرت": "MahestanArt",
+  "مجد مارکت": "MadjMarket",
+};
+
+function enName(name) {
+  return STORE_EN_NAME[name] || name;
+}
 
 const ALWAYS_NEGATIVE = new Set([
   "یدک",
@@ -699,7 +716,7 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
     });
 
     if (response.status !== 200 || !response.data) {
-      log("WARN", `${name}: HTTP ${response.status}`);
+      log("WARN", `${enName(name)}: HTTP ${response.status}`);
       return [];
     }
 
@@ -716,7 +733,7 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
         const nextData = JSON.parse(nextDataMatch[1]);
         const nextProducts = extractFromNextData(nextData, name, domain);
         if (nextProducts.length > 0) {
-          log("OK", `${name}: ${nextProducts.length} (NEXT_DATA)`);
+          log("OK", `${enName(name)}: ${nextProducts.length} (NEXT_DATA)`);
           return nextProducts.slice(0, limit);
         }
       } catch (e) {}
@@ -778,13 +795,13 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
       });
 
     if (products.length === 0) {
-      log("WARN", `${name}: 0 products`);
+      log("WARN", `${enName(name)}: 0 products`);
     } else {
-      log("OK", `${name}: ${products.length} products`);
+      log("OK", `${enName(name)}: ${products.length} products`);
     }
     return products;
   } catch (error) {
-    log("ERR", `${name}: ${error.message}`);
+    log("ERR", `${enName(name)}: ${error.message}`);
     return [];
   }
 }
