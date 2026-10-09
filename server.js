@@ -1003,35 +1003,116 @@ async function renderAdminPage(req) {
         }
         .container { max-width: 1200px; margin: 0 auto; }
         .header {
-          display: flex; align-items: center; justify-content: space-between;
-          margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: nowrap;
+          gap: 0.75rem;
+
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          padding: 0.75rem 1rem;
+          margin: -1.5rem -1rem 1.5rem;
+          background: color-mix(in srgb, var(--bg) 88%, transparent);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border-bottom: 1px solid transparent;
+          transition: box-shadow 0.25s ease, border-color 0.25s ease;
         }
-        .logo { display: inline-flex; align-items: center; gap: 0.75rem; }
+
+        .header.stuck {
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+          border-bottom-color: var(--border);
+        }
+
+        :root[data-theme="dark"] .header {
+          background: color-mix(in srgb, var(--bg) 85%, transparent);
+        }
+        :root[data-theme="dark"] .header.stuck {
+          box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        /* موبایل — عرض کمتر */
+        @media (max-width: 700px) {
+          .header {
+            padding: 0.6rem 0.75rem;
+            margin-inline: -0.75rem;
+            padding-inline: 0.75rem;
+          }
+        }
+        .logo {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.75rem;
+          min-width: 0;
+          flex-shrink: 1;
+        }
         .logo-icon {
-          width: 2.75rem; height: 2.75rem; border-radius: 0.75rem;
+          width: 2.75rem;
+          height: 2.75rem;
+          border-radius: 0.75rem;
           background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-          display: flex; align-items: center; justify-content: center;
-          font-size: 1.25rem; box-shadow: 0 6px 18px rgba(99, 102, 241, 0.35);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.25rem;
+          flex-shrink: 0;
+          box-shadow: 0 6px 18px rgba(99, 102, 241, 0.35);
         }
-        .logo-text { display: flex; flex-direction: column; }
+        .logo-text {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+        }
         h1 {
           font-family: "Inter", "Vazirmatn", sans-serif;
-          font-size: 1.3rem; font-weight: 800; color: var(--text);
-          line-height: 1.2; letter-spacing: -0.5px;
+          font-size: 1.3rem;
+          font-weight: 800;
+          color: var(--text);
+          line-height: 1.2;
+          letter-spacing: -0.5px;
+          white-space: nowrap;
         }
-        .subtitle { font-size: 0.72rem; color: var(--text-muted); font-weight: 500; }
-        .header-actions { display: flex; gap: 0.5rem; }
+        .subtitle {
+          font-size: 0.72rem;
+          color: var(--text-muted);
+          font-weight: 500;
+          line-height: 1.3;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .header-actions {
+          display: flex;
+          gap: 0.5rem;
+          flex-shrink: 0;
+        }
         .btn {
-          display: inline-flex; align-items: center; justify-content: center;
-          gap: 0.4rem; padding: 0.6rem 1rem; border-radius: 0.65rem;
-          font-family: inherit; font-size: 0.85rem; font-weight: 700;
-          cursor: pointer; transition: all 0.2s ease;
-          border: 1.5px solid; text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.4rem;
+          padding: 0.6rem 1rem;
+          border-radius: 0.65rem;
+          font-family: inherit;
+          font-size: 0.85rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          border: 1.5px solid;
+          text-decoration: none;
+          white-space: nowrap;
         }
         .btn-theme {
-          background: var(--surface); border-color: var(--border);
-          color: var(--text); font-size: 1.05rem;
-          width: 2.5rem; height: 2.5rem; padding: 0;
+          background: var(--surface);
+          border-color: var(--border);
+          color: var(--text);
+          font-size: 1.05rem;
+          width: 2.5rem;
+          height: 2.5rem;
+          padding: 0;
+          flex-shrink: 0;
         }
         .btn-theme:hover { border-color: var(--primary); transform: rotate(20deg) scale(1.08); }
         .btn-logout {
@@ -1184,14 +1265,37 @@ async function renderAdminPage(req) {
           overflow-wrap: anywhere;
           word-break: break-word;
         }
+        .visits-row {
+          display: flex;
+          gap: 1rem;
+          align-items: center;
+          justify-content: space-around;
+        }
+        .visit-block {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.25rem;
+          padding: 0.5rem;
+          background: var(--bg);
+          border-radius: 0.6rem;
+        }
         .visit-number {
-          font-size: 2.25rem;
+          font-size: 1.5rem;
           font-weight: 900;
           color: var(--primary);
           line-height: 1;
-          margin-bottom: 0.5rem;
+          font-variant-numeric: tabular-nums;
         }
-        .visit-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
+        .visit-number-today {
+          color: var(--success);
+        }
+        .visit-label {
+          font-size: 0.68rem;
+          color: var(--text-muted);
+          font-weight: 700;
+        }
         .stat-list {
           list-style: none; padding: 0; margin: 0;
           display: flex; flex-direction: column; gap: 0.5rem;
@@ -1311,13 +1415,19 @@ async function renderAdminPage(req) {
         }
         @media (max-width: 700px) {
           body { padding: 1rem 0.75rem; }
-          .header { flex-direction: column; align-items: stretch; }
-          .logo { justify-content: center; }
-          .header-actions { justify-content: center; }
+          .stats { grid-template-columns: 1fr; }
           th, td { padding: 0.6rem 0.7rem; font-size: 0.75rem; }
           .search-form { flex-direction: column; }
           .search-form button { width: 100%; }
           table { min-width: 700px; }
+
+          .header {
+            gap: 0.5rem;
+            padding: 0.65rem 0.75rem;
+            margin: -1rem -0.75rem 1rem;
+          }
+          /* فقط subtitle موبایل مخفی می‌شه، بقیه سایز اصلی */
+          .subtitle { display: none; }
         }
       </style>
     </head>
@@ -1359,8 +1469,16 @@ async function renderAdminPage(req) {
           </div>
           <div class="stat-card visits">
             <h3>👁️ بازدید صفحات</h3>
-            <div class="visit-number">${visitStats.total}</div>
-            <div class="visit-label">امروز: <strong>${visitStats.today}</strong> بازدید</div>
+            <div class="visits-row">
+              <div class="visit-block">
+                <div class="visit-number">${visitStats.total}</div>
+                <div class="visit-label">کل</div>
+              </div>
+              <div class="visit-block">
+                <div class="visit-number visit-number-today">${visitStats.today}</div>
+                <div class="visit-label">امروز</div>
+              </div>
+            </div>
           </div>
         </div>
         
@@ -1406,6 +1524,24 @@ async function renderAdminPage(req) {
             const c = document.documentElement.getAttribute('data-theme') || 'light';
             applyTheme(c === 'dark' ? 'light' : 'dark');
           });
+
+          // ─── نوار چسبان ───
+          const header = document.querySelector('.header');
+          if (header) {
+            let ticking = false;
+            const updateStuck = () => {
+              const rect = header.getBoundingClientRect();
+              header.classList.toggle('stuck', rect.top <= 0 && window.scrollY > 10);
+              ticking = false;
+            };
+            window.addEventListener('scroll', () => {
+              if (!ticking) {
+                window.requestAnimationFrame(updateStuck);
+                ticking = true;
+              }
+            }, { passive: true });
+            updateStuck();
+          }
         })();
       </script>
     </body>
