@@ -3171,7 +3171,7 @@ function formatChangelogDate(iso) {
   }
 }
 
-function showChangelogModal(version) {
+function showChangelogModal(versions) {
   const modal = document.getElementById("changelog-modal");
   const dateEl = document.getElementById("changelog-modal-date");
   const taglineEl = document.getElementById("changelog-modal-tagline");
@@ -3179,22 +3179,56 @@ function showChangelogModal(version) {
 
   if (!modal || !bodyEl) return;
 
+  // نرمال‌سازی: هم آرایه قبول کن هم تک آبجکت
+  const list = Array.isArray(versions) ? versions : [versions];
+  if (list.length === 0) return;
+
+  const latest = list[0];
+
   if (dateEl) {
-    dateEl.textContent = `نسخه ${version.version} · ${formatChangelogDate(version.date)}`;
-  }
-  if (taglineEl) {
-    taglineEl.textContent = version.title || "";
+    if (list.length === 1) {
+      dateEl.textContent = `نسخه ${latest.version} · ${formatChangelogDate(latest.date)}`;
+    } else {
+      dateEl.textContent = `${list.length} نسخه‌ی جدید از ${latest.version} تا ${list[list.length - 1].version}`;
+    }
   }
 
-  bodyEl.innerHTML = (version.userChanges || [])
-    .map(
-      (change) => `
-      <div class="changelog-change-item">
-        <span class="changelog-change-icon">✅</span>
-        <span>${escapeHtml(change)}</span>
-      </div>
-    `,
-    )
+  if (taglineEl) {
+    if (list.length === 1) {
+      taglineEl.textContent = latest.title || "";
+    } else {
+      taglineEl.textContent = `${list.length} به‌روزرسانی جدید در انتظارته`;
+    }
+  }
+
+  bodyEl.innerHTML = list
+    .map((version, idx) => {
+      const versionHeader =
+        list.length > 1
+          ? `<div class="changelog-version-header">
+               <span class="changelog-version-tag">نسخه ${version.version}</span>
+               <span class="changelog-version-title">${escapeHtml(version.title || "")}</span>
+             </div>`
+          : "";
+
+      const changes = (version.userChanges || [])
+        .map(
+          (change) => `
+          <div class="changelog-change-item">
+            <span class="changelog-change-icon">✅</span>
+            <span>${escapeHtml(change)}</span>
+          </div>
+        `,
+        )
+        .join("");
+
+      return `
+        <div class="changelog-version-block ${idx > 0 ? "changelog-version-block-sep" : ""}">
+          ${versionHeader}
+          ${changes}
+        </div>
+      `;
+    })
     .join("");
 
   modal.classList.remove("hidden");
@@ -3266,12 +3300,18 @@ function closeChangelogModal() {
   if (iconEl) iconEl.textContent = "✨";
 
   const dateEl = document.getElementById("changelog-modal-date");
-  if (dateEl) dateEl.style.display = "";
+  if (dateEl) {
+    dateEl.style.display = "";
+    dateEl.textContent = "";
+  }
 
   const titleEl = modal.querySelector(
     ".changelog-modal-title > div > div:first-child",
   );
   if (titleEl) titleEl.textContent = "به‌روزرسانی جدید";
+
+  const taglineEl = document.getElementById("changelog-modal-tagline");
+  if (taglineEl) taglineEl.textContent = "";
 
   const okBtn = document.getElementById("changelog-modal-ok");
   if (okBtn) okBtn.textContent = "باشه، فهمیدم 👍";
@@ -3297,17 +3337,31 @@ async function checkChangelog() {
       return;
     }
 
-    // ─── کاربر قدیمی → اگه نسخه جدید اومده، release notes ───
+    // ─── کاربر قدیمی → همه‌ی نسخه‌های دیده‌نشده ───
     if (!Array.isArray(data.versions)) return;
     if (seen === data.latestVersion) return;
 
-    const latest = data.versions.find((v) => v.version === data.latestVersion);
-    if (!latest) return;
+    // نسخه‌های دیده‌نشده رو پیدا کن
+    const unseenVersions = [];
+    for (const v of data.versions) {
+      if (v.version === seen) break; // رسیدیم به آخرین نسخه‌ی دیده‌شده
+      unseenVersions.push(v);
+    }
 
-    showChangelogModal(latest);
+    if (unseenVersions.length === 0) {
+      // فقط آخرین رو نشون بده (احتمالاً نسخه‌ی seen قدیمیه)
+      const latest = data.versions.find(
+        (v) => v.version === data.latestVersion,
+      );
+      if (latest) showChangelogModal([latest]);
+    } else {
+      // همه‌ی دیده‌نشده‌ها رو نشون بده (جدیدترین اول)
+      showChangelogModal(unseenVersions);
+    }
+
     localStorage.setItem(CHANGELOG_SEEN_KEY, data.latestVersion);
   } catch (e) {
-    // silent
+    console.error("[changelog] ERROR:", e);
   }
 }
 

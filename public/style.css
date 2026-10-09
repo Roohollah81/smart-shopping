@@ -5423,3 +5423,57 @@ a img,
     font-size: 0.72rem;
   }
 }
+/* ================================================================
+   CHANGELOG — بلوک‌بندی چند نسخه
+   ================================================================ */
+.changelog-version-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.changelog-version-block-sep {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 2px dashed var(--border);
+}
+
+.changelog-version-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.5rem 0.75rem;
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.1),
+    rgba(139, 92, 246, 0.06)
+  );
+  border-right: 3px solid var(--primary);
+  border-radius: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+
+.changelog-version-tag {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--primary);
+  letter-spacing: 0.3px;
+}
+
+.changelog-version-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+:root[data-theme="dark"] .changelog-version-header {
+  background: linear-gradient(
+    135deg,
+    rgba(129, 140, 248, 0.12),
+    rgba(139, 92, 246, 0.08)
+  );
+}
+:root[data-theme="dark"] .changelog-version-tag {
+  color: var(--primary-light);
+}
