@@ -846,7 +846,24 @@ async function renderAdminPage(req) {
         .map((i) => `<span class="item-tag">${escapeHtml(i)}</span>`)
         .join("");
 
-      const timeStr = new Date(log.timestamp).toLocaleString("fa-IR");
+      const timeStr = (() => {
+        try {
+          const d = new Date(log.timestamp);
+          const parts = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+            weekday: "short",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          }).formatToParts(d);
+          const get = (t) => parts.find((p) => p.type === t)?.value || "";
+          return `${get("weekday")} ${get("year")}/${get("month")}/${get("day")} · ${get("hour")}:${get("minute")}`;
+        } catch {
+          return new Date(log.timestamp).toLocaleString("fa-IR");
+        }
+      })();
       const locationStr = log.city
         ? `<span class="location">📍 ${escapeHtml(log.city)}${log.region ? "، " + escapeHtml(log.region) : ""}</span>`
         : '<span class="location empty-loc">نامشخص</span>';
@@ -1154,12 +1171,18 @@ async function renderAdminPage(req) {
           gap: 0.25rem;
         }
         .changelog-all-list li {
-          font-size: 0.7rem;
+          font-size: 0.85rem;
           color: var(--text-muted);
-          padding: 0.25rem 0.5rem;
+          padding: 0.5rem 0.75rem;
           background: var(--surface);
           border-radius: 0.35rem;
           font-family: 'Courier New', monospace;
+          direction: ltr;
+          text-align: left;
+          unicode-bidi: embed;
+          line-height: 1.6;
+          overflow-wrap: anywhere;
+          word-break: break-word;
         }
         .visit-number {
           font-size: 2.25rem;
@@ -1235,8 +1258,12 @@ async function renderAdminPage(req) {
         tbody tr { transition: background 0.2s; }
         tbody tr:hover { background: var(--bg); }
         .time {
-          white-space: nowrap; color: var(--text-muted);
-          font-size: 0.78rem; font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+          color: var(--text);
+          font-size: 0.83rem;
+          font-weight: 600;
+          letter-spacing: -0.2px;
+          line-height: 1.5;
         }
         .location {
           display: inline-flex; align-items: center; gap: 0.25rem;

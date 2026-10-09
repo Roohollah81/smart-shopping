@@ -5182,6 +5182,8 @@ a img,
   font-size: 0.75rem;
   color: var(--text-muted);
   font-weight: 600;
+  direction: rtl;
+  unicode-bidi: plaintext;
 }
 
 .changelog-modal-close {

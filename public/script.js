@@ -1160,7 +1160,7 @@ function updateDateTime() {
       day: "numeric",
     }).formatToParts(now);
     const get = (t) => parts.find((p) => p.type === t)?.value || "";
-    dateStr = `${get("weekday")} ${get("day")} ${get("month")} ${get("year")}`;
+    dateStr = `${get("year")} ${get("month")} ${get("day")} ${get("weekday")}`;
     timeStr = new Intl.DateTimeFormat("fa-IR", {
       hour: "2-digit",
       minute: "2-digit",
@@ -3092,24 +3092,29 @@ const VISIT_SESSION_KEY = "visit_session";
 const VISIT_SESSION_TTL = 30 * 60 * 1000; // 30 minutes
 
 function getOrCreateSession() {
+  const now = Date.now();
   try {
     const stored = JSON.parse(
       localStorage.getItem(VISIT_SESSION_KEY) || "null",
     );
-    if (stored && Date.now() - stored.lastActivity < VISIT_SESSION_TTL) {
-      stored.lastActivity = Date.now();
-      localStorage.setItem(VISIT_SESSION_KEY, JSON.stringify(stored));
-      return { sessionId: stored.sessionId, isNew: false };
+    if (stored && stored.startedAt) {
+      const sessionAge = now - stored.startedAt;
+      // اگه session از نیمه‌شب گذشته یا از ۳۰ دقیقه بیشتر عمر کرده → منقضی
+      const crossedMidnight =
+        new Date(stored.startedAt).toDateString() !==
+        new Date(now).toDateString();
+      if (sessionAge < VISIT_SESSION_TTL && !crossedMidnight) {
+        return { sessionId: stored.sessionId, isNew: false };
+      }
     }
   } catch {}
 
   const sessionId =
     (crypto.randomUUID && crypto.randomUUID()) ||
-    `s_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-
+    `s_${now}_${Math.random().toString(36).slice(2)}`;
   localStorage.setItem(
     VISIT_SESSION_KEY,
-    JSON.stringify({ sessionId, lastActivity: Date.now() }),
+    JSON.stringify({ sessionId, startedAt: now }),
   );
   return { sessionId, isNew: true };
 }
@@ -3139,7 +3144,8 @@ const HAS_VISITED_KEY = "hasVisitedBefore";
 function formatChangelogDate(iso) {
   try {
     const d = new Date(iso);
-    return new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+
+    const parts = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
       weekday: "long",
       year: "numeric",
       month: "long",
@@ -3147,7 +3153,19 @@ function formatChangelogDate(iso) {
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
-    }).format(d);
+    }).formatToParts(d);
+
+    const get = (t) => parts.find((p) => p.type === t)?.value || "";
+
+    const weekday = get("weekday");
+    const day = get("day");
+    const month = get("month");
+    const year = get("year");
+    const hour = get("hour");
+    const minute = get("minute");
+
+    const NBSP = "\u00A0";
+    return `${weekday}${NBSP}${day}${NBSP}${month}${NBSP}${year}${NBSP},${NBSP}ساعت${NBSP}${hour}:${minute}`;
   } catch {
     return "";
   }
