@@ -467,13 +467,28 @@ app.post("/api/track-visit", async (req, res) => {
   if (!db) return res.json({ success: true });
 
   try {
-    const { referrer = "", screen = "", language = "" } = req.body || {};
+    const {
+      referrer = "",
+      screen = "",
+      language = "",
+      sessionId = "",
+    } = req.body || {};
 
     const rawIp =
       (req.headers["x-forwarded-for"] || "").split(",")[0].trim() ||
       req.socket.remoteAddress ||
       "";
     const cleanIp = rawIp.replace(/^::ffff:/, "").replace(/^::1$/, "127.0.0.1");
+
+    // dedup: skip if same IP visited in last 30 min
+    const [recent] = await db.query(
+      `SELECT COUNT(*) AS c FROM page_visits
+       WHERE ip = ? AND timestamp >= DATE_SUB(NOW(), INTERVAL 30 MINUTE)`,
+      [cleanIp],
+    );
+    if (recent[0].c > 0) {
+      return res.json({ success: true, skipped: true });
+    }
 
     const location = await getLocationFromIp(cleanIp);
 

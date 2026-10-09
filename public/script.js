@@ -2872,6 +2872,51 @@ window.addEventListener("popstate", () => {
   }
 });
 
+// ================================================================
+// 📊 VISIT TRACKING — Session-based (30 min TTL)
+// ================================================================
+const VISIT_SESSION_KEY = "visit_session";
+const VISIT_SESSION_TTL = 30 * 60 * 1000; // 30 minutes
+
+function getOrCreateSession() {
+  try {
+    const stored = JSON.parse(
+      localStorage.getItem(VISIT_SESSION_KEY) || "null",
+    );
+    if (stored && Date.now() - stored.lastActivity < VISIT_SESSION_TTL) {
+      stored.lastActivity = Date.now();
+      localStorage.setItem(VISIT_SESSION_KEY, JSON.stringify(stored));
+      return { sessionId: stored.sessionId, isNew: false };
+    }
+  } catch {}
+
+  const sessionId =
+    (crypto.randomUUID && crypto.randomUUID()) ||
+    `s_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+  localStorage.setItem(
+    VISIT_SESSION_KEY,
+    JSON.stringify({ sessionId, lastActivity: Date.now() }),
+  );
+  return { sessionId, isNew: true };
+}
+
+function trackVisit() {
+  const { sessionId, isNew } = getOrCreateSession();
+  if (!isNew) return; // same session → skip
+
+  fetch("/api/track-visit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sessionId,
+      referrer: document.referrer || "",
+      screen: `${window.screen.width}x${window.screen.height}`,
+      language: navigator.language || "",
+    }),
+  }).catch(() => {});
+}
+
 // ----------------------------------------------------------------
 // INIT
 // ----------------------------------------------------------------
@@ -2938,6 +2983,7 @@ fetchDollarRate();
 setInterval(updateDateTime, 1000);
 setInterval(fetchDollarRate, 600000);
 initStickyHeader();
+trackVisit();
 
 // Global exposure for inline onclick in item chips
 window.removeItem = removeItem;
