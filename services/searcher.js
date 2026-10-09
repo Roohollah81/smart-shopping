@@ -7,11 +7,28 @@ const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
 // ================================================================
 // LOGGER — timestamp + clean output
 // ================================================================
-function log(level, scope, message) {
+function log(level, scopeOrMsg, message) {
   const time = new Date().toTimeString().slice(0, 8);
   const tag = `[${String(level).padEnd(5)}]`;
-  const sc = scope ? `[${String(scope).padEnd(12)}] ` : "";
-  console.log(`[${time}] ${tag} ${sc}${message}`);
+
+  let scope = "";
+  let msg = "";
+  if (message === undefined) {
+    msg = scopeOrMsg || "";
+  } else {
+    scope = scopeOrMsg || "";
+    msg = message;
+  }
+
+  const sc = scope ? `[${String(scope).padEnd(10)}] ` : "";
+
+  // خط خالی قبل از شروع سرچ جدید
+  if (level === "QRY" && log._started) {
+    console.log("");
+  }
+  log._started = true;
+
+  console.log(`[${time}] ${tag} ${sc}${msg}`);
 }
 
 const STOPWORDS = new Set([
