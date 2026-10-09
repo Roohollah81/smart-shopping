@@ -69,10 +69,10 @@ async function initDatabase() {
           await db.query(
             `ALTER TABLE search_logs ADD COLUMN ${col.name} ${col.type}`,
           );
-          console.log(`✅ ستون ${col.name} اضافه شد`);
+          console.log(`[db] column added: ${col.name}`);
         }
       } catch (e) {
-        console.error(`⚠️ خطا در اضافه کردن ستون ${col.name}:`, e.message);
+        console.error(`[db] column error (${col.name}):`, e.message);
       }
     }
 
@@ -94,14 +94,9 @@ async function initDatabase() {
       ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
     `);
 
-    console.log("📂 دیتابیس MySQL آماده است");
+    console.log("[db] ready");
   } catch (e) {
-    console.error("⚠️ خطا در راه‌اندازی دیتابیس:");
-    console.error("→ message:", e.message);
-    console.error("→ code:", e.code);
-    console.error("→ errno:", e.errno);
-    console.error("→ sqlState:", e.sqlState);
-    console.error("→ stack:", e.stack);
+    console.error("[db] init failed:", e.message, "| code:", e.code);
     db = null;
   }
 }
@@ -132,7 +127,7 @@ async function sendTelegramNotification(logEntry) {
       { timeout: 5000 },
     );
   } catch (e) {
-    console.error("[telegram] خطا:", e.message);
+    console.error("[telegram] error:", e.message);
   }
 }
 
@@ -351,7 +346,7 @@ async function logSearch(data) {
 
     sendTelegramNotification(logEntry).catch(() => {});
   } catch (e) {
-    console.error("[log] خطا در ثبت:", e.message);
+    console.error("[log] failed:", e.message);
   }
 }
 
@@ -421,7 +416,7 @@ app.post("/api/compare", async (req, res) => {
     result.searchStats = searchStats;
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error("خطا در مقایسه سبد:", error);
+    console.error("[compare] error:", error.message);
     res.status(500).json({ success: false, error: "خطایی در سرور رخ داد." });
   }
 });
@@ -501,7 +496,7 @@ app.post("/api/track-visit", async (req, res) => {
 
     res.json({ success: true });
   } catch (e) {
-    console.error("[track-visit] خطا:", e.message);
+    console.error("[track-visit] error:", e.message);
     res.json({ success: false });
   }
 });
@@ -1163,7 +1158,7 @@ app.get("/admin", async (req, res) => {
       const html = await renderAdminPage(req);
       return res.send(html);
     } catch (e) {
-      console.error("admin render error:", e);
+      console.error("[admin] render error:", e.message);
       return res.status(500).send("<h1>Error loading admin page</h1>");
     }
   }
@@ -1211,7 +1206,7 @@ app.get("/api/dollar", async (req, res) => {
 
     res.json({ success: true, price });
   } catch (e) {
-    console.error("[dollar] خطا:", e.message);
+    console.error("[dollar] error:", e.message);
     res.status(502).json({ success: false, error: e.message });
   }
 });
@@ -1621,7 +1616,7 @@ app.get("/api/product-images", async (req, res) => {
     );
     res.json({ success: true, images });
   } catch (e) {
-    console.error(`[gallery] ${store} → error:`, e.message);
+    console.error(`[gallery] ${store} error:`, e.message);
     res.json({ success: true, images: [] });
   }
 });
@@ -1663,7 +1658,7 @@ app.post("/api/product-images-batch", async (req, res) => {
 // ================================================================
 initDatabase().then(() => {
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 سرور روی پورت ${PORT} در حال اجراست`);
-    console.log(`📊 پنل ادمین: /admin`);
+    console.log(`[server] listening on port ${PORT}`);
+    console.log(`[server] admin panel: /admin`);
   });
 });

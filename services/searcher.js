@@ -8,13 +8,8 @@ const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
 // LOGGER — timestamp + clean output
 // ================================================================
 function log(icon, message) {
-  const now = new Date();
-  const time = now.toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-  console.log(`[${time}] ${icon} ${message}`);
+  const time = new Date().toTimeString().slice(0, 8);
+  console.log(`[${time}] ${icon.padEnd(4)} ${message}`);
 }
 
 const STOPWORDS = new Set([
@@ -704,7 +699,7 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
     });
 
     if (response.status !== 200 || !response.data) {
-      log("WARN", `[${name}] HTTP ${response.status}`);
+      log("WARN", `${name}: HTTP ${response.status}`);
       return [];
     }
 
@@ -721,7 +716,7 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
         const nextData = JSON.parse(nextDataMatch[1]);
         const nextProducts = extractFromNextData(nextData, name, domain);
         if (nextProducts.length > 0) {
-          log("OK", `[${name}] ${nextProducts.length} products (NEXT_DATA)`);
+          log("OK", `${name}: ${nextProducts.length} (NEXT_DATA)`);
           return nextProducts.slice(0, limit);
         }
       } catch (e) {}
@@ -783,13 +778,13 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
       });
 
     if (products.length === 0) {
-      log("WARN", `[${name}] 0 products found`);
+      log("WARN", `${name}: 0 products`);
     } else {
-      log("OK", `[${name}] ${products.length} products`);
+      log("OK", `${name}: ${products.length} products`);
     }
     return products;
   } catch (error) {
-    log("ERR", `[${name}] ${error.message}`);
+    log("ERR", `${name}: ${error.message}`);
     return [];
   }
 }
@@ -869,7 +864,7 @@ async function searchDigikala(query, limit = 20) {
     });
     const products = response.data?.data?.products || [];
 
-    log("OK", `[دیجی‌کالا] ${products.length} products`);
+    log("OK", `Digikala: ${products.length} products`);
 
     return products.slice(0, limit).map((p) => {
       const imgs = extractDigikalaImages(p);
@@ -891,7 +886,7 @@ async function searchDigikala(query, limit = 20) {
       };
     });
   } catch (error) {
-    log("ERR", `[دیجی‌کالا] ${error.message}`);
+    log("ERR", `Digikala: ${error.message}`);
     return [];
   }
 }
@@ -922,7 +917,7 @@ async function searchTorob(query, limit = 20) {
       },
     );
     const products = response.data?.results || [];
-    log("OK", `[ترب] ${products.length} products`);
+    log("OK", `Torob: ${products.length} products`);
     return products.slice(0, limit).map((p) => {
       const imgs = [];
       if (Array.isArray(p.images)) imgs.push(...p.images);
@@ -944,7 +939,7 @@ async function searchTorob(query, limit = 20) {
       };
     });
   } catch (error) {
-    log("ERR", `[ترب] ${error.message}`);
+    log("ERR", `Torob: ${error.message}`);
     return [];
   }
 }
@@ -964,7 +959,7 @@ async function searchMadjMarket(query, limit = 20) {
     });
 
     if (r.status !== 200 || typeof r.data !== "string") {
-      log("WARN", `[مجد مارکت] HTTP ${r.status}`);
+      log("WARN", `MadjMarket: HTTP ${r.status}`);
       return [];
     }
 
@@ -1008,7 +1003,7 @@ async function searchMadjMarket(query, limit = 20) {
     }
 
     if (products.length > 0) {
-      log("OK", `[مجد مارکت] ${products.length} products (NEXT_DATA)`);
+      log("OK", `MadjMarket: ${products.length} (NEXT_DATA)`);
       return products.slice(0, limit);
     }
 
@@ -1052,10 +1047,10 @@ async function searchMadjMarket(query, limit = 20) {
       });
     });
 
-    log("OK", `[مجد مارکت] ${products.length} products (cheerio)`);
+    log("OK", `MadjMarket: ${products.length} (cheerio)`);
     return products.slice(0, limit);
   } catch (error) {
-    log("ERR", `[مجد مارکت] ${error.message.split("\n")[0]}`);
+    log("ERR", `MadjMarket: ${error.message.split("\n")[0]}`);
     return [];
   }
 }
@@ -1072,10 +1067,7 @@ async function compareBasket(shoppingList) {
 
   for (const query of shoppingList) {
     queryIndex++;
-    console.log("");
-    console.log("━".repeat(60));
-    log("SEARCH", `(${queryIndex}/${shoppingList.length}) Query: "${query}"`);
-    console.log("━".repeat(60));
+    log("QRY", `(${queryIndex}/${shoppingList.length}) "${query}"`);
 
     const otherStores = NEW_STORES_CONFIG.filter((s) => s.name !== "مجد مارکت");
 
@@ -1092,12 +1084,11 @@ async function compareBasket(shoppingList) {
     const queryTokens = tokenize(query);
     const queryIds = queryTokens.filter(isCriticalIdentifier);
 
-    console.log("");
-    log("INFO", `Total products received: ${allProducts.length}`);
-    if (queryIds.length > 0) {
-      log("INFO", `Critical identifiers: ${queryIds.join(", ")}`);
-    }
-    console.log("");
+    log(
+      "FETCH",
+      `got ${allProducts.length} products` +
+        (queryIds.length ? ` | ids: ${queryIds.join(",")}` : ""),
+    );
 
     const relevantProducts = [];
     const rejectedProducts = []; // ← ← ← جدید
@@ -1114,22 +1105,13 @@ async function compareBasket(shoppingList) {
       if (isAccepted) {
         if (p.price === 0) {
           zeroPriceRejected++;
-          log(
-            "WARN",
-            `[${p.storeName}] Zero price: "${p.productTitle.substring(0, 50)}"`,
-          );
         } else {
           acceptedCount++;
           relevantProducts.push(p);
         }
       } else {
         rejectedCount++;
-        log(
-          "SKIP",
-          `[${p.storeName}] "${p.productTitle.substring(0, 45)}..." | score: ${matchInfo.score.toFixed(2)} | ratio: ${matchInfo.ratio.toFixed(2)} | ${matchInfo.reason || "low match"}`,
-        );
-
-        // ← ← ← جدید: ذخیره‌ی rejected با جزئیات
+        // ذخیره‌ی rejected برای debug modal (بدون لاگ)
         rejectedProducts.push({
           storeName: p.storeName,
           title: p.productTitle,
@@ -1146,10 +1128,9 @@ async function compareBasket(shoppingList) {
       }
     }
 
-    console.log("");
     log(
-      "STAT",
-      `Accepted: ${acceptedCount} | Rejected: ${rejectedCount} | Zero-price: ${zeroPriceRejected}`,
+      "FILT",
+      `accepted: ${acceptedCount} | rejected: ${rejectedCount} | zero-price: ${zeroPriceRejected}`,
     );
 
     const clusters = clusterProducts(relevantProducts, 0.5);
@@ -1188,7 +1169,7 @@ async function compareBasket(shoppingList) {
         return a.cheapest.price - b.cheapest.price;
       });
 
-    log("DONE", `Query "${query}" → ${matches.length} clusters`);
+    log("DONE", `"${query}" -> ${matches.length} clusters`);
     queries.push({
       query,
       matches,
@@ -1263,14 +1244,7 @@ async function compareBasket(shoppingList) {
       return b.itemCount - a.itemCount;
     });
 
-  console.log("");
-  console.log("━".repeat(60));
-  log(
-    "DONE",
-    `All queries finished. ${basketComparison.length} stores with results.`,
-  );
-  console.log("━".repeat(60));
-  console.log("");
+  log("END ", `${basketComparison.length} stores with results`);
 
   return { queries, basketComparison };
 }
