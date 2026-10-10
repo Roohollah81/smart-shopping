@@ -20,13 +20,7 @@ function log(level, scopeOrMsg, message) {
     msg = message;
   }
 
-  const sc = scope ? `[${String(scope).padEnd(10)}] ` : "";
-
-  // خط خالی قبل از شروع سرچ جدید
-  if (level === "QRY" && log._started) {
-    console.log("");
-  }
-  log._started = true;
+  const sc = scope ? `[${String(scope).padEnd(8)}] ` : "";
 
   console.log(`[${time}] ${tag} ${sc}${msg}`);
 }
@@ -1092,16 +1086,38 @@ async function searchMadjMarket(query, limit = 20) {
 // ================================================================
 // MAIN FUNCTION
 // ================================================================
-async function compareBasket(shoppingList) {
+async function compareBasket(shoppingList, options = {}) {
   const MIN_QUERY_MATCH = 0.6;
   const MIN_TOKEN_RATIO = 0.75;
+
+  const { batchId = null, batchIndex = null, batchTotal = null } = options;
 
   const queries = [];
   let queryIndex = 0;
 
   for (const query of shoppingList) {
     queryIndex++;
-    log("QRY", `(${queryIndex}/${shoppingList.length}) "${query}"`);
+
+    // ─── Separator بین batchها ───
+    if (batchId && batchIndex === 1) {
+      console.log("");
+      console.log("═".repeat(72));
+      console.log(
+        `[BATCH] ${batchId} · ${batchTotal} item${batchTotal > 1 ? "s" : ""}`,
+      );
+      console.log("═".repeat(72));
+    } else if (batchIndex && batchIndex > 1) {
+      console.log("");
+    } else if (!batchId && queryIndex === 1) {
+      console.log("");
+    }
+
+    // ─── Progress tag (مثلاً 2/5) ───
+    if (batchTotal > 1 && batchIndex) {
+      log("QRY", `${batchIndex}/${batchTotal}`, `"${query}"`);
+    } else {
+      log("QRY", `(1/1) "${query}"`);
+    }
 
     const otherStores = NEW_STORES_CONFIG.filter((s) => s.name !== "مجد مارکت");
 
@@ -1125,7 +1141,7 @@ async function compareBasket(shoppingList) {
     );
 
     const relevantProducts = [];
-    const rejectedProducts = []; // ← ← ← جدید
+    const rejectedProducts = [];
     let acceptedCount = 0,
       rejectedCount = 0,
       zeroPriceRejected = 0;
@@ -1145,7 +1161,6 @@ async function compareBasket(shoppingList) {
         }
       } else {
         rejectedCount++;
-        // ذخیره‌ی rejected برای debug modal (بدون لاگ)
         rejectedProducts.push({
           storeName: p.storeName,
           title: p.productTitle,
@@ -1157,7 +1172,7 @@ async function compareBasket(shoppingList) {
           reason: matchInfo.reason || "low match",
           matchedTokens: matchInfo.matchedTokens || [],
           missedTokens: matchInfo.missedTokens || [],
-          queryTokens: tokenize(query), // ← برای debug
+          queryTokens: tokenize(query),
         });
       }
     }

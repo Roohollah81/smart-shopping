@@ -943,17 +943,17 @@ function getRecentSearches() {
 
 function saveRecentSearch(itemsArr) {
   if (!itemsArr || itemsArr.length === 0) return;
-  markHasSearched(); // ← کاربر یه بار جستجو کرد
+  markHasSearched();
 
   const existing = getRecentSearches();
   const combined = [...itemsArr, ...existing];
+  const basketKeys = new Set(items.map(normalizeForCompare));
   const unique = [];
   const seen = new Set();
   for (const it of combined) {
-    const key = String(it).trim().toLowerCase();
+    const key = normalizeForCompare(it);
     if (!key || seen.has(key)) continue;
-    // آیتم‌هایی که تو سبد هستن، به recent اضافه نشن
-    if (items.some((x) => String(x).trim().toLowerCase() === key)) continue;
+    if (basketKeys.has(key)) continue;
     if (unique.length < RECENT_LIMIT) {
       seen.add(key);
       unique.push(it);
@@ -1017,71 +1017,114 @@ const SAMPLE_ITEMS = [
   "پاک‌کن اتود",
 ];
 
+// ─── نرمال‌سازی برای مقایسه (فاصله، نیم‌فاصله، ی/ک عربی رو یکسان می‌کنه) ───
+function normalizeForCompare(text) {
+  return String(text || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\u200c/g, "") // نیم‌فاصله
+    .replace(/\s+/g, "") // همه‌ی فاصله‌ها
+    .replace(/ي/g, "ی") // ی عربی → فارسی
+    .replace(/ك/g, "ک") // ک عربی → فارسی
+    .replace(/ۀ/g, "ه")
+    .replace(/ة/g, "ه");
+}
+
 function renderSuggestions() {
   const container = document.getElementById("suggestions-box");
   if (!container) return;
 
-  const recent = getRecentSearches();
+  const basketKeys = new Set(items.map(normalizeForCompare));
 
-  // ── اولویت منابع ──
-  // ۱. اخیرها (که تو سبد نباشن)
-  // ۲. پرطرفدارها از سرور
-  // ۳. نمونه‌های ثابت
-  let pool = [];
-  if (recent.length > 0) {
-    pool = [...recent, ...popularItems, ...SAMPLE_ITEMS];
-  } else if (popularItems.length > 0) {
-    pool = [...popularItems, ...SAMPLE_ITEMS];
-  } else {
-    pool = [...SAMPLE_ITEMS];
+  const recentList = getRecentSearches().filter(
+    (x) => !basketKeys.has(normalizeForCompare(x)),
+  );
+
+  const popularList = popularItems.filter(
+    (x) => !basketKeys.has(normalizeForCompare(x)),
+  );
+
+  // حذف موارد پرطرفدار که تو recent هم هستن (تکرار نشه)
+  const recentKeys = new Set(recentList.map(normalizeForCompare));
+  const filteredPopular = popularList.filter(
+    (x) => !recentKeys.has(normalizeForCompare(x)),
+  );
+
+  const sampleFallback = SAMPLE_ITEMS.filter(
+    (x) =>
+      !basketKeys.has(normalizeForCompare(x)) &&
+      !recentKeys.has(normalizeForCompare(x)),
+  );
+
+  const popularFinal =
+    filteredPopular.length > 0
+      ? filteredPopular.slice(0, 8)
+      : sampleFallback.slice(0, 8);
+
+  const parts = [];
+
+  // ─── بخش اخیرها (فقط اگه وجود داشته باشه) ───
+  if (recentList.length > 0) {
+    parts.push(`
+      <div class="suggestions-section" data-section="recent">
+        <div class="suggestions-header">
+          <span class="suggestions-title">جستجوهای اخیر</span>
+          <button class="suggestions-clear-btn" type="button" id="clear-recent-btn">
+            پاک کردن
+          </button>
+        </div>
+        <div class="suggestions-list">
+          ${recentList
+            .slice(0, 8)
+            .map(
+              (s) => `
+            <button class="suggestion-chip suggestion-chip-recent" type="button" data-value="${escapeHtml(s)}">
+              <span class="suggestion-chip-icon">🕐</span>
+              <span>${escapeHtml(s)}</span>
+            </button>
+          `,
+            )
+            .join("")}
+        </div>
+      </div>
+    `);
   }
 
-  // ── فیلتر: نه تکراری، نه تو سبد ──
-  const basketKeys = new Set(items.map((x) => String(x).trim().toLowerCase()));
-  const seen = new Set();
-  const filtered = [];
-  for (const item of pool) {
-    const key = String(item).trim().toLowerCase();
-    if (!key || seen.has(key)) continue;
-    if (basketKeys.has(key)) continue; // ← تو سبد هست، نشون نده
-    seen.add(key);
-    filtered.push(item);
-    if (filtered.length >= 6) break;
+  // ─── بخش پرطرفدارها ───
+  if (popularFinal.length > 0) {
+    parts.push(`
+      <div class="suggestions-section" data-section="popular">
+        <div class="suggestions-header">
+          <span class="suggestions-title">جستجوهای پرطرفدار</span>
+        </div>
+        <div class="suggestions-list">
+          ${popularFinal
+            .map(
+              (s) => `
+            <button class="suggestion-chip suggestion-chip-popular" type="button" data-value="${escapeHtml(s)}">
+              <span class="suggestion-chip-icon">🔍</span>
+              <span>${escapeHtml(s)}</span>
+            </button>
+          `,
+            )
+            .join("")}
+        </div>
+      </div>
+    `);
   }
 
-  // ── اگه چیزی نمونده، مخفی کن ──
-  if (filtered.length === 0) {
-    container.innerHTML = "";
-    return;
-  }
-
-  // ── عنوان ──
-  let title;
-  if (recent.length > 0) {
-    title = "🕐 اخیراً جستجو کردی:";
-  } else if (hasSearchedBefore()) {
-    title = "🔍 پیشنهاد بر اساس جستجوهای شما:";
-  } else if (popularItems.length > 0) {
-    title = "🔥 پرطرفدارترین جستجوها:";
-  } else {
-    title = "✨ پیشنهاد شروع:";
-  }
-
-  container.innerHTML = `
-    <div class="suggestions-title">${title}</div>
-    <div class="suggestions-list">
-      ${filtered
-        .map(
-          (s) => `
-        <button class="suggestion-chip" type="button" data-value="${escapeHtml(s)}">
-          ${escapeHtml(s)}
-        </button>
-      `,
-        )
-        .join("")}
-    </div>
-  `;
+  container.innerHTML = parts.join("");
 }
+
+// دکمه‌ی پاک کردن اخیرها
+document.addEventListener("click", (e) => {
+  if (e.target.closest("#clear-recent-btn")) {
+    e.preventDefault();
+    e.stopPropagation();
+    localStorage.setItem(RECENT_KEY, "[]");
+    renderSuggestions();
+  }
+});
 
 // ----------------------------------------------------------------
 // SORTING
@@ -1162,7 +1205,7 @@ function updateDateTime() {
       day: "numeric",
     }).formatToParts(now);
     const get = (t) => parts.find((p) => p.type === t)?.value || "";
-    dateStr = `${get("year")} ${get("month")} ${get("day")} ${get("weekday")}`;
+    dateStr = `${get("weekday")} ${get("day")} ${get("month")} ${get("year")}`;
     timeStr = new Intl.DateTimeFormat("fa-IR", {
       hour: "2-digit",
       minute: "2-digit",
@@ -1439,7 +1482,7 @@ function logSearch(payload) {
 // ----------------------------------------------------------------
 function renderSkeleton() {
   const skeletons = [];
-  for (let s = 0; s < 2; s++) {
+  for (let s = 0; s < 1; s++) {
     const cards = [];
     for (let i = 0; i < 3; i++) {
       cards.push(`
@@ -1494,6 +1537,10 @@ async function search() {
   searchController = new AbortController();
   const signal = searchController.signal;
 
+  // ─── Batch ID برای گروه‌بندی لاگ ───
+  const batchId = `b_${Date.now().toString(36)}`;
+  const batchTotal = items.length;
+
   if (cancelBtn) {
     cancelBtn.classList.remove("hidden");
     cancelBtn.disabled = false;
@@ -1523,7 +1570,10 @@ async function search() {
         const r = await fetch("/api/compare", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ items: [item] }),
+          body: JSON.stringify({
+            items: [item],
+            _batch: { id: batchId, index: i + 1, total: batchTotal },
+          }),
           signal,
         });
         if (searchAborted) break;
@@ -3186,18 +3236,15 @@ function showChangelogModal(versions) {
   const latest = list[0];
 
   if (dateEl) {
-    if (list.length === 1) {
-      dateEl.textContent = `نسخه ${latest.version} · ${formatChangelogDate(latest.date)}`;
-    } else {
-      dateEl.textContent = `${list.length} نسخه‌ی جدید از ${latest.version} تا ${list[list.length - 1].version}`;
-    }
+    dateEl.textContent = "";
+    dateEl.style.display = "none";
   }
 
   if (taglineEl) {
     if (list.length === 1) {
       taglineEl.textContent = latest.title || "";
     } else {
-      taglineEl.textContent = `${list.length} به‌روزرسانی جدید در انتظارته`;
+      taglineEl.textContent = "";
     }
   }
 
@@ -3206,7 +3253,10 @@ function showChangelogModal(versions) {
       const versionHeader =
         list.length > 1
           ? `<div class="changelog-version-header">
-               <span class="changelog-version-tag">نسخه ${version.version}</span>
+               <div class="changelog-version-top">
+                 <span class="changelog-version-tag">نسخه ${version.version}</span>
+                 <span class="changelog-version-date">${formatChangelogDate(version.date)}</span>
+               </div>
                <span class="changelog-version-title">${escapeHtml(version.title || "")}</span>
              </div>`
           : "";
@@ -3364,6 +3414,34 @@ async function checkChangelog() {
     console.error("[changelog] ERROR:", e);
   }
 }
+
+async function showLatestChangelog() {
+  try {
+    const res = await fetch("/changelog.json");
+    if (!res.ok) {
+      showToast("خطا", "تغییرات قابل دریافت نیست", "remove", 3000);
+      return;
+    }
+    const data = await res.json();
+    if (!Array.isArray(data.versions) || data.versions.length === 0) {
+      showToast("تغییرات", "هیچ تغییری ثبت نشده", "info", 3000);
+      return;
+    }
+
+    // فقط ۵ نسخه‌ی اخیر رو نشون بده
+    const recent = data.versions.slice(0, 5);
+    showChangelogModal(recent);
+  } catch (e) {
+    showToast("خطا", "اتصال برقرار نشد", "remove", 3000);
+  }
+}
+
+// لیسنر دکمه
+document.addEventListener("click", (e) => {
+  if (e.target.closest("#changelog-btn")) {
+    showLatestChangelog();
+  }
+});
 
 // لیسنرهای بستن
 document.addEventListener("click", (e) => {

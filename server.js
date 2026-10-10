@@ -529,7 +529,7 @@ async function logSearch(data) {
 // API: مقایسه سبد خرید
 // ================================================================
 app.post("/api/compare", async (req, res) => {
-  const { items } = req.body;
+  const { items, _batch } = req.body;
 
   if (!Array.isArray(items) || items.length === 0) {
     return res
@@ -544,7 +544,11 @@ app.post("/api/compare", async (req, res) => {
   }
 
   try {
-    const result = await compareBasket(items);
+    const result = await compareBasket(items, {
+      batchId: _batch?.id || null,
+      batchIndex: _batch?.index || null,
+      batchTotal: _batch?.total || null,
+    });
 
     const allStoreNames = [
       "دیجی‌کالا",
@@ -711,7 +715,10 @@ app.get("/api/popular-searches", async (req, res) => {
     // جستجوهای ۳۰ روز اخیر
     const [rows] = await db.query(
       `SELECT items FROM search_logs
-       WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)`,
+       WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+         AND quality_score IN ('excellent', 'good')
+         AND total_results >= 3
+         AND accepted_count >= 3`,
     );
 
     const counts = new Map();
@@ -1675,7 +1682,7 @@ async function renderAdminPage(req) {
             </div>
             ${
               visitStats.since
-                ? `<div class="visits-since">شروع رصد از ${new Date(visitStats.since).toLocaleDateString("fa-IR-u-ca-persian", { year: "numeric", month: "long", day: "numeric" })}</div>`
+                ? `<div class="visits-since">آمارگیری از ${new Date(visitStats.since).toLocaleDateString("fa-IR-u-ca-persian", { year: "numeric", month: "long", day: "numeric" })}</div>`
                 : ""
             }
           </div>
