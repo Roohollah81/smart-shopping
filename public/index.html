@@ -76,43 +76,53 @@
 
       <!-- نوار اطلاعات بالای صفحه (تاریخ، ساعت، دلار) -->
       <div class="top-info-bar" id="top-info-bar">
-        <div class="top-info-group">
-          <div class="sticky-datetime" id="top-datetime">
-            <span class="datetime-date" id="top-datetime-date">—</span>
-            <span class="datetime-time" id="top-datetime-time">—</span>
-          </div>
+        <!-- ردیف ۱: تاریخ و ساعت -->
+        <div class="sticky-datetime" id="top-datetime">
+          <span class="datetime-date" id="top-datetime-date">—</span>
+          <span class="datetime-time" id="top-datetime-time">—</span>
+        </div>
+
+        <!-- ردیف ۲: دلار (راست) | اکشن‌ها (چپ) -->
+        <div class="top-info-row">
+          <!-- اطلاعات: دلار -->
           <div class="sticky-dollar" id="top-dollar">
             <span class="dollar-label">دلار</span>
             <span class="dollar-value" id="top-dollar-value">—</span>
           </div>
-          <div class="sort-inline hidden" id="top-sort">
-            <span class="sort-toggle-label">اولویت نمایش فروشگاه‌ها:</span>
-            <button class="sort-option" data-sort="price" type="button">
-              کمترین قیمت
+
+          <!-- اکشن‌ها: گروه‌بندی شده -->
+          <div class="top-actions">
+            <button
+              id="changelog-btn"
+              class="top-action-btn"
+              type="button"
+              aria-label="مشاهده تغییرات"
+            >
+              <span class="top-action-icon">📢</span>
+              <span class="top-action-text">تغییرات</span>
             </button>
-            <button class="sort-option" data-sort="count" type="button">
-              بیشترین موجودی
+            <button
+              id="theme-toggle-top"
+              class="top-action-btn"
+              type="button"
+              aria-label="تغییر حالت"
+            >
+              <span class="top-action-icon" id="theme-icon-top">🌙</span>
+              <span class="top-action-text" id="theme-toggle-text"
+                >حالت شب</span
+              >
             </button>
           </div>
         </div>
 
-        <!-- 👇 دکمه‌ها کنار هم تو یه گروه -->
-        <div class="top-info-actions">
-          <button
-            id="changelog-btn"
-            class="changelog-icon-btn"
-            type="button"
-            aria-label="مشاهده تغییرات اخیر"
-            title="مشاهده تغییرات اخیر"
-          >
-            📢
+        <!-- ردیف ۳: sort -->
+        <div class="sort-inline hidden" id="top-sort">
+          <span class="sort-toggle-label">اولویت نمایش فروشگاه‌ها:</span>
+          <button class="sort-option" data-sort="price" type="button">
+            کمترین قیمت
           </button>
-          <button
-            id="theme-toggle-top"
-            class="theme-toggle-inline"
-            aria-label="تغییر حالت"
-          >
-            <span class="theme-icon-top">🌙</span>
+          <button class="sort-option" data-sort="count" type="button">
+            بیشترین موجودی
           </button>
         </div>
       </div>
@@ -122,67 +132,129 @@
         <div id="stores-strip" class="stores-strip"></div>
       </section>
 
-      <!-- فرم ورودی -->
-      <section class="input-section">
-        <div class="input-header">
-          <h2>📝 لیست خرید خود را وارد کنید</h2>
-        </div>
-
-        <div class="input-wrapper">
-          <input
-            type="text"
-            id="item-input"
-            placeholder="مثلاً: قلمو سرگرد پارس آرت شماره 4"
-            autocomplete="off"
-          />
-          <button id="add-btn" class="btn-add">افزودن</button>
-        </div>
-
-        <!-- 🎯 چیپ‌های پیشنهادی و جستجوهای اخیر -->
-        <div id="suggestions-box" class="suggestions-box"></div>
-
-        <div id="items-list" class="items-list"></div>
-
-        <div class="actions">
-          <button id="search-btn" class="btn-search" disabled>
-            <span class="btn-search-idle" id="btn-search-idle">
-              <span class="spinner" id="spinner"></span>
-              <span id="search-btn-text">🔍 جستجو و مقایسه</span>
-            </span>
-            <span class="btn-search-active" id="btn-search-active">
-              <span class="search-label">در حال جستجو</span>
-              <span class="search-spinner"></span>
-              <span class="slot slot-item" id="slot-item"
-                ><span class="slot-text">—</span></span
+      <!-- فرم ورودی (Accordion) -->
+      <section class="input-section" id="input-section">
+        <!-- Trigger (کادر بسته) -->
+        <div
+          id="input-trigger"
+          class="input-trigger"
+          role="button"
+          tabindex="0"
+          aria-expanded="false"
+        >
+          <!-- حالت عادی -->
+          <div class="input-trigger-normal" id="input-trigger-normal">
+            <span class="input-trigger-icon" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
               >
-              <span class="search-label">در فروشگاه</span>
-              <span class="slot slot-store" id="slot-store"
-                ><span class="slot-text">—</span></span
-              >
+                <circle cx="11" cy="11" r="7"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
             </span>
-          </button>
+            <span class="input-trigger-text" id="input-trigger-text">
+              دنبال چی می‌گردی؟
+            </span>
+          </div>
 
-          <button id="cancel-btn" class="btn-cancel hidden" type="button">
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="3"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+          <!-- حالت در حال سرچ -->
+          <div
+            class="input-trigger-searching hidden"
+            id="input-trigger-searching"
+          >
+            <span class="search-spinner"></span>
+            <span class="search-label search-label-1">در حال جستجو</span>
+            <span class="slot slot-item" id="slot-item">
+              <span class="slot-text">—</span>
+            </span>
+            <span class="search-label search-label-2">در فروشگاه</span>
+            <span class="slot slot-store" id="slot-store">
+              <span class="slot-text">—</span>
+            </span>
+            <button
+              id="cancel-btn-inline"
+              class="cancel-btn-inline"
+              type="button"
+              aria-label="لغو جستجو"
+              title="لغو جستجو"
             >
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-            <span>لغو</span>
-          </button>
+              ✕
+            </button>
+          </div>
+        </div>
 
-          <button id="clear-btn" class="btn-clear">پاک کردن همه</button>
+        <!-- Expanded body -->
+        <div class="input-body" id="input-body">
+          <div class="search-box" id="search-box">
+            <span class="search-box-icon" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="11" cy="11" r="7"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </span>
+            <input
+              type="text"
+              id="item-input"
+              placeholder="دنبال چی می‌گردی؟"
+              autocomplete="off"
+            />
+            <button
+              id="clear-input-btn"
+              class="search-box-clear hidden"
+              type="button"
+              aria-label="پاک کردن"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div id="autocomplete-box" class="autocomplete-box hidden"></div>
+          <div id="items-list" class="items-list"></div>
+          <div id="suggestions-box" class="suggestions-box"></div>
+
+          <div class="actions">
+            <button id="search-btn" class="btn-search" disabled>
+              <span class="btn-search-idle" id="btn-search-idle">
+                <span class="spinner" id="spinner"></span>
+                <span id="search-btn-text">🔍 جستجو و مقایسه</span>
+              </span>
+            </button>
+
+            <button id="cancel-btn" class="btn-cancel hidden" type="button">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+              <span>لغو</span>
+            </button>
+
+            <button id="clear-btn" class="btn-clear" type="button">
+              پاک کردن همه
+            </button>
+          </div>
         </div>
       </section>
-
       <!-- نتایج -->
       <section id="results-section" class="results-section hidden">
         <div id="stores-container" class="stores-container"></div>

@@ -747,6 +747,129 @@ app.get("/api/popular-searches", async (req, res) => {
 });
 
 // ================================================================
+// API: Autocomplete — Google-style
+// ================================================================
+const suggestCache = new Map();
+const SUGGEST_TTL = 5 * 60 * 1000; // 5 دقیقه
+
+app.get("/api/suggest", async (req, res) => {
+  const q = String(req.query.q || "").trim();
+  if (!q || q.length < 2) return res.json({ success: true, items: [] });
+
+  const cacheKey = q.toLowerCase();
+  const cached = suggestCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < SUGGEST_TTL) {
+    return res.json({ success: true, items: cached.items });
+  }
+
+  const results = new Map(); // title → weight
+  const ql = q.toLowerCase();
+
+  // ─── ۱. تاریخچه‌ی خودمون (وزن 10) ───
+  if (db) {
+    try {
+      const [rows] = await db.query(
+        `SELECT items FROM search_logs
+         WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 60 DAY)`,
+      );
+      for (const row of rows) {
+        try {
+          const arr = JSON.parse(row.items || "[]");
+          for (const item of arr) {
+            const t = String(item).trim();
+            if (t.length >= 2 && t.toLowerCase().includes(ql)) {
+              results.set(t, (results.get(t) || 0) + 10);
+            }
+          }
+        } catch {}
+      }
+    } catch {}
+  }
+
+  // ─── ۲. Digikala search (وزن 5) ───
+  if (results.size < 8) {
+    try {
+      const r = await axios.get("https://api.digikala.com/v1/search/", {
+        params: { q, page: 1 },
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          Accept: "application/json",
+        },
+        timeout: 3500,
+        validateStatus: () => true,
+      });
+      const products = r.data?.data?.products || [];
+      for (const p of products.slice(0, 6)) {
+        const t = String(p.title_fa || "").trim();
+        if (t.length >= 2 && !results.has(t)) {
+          results.set(t, 5);
+        }
+      }
+      // همچنین پیشنهادهای digikala (اگه وجود داشت)
+      const suggestions = r.data?.data?.suggestions || [];
+      for (const s of suggestions.slice(0, 4)) {
+        const t =
+          typeof s === "string" ? s : s?.text || s?.title || s?.title_fa || "";
+        const trimmed = String(t).trim();
+        if (trimmed.length >= 2 && !results.has(trimmed)) {
+          results.set(trimmed, 4);
+        }
+      }
+    } catch (e) {
+      console.error("[suggest] digikala error:", e.message);
+    }
+  }
+
+  // ─── ۳. Torob search (وزن 3) ───
+  if (results.size < 6) {
+    try {
+      const r = await axios.get(
+        "https://api.torob.com/v4/base-product/search/",
+        {
+          params: { q, source: "next_desktop", page: 0, size: 8 },
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            Accept: "application/json",
+            Referer: "https://torob.com/",
+            Origin: "https://torob.com",
+          },
+          timeout: 3500,
+          validateStatus: () => true,
+        },
+      );
+      const items = r.data?.results || [];
+      for (const p of items.slice(0, 6)) {
+        const t = String(p.name1 || p.name || "").trim();
+        if (t.length >= 2 && !results.has(t)) {
+          results.set(t, 3);
+        }
+      }
+    } catch (e) {
+      console.error("[suggest] torob error:", e.message);
+    }
+  }
+
+  const items = [...results.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([k]) => k)
+    .slice(0, 8);
+
+  suggestCache.set(cacheKey, { items, at: Date.now() });
+
+  // پاک‌سازی دوره‌ای کش
+  if (suggestCache.size > 200) {
+    const entries = [...suggestCache.entries()].sort(
+      (a, b) => a[1].at - b[1].at,
+    );
+    entries.slice(0, 100).forEach(([k]) => suggestCache.delete(k));
+  }
+
+  res.json({ success: true, items });
+});
+
+// ================================================================
 // API: چک قیمت آیتم‌های علاقه‌مندی (background)
 // ================================================================
 app.post("/api/check-prices", async (req, res) => {

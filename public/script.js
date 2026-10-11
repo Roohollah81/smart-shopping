@@ -16,6 +16,20 @@ const resultsSection = document.getElementById("results-section");
 const storesContainer = document.getElementById("stores-container");
 const errorBox = document.getElementById("error-box");
 const spinner = document.getElementById("spinner");
+const inputSection = document.getElementById("input-section");
+const inputTrigger = document.getElementById("input-trigger");
+const inputBody = document.getElementById("input-body");
+const inputTriggerText = document.getElementById("input-trigger-text");
+const searchBox = document.getElementById("search-box");
+const clearInputBtn = document.getElementById("clear-input-btn");
+const autocompleteBox = document.getElementById("autocomplete-box");
+const inputTriggerNormal = document.getElementById("input-trigger-normal");
+const inputTriggerSearching = document.getElementById(
+  "input-trigger-searching",
+);
+const cancelBtnInline = document.getElementById("cancel-btn-inline");
+// Fake safe element (اگه عناصر HTML نباشن، خطا نده)
+const safe = (el, fallback = {}) => el || fallback;
 
 // ----------------------------------------------------------------
 // STATE
@@ -1116,6 +1130,116 @@ function renderSuggestions() {
   container.innerHTML = parts.join("");
 }
 
+// ================================================================
+// 🔍 AUTOCOMPLETE
+// ================================================================
+let autocompleteTimer = null;
+let autocompleteAbort = null;
+
+function renderAutocomplete(items, query) {
+  if (!autocompleteBox) return;
+
+  if (!items || items.length === 0) {
+    autocompleteBox.classList.add("hidden");
+    autocompleteBox.innerHTML = "";
+    showSuggestionsAndItems(true);
+    return;
+  }
+
+  autocompleteBox.innerHTML = items
+    .map(
+      (it) => `
+    <button class="autocomplete-item" type="button" data-value="${escapeHtml(it)}">
+      <span class="autocomplete-icon">🔍</span>
+      <span class="autocomplete-text">${escapeHtml(it)}</span>
+    </button>
+  `,
+    )
+    .join("");
+  autocompleteBox.classList.remove("hidden");
+  showSuggestionsAndItems(false);
+}
+
+function showSuggestionsAndItems(show) {
+  const sugg = document.getElementById("suggestions-box");
+  const itemsEl = document.getElementById("items-list");
+  const actionsEl = document.querySelector(".input-body .actions");
+  const display = show ? "" : "none";
+  if (sugg) sugg.style.display = display;
+  if (itemsEl) itemsEl.style.display = display;
+  if (actionsEl) actionsEl.style.display = display;
+}
+
+function hideAutocomplete() {
+  if (!autocompleteBox) return;
+  autocompleteBox.classList.add("hidden");
+  autocompleteBox.innerHTML = "";
+  showSuggestionsAndItems(true);
+}
+
+async function fetchAutocomplete(q) {
+  if (!q || q.length < 2) {
+    hideAutocomplete();
+    return;
+  }
+
+  if (autocompleteAbort) autocompleteAbort.abort();
+  autocompleteAbort = new AbortController();
+
+  try {
+    const r = await fetch(`/api/suggest?q=${encodeURIComponent(q)}`, {
+      signal: autocompleteAbort.signal,
+    });
+    const data = await r.json();
+    if (data.success && Array.isArray(data.items)) {
+      renderAutocomplete(data.items, q);
+    }
+  } catch (e) {
+    if (e.name !== "AbortError") hideAutocomplete();
+  }
+}
+
+// لیسنر input
+itemInput.addEventListener("input", () => {
+  const val = itemInput.value.trim();
+
+  // نمایش/مخفی کردن دکمه ×
+  if (clearInputBtn) {
+    clearInputBtn.classList.toggle("hidden", val.length === 0);
+  }
+
+  // debounce autocomplete
+  if (autocompleteTimer) clearTimeout(autocompleteTimer);
+  if (!val || val.length < 2) {
+    hideAutocomplete();
+    return;
+  }
+  autocompleteTimer = setTimeout(() => fetchAutocomplete(val), 250);
+});
+
+// کلیک روی autocomplete item
+document.addEventListener("click", (e) => {
+  const acItem = e.target.closest(".autocomplete-item");
+  if (!acItem) return;
+  const val = acItem.dataset.value;
+  if (!val) return;
+  itemInput.value = val;
+  hideAutocomplete();
+  if (clearInputBtn) clearInputBtn.classList.remove("hidden");
+  itemInput.focus();
+});
+
+// دکمه ×
+if (clearInputBtn) {
+  clearInputBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    itemInput.value = "";
+    clearInputBtn.classList.add("hidden");
+    hideAutocomplete();
+    itemInput.focus();
+  });
+}
+
 // دکمه‌ی پاک کردن اخیرها
 document.addEventListener("click", (e) => {
   if (e.target.closest("#clear-recent-btn")) {
@@ -1355,6 +1479,7 @@ function addItem() {
   if (!value) return;
   if (items.includes(value)) {
     itemInput.value = "";
+    if (clearInputBtn) clearInputBtn.classList.add("hidden");
     return;
   }
   if (items.length >= 10) {
@@ -1364,6 +1489,8 @@ function addItem() {
   items.push(value);
   removeFromRecent(value);
   itemInput.value = "";
+  if (clearInputBtn) clearInputBtn.classList.add("hidden");
+  hideAutocomplete();
   itemInput.focus();
   renderItems();
   saveBasket();
@@ -1391,7 +1518,83 @@ function renderItems() {
     )
     .join("");
   searchBtn.disabled = items.length === 0;
+  updateInputTriggerText();
 }
+
+// ================================================================
+// 🎛️ INPUT ACCORDION
+// ================================================================
+function toggleInputBody(forceState) {
+  if (!inputBody || !inputTrigger) return;
+
+  // در حال سرچ، پنل باز نشه
+  if (inputTrigger.classList.contains("searching")) return;
+
+  const isOpen =
+    forceState !== undefined
+      ? forceState
+      : !inputBody.classList.contains("open");
+
+  inputBody.classList.toggle("open", isOpen);
+  inputTrigger.setAttribute("aria-expanded", String(isOpen));
+  inputTrigger.classList.toggle("hidden", isOpen);
+
+  if (isOpen) {
+    setTimeout(() => itemInput?.focus(), 180);
+  } else {
+    hideAutocomplete();
+    if (clearInputBtn) clearInputBtn.classList.add("hidden");
+  }
+}
+
+function setTriggerSearching(isSearching) {
+  if (inputTriggerNormal) {
+    inputTriggerNormal.classList.toggle("hidden", isSearching);
+  }
+  if (inputTriggerSearching) {
+    inputTriggerSearching.classList.toggle("hidden", !isSearching);
+  }
+  if (inputSection) {
+    inputSection.classList.toggle("searching", isSearching);
+  }
+  if (inputTrigger) {
+    inputTrigger.classList.toggle("searching", isSearching);
+  }
+}
+
+function updateInputTriggerText() {
+  if (!inputTriggerText) return;
+
+  if (items.length === 0) {
+    inputTriggerText.textContent = "دنبال چی می‌گردی؟";
+    inputSection?.classList.remove("has-items");
+  } else {
+    inputTriggerText.textContent = `${toPersianNum(items.length)} آیتم در لیست خرید`;
+    inputSection?.classList.add("has-items");
+  }
+}
+
+// لیسنر trigger
+if (inputTrigger) {
+  inputTrigger.addEventListener("click", () => toggleInputBody());
+}
+
+if (inputTrigger) {
+  inputTrigger.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      if (inputTrigger.classList.contains("searching")) return;
+      e.preventDefault();
+      toggleInputBody();
+    }
+  });
+}
+
+// بستن پنل با کلیک بیرون
+document.addEventListener("mousedown", (e) => {
+  if (!inputBody || !inputBody.classList.contains("open")) return;
+  if (inputSection && inputSection.contains(e.target)) return;
+  toggleInputBody(false);
+});
 
 function clearAll() {
   if (itemsList.classList.contains("locked")) return;
@@ -1440,6 +1643,7 @@ function clearAll() {
     document.body.style.overflow = "";
   }
   renderSuggestions();
+  toggleInputBody(false);
 }
 
 function markChipActive(index) {
@@ -1534,6 +1738,9 @@ async function search() {
   setLoading(true);
   searchAborted = false;
 
+  // ─── پنل رو ببند، کاربر داره نتیجه می‌بینه ───
+  toggleInputBody(false);
+
   searchController = new AbortController();
   const signal = searchController.signal;
 
@@ -1549,10 +1756,14 @@ async function search() {
   document
     .querySelectorAll(".item-chip")
     .forEach((chip) => chip.classList.remove("done", "error", "active"));
-  searchBtn.classList.add("searching");
-  itemsList.classList.add("locked");
-  clearBtn.classList.add("hidden");
-  addBtn.disabled = true;
+
+  // بستن پنل + رفتن به حالت searching
+  toggleInputBody(false);
+  setTriggerSearching(true);
+
+  if (itemsList) itemsList.classList.add("locked");
+  if (clearBtn) clearBtn.classList.add("hidden");
+  if (addBtn) addBtn.disabled = true;
   startStoreCycle();
 
   showSkeleton();
@@ -1659,11 +1870,11 @@ async function search() {
     }
   } finally {
     stopStoreCycle();
-    searchBtn.classList.remove("searching");
+    setTriggerSearching(false); // ← برگرد به حالت عادی
     setLoading(false);
-    itemsList.classList.remove("locked");
-    addBtn.disabled = false;
-    clearBtn.classList.remove("hidden");
+    if (itemsList) itemsList.classList.remove("locked");
+    if (addBtn) addBtn.disabled = false;
+    if (clearBtn) clearBtn.classList.remove("hidden");
     if (cancelBtn) cancelBtn.classList.add("hidden");
     searchController = null;
     document
@@ -2938,13 +3149,19 @@ const themeToggleTop = document.getElementById("theme-toggle-top");
 function applyTheme(t) {
   document.documentElement.setAttribute("data-theme", t);
   const icon = t === "dark" ? "☀️" : "🌙";
+  const label = t === "dark" ? "حالت روز" : "حالت شب";
+
   const i1 = document.querySelector("#theme-toggle .theme-icon");
   if (i1) i1.textContent = icon;
-  const i2 = document.querySelector("#theme-toggle-top .theme-icon-top");
+
+  const i2 = document.getElementById("theme-icon-top");
   if (i2) i2.textContent = icon;
+
+  const labelEl = document.getElementById("theme-toggle-text");
+  if (labelEl) labelEl.textContent = label;
+
   localStorage.setItem("theme", t);
 }
-
 function toggleTheme() {
   const c = document.documentElement.getAttribute("data-theme") || "light";
   applyTheme(c === "dark" ? "light" : "dark");
@@ -3466,11 +3683,28 @@ document.addEventListener("keydown", (e) => {
 // ----------------------------------------------------------------
 // INIT
 // ----------------------------------------------------------------
-addBtn.addEventListener("click", addItem);
-itemInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") addItem();
-});
-searchBtn.addEventListener("click", search);
+updateInputTriggerText();
+
+if (addBtn) {
+  addBtn.addEventListener("click", addItem);
+}
+
+if (itemInput) {
+  itemInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addItem();
+    }
+    if (e.key === "Escape") {
+      toggleInputBody(false);
+      itemInput.blur();
+    }
+  });
+}
+
+if (searchBtn) {
+  searchBtn.addEventListener("click", search);
+}
 
 clearBtn.addEventListener("click", async () => {
   if (itemsList.classList.contains("locked")) return;
@@ -3517,6 +3751,21 @@ document.addEventListener("click", (e) => {
   }
   itemInput.focus();
 });
+
+if (cancelBtnInline) {
+  cancelBtnInline.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (searchAborted) return;
+    if (cancelBtn && !cancelBtn.disabled) {
+      cancelBtn.click(); // همون رفتار دکمهی لغو اصلی
+    } else {
+      // اگه دکمه اصلی نیست، مستقیم لغو کن
+      searchAborted = true;
+      if (searchController) searchController.abort();
+    }
+  });
+}
 
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) {
