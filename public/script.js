@@ -28,6 +28,9 @@ const inputTriggerSearching = document.getElementById(
   "input-trigger-searching",
 );
 const cancelBtnInline = document.getElementById("cancel-btn-inline");
+const basketSection = document.getElementById("basket-section");
+const basketCount = document.getElementById("basket-count");
+const clearBasketBtn = document.getElementById("clear-basket-btn");
 // Fake safe element (اگه عناصر HTML نباشن، خطا نده)
 const safe = (el, fallback = {}) => el || fallback;
 
@@ -43,6 +46,10 @@ let wishlistLastChange = localStorage.getItem("wishlistLastChange") || null;
 let searchAborted = false;
 let searchController = null;
 let suppressNextPopstate = false;
+
+// ─── Modal stack برای مدیریت Back Button ───
+const MODAL_STACK = [];
+let closingViaPopstate = false;
 
 const productDataMap = new Map();
 let productDataCounter = 0;
@@ -482,6 +489,37 @@ function showToast(title, message, type = "success", duration = 5000) {
   });
 }
 
+// ================================================================
+// 🔙 BACK BUTTON / MODAL STACK MANAGER
+// ================================================================
+const MODAL_HANDLERS = {
+  image: () => closeImageModal(true),
+  variants: () => closeVariantsModal(true),
+  wishlist: () => closeWishlistModal(true),
+  debug: () => closeDebugModal(true),
+  changelog: () => closeChangelogModal(true),
+  input: () => toggleInputBody(false),
+  autocomplete: () => hideAutocomplete(),
+};
+
+function pushModalToHistory(type) {
+  if (closingViaPopstate) return;
+
+  // اگه همین type قبلاً بازه، دوباره push نکن
+  if (MODAL_STACK.includes(type)) return;
+
+  MODAL_STACK.push(type);
+  history.pushState({ modal: type, stackSize: MODAL_STACK.length }, "");
+}
+
+function popModalFromHistory() {
+  const type = MODAL_STACK.pop();
+  if (!type) return;
+
+  const handler = MODAL_HANDLERS[type];
+  if (handler) handler();
+}
+
 // ----------------------------------------------------------------
 // CONFIRM DIALOG
 // ----------------------------------------------------------------
@@ -759,12 +797,24 @@ function openWishlistModal() {
   renderWishlistModal();
   modal.classList.remove("hidden");
   document.body.style.overflow = "hidden";
+  pushModalToHistory("wishlist");
 }
 
 function closeWishlistModal() {
   const modal = document.getElementById("wishlist-modal");
+  if (!modal || modal.classList.contains("hidden")) return;
+
   modal.classList.add("hidden");
   document.body.style.overflow = "";
+
+  if (!closingViaPopstate) {
+    const idx = MODAL_STACK.lastIndexOf("wishlist");
+    if (idx !== -1) {
+      MODAL_STACK.splice(idx, 1);
+      suppressNextPopstate = true;
+      history.back();
+    }
+  }
 }
 
 function formatPersianDateTime(isoString) {
@@ -1147,15 +1197,43 @@ function renderAutocomplete(items, query) {
   }
 
   autocompleteBox.innerHTML = items
-    .map(
-      (it) => `
-    <button class="autocomplete-item" type="button" data-value="${escapeHtml(it)}">
-      <span class="autocomplete-icon">🔍</span>
-      <span class="autocomplete-text">${escapeHtml(it)}</span>
-    </button>
-  `,
-    )
+    .map((item) => {
+      // ─── حالت fallback (جستجو برای X) ───
+      if (item && item.fallback) {
+        return `
+          <button class="autocomplete-item autocomplete-fallback" type="button" data-value="${escapeHtml(item.full || query)}">
+            <span class="autocomplete-icon">🔍</span>
+            <span class="autocomplete-text autocomplete-fallback-text">
+              <strong>جستجو برای</strong>
+              <b>${escapeHtml(item.full || query)}</b>
+            </span>
+          </button>
+        `;
+      }
+
+      // ─── حالت معمولی (آبجکت { full, parts }) ───
+      const full = item && item.full ? item.full : String(item || "");
+      const parts =
+        item && Array.isArray(item.parts)
+          ? item.parts
+          : [{ text: full, bold: false }];
+
+      const html = parts
+        .map((p) => {
+          const text = escapeHtml(p && p.text ? p.text : "");
+          return p && p.bold ? `<b>${text}</b>` : text;
+        })
+        .join(" ");
+
+      return `
+        <button class="autocomplete-item" type="button" data-value="${escapeHtml(full)}">
+          <span class="autocomplete-icon">🔍</span>
+          <span class="autocomplete-text">${html}</span>
+        </button>
+      `;
+    })
     .join("");
+
   autocompleteBox.classList.remove("hidden");
   showSuggestionsAndItems(false);
 }
@@ -1180,11 +1258,15 @@ function hideAutocomplete() {
 async function fetchAutocomplete(q) {
   if (!q || q.length < 2) {
     hideAutocomplete();
+    setAutocompleteLoading(false);
     return;
   }
 
   if (autocompleteAbort) autocompleteAbort.abort();
   autocompleteAbort = new AbortController();
+
+  // ← نمایش اسپینر
+  setAutocompleteLoading(true);
 
   try {
     const r = await fetch(`/api/suggest?q=${encodeURIComponent(q)}`, {
@@ -1196,7 +1278,16 @@ async function fetchAutocomplete(q) {
     }
   } catch (e) {
     if (e.name !== "AbortError") hideAutocomplete();
+  } finally {
+    // ← مخفی کردن اسپینر
+    setAutocompleteLoading(false);
   }
+}
+
+function setAutocompleteLoading(isLoading) {
+  const iconEl = document.querySelector(".search-box-icon");
+  if (!iconEl) return;
+  iconEl.classList.toggle("loading", isLoading);
 }
 
 // لیسنر input
@@ -1217,16 +1308,22 @@ itemInput.addEventListener("input", () => {
   autocompleteTimer = setTimeout(() => fetchAutocomplete(val), 250);
 });
 
-// کلیک روی autocomplete item
+// کلیک روی autocomplete item → مثل Enter عمل کنه
 document.addEventListener("click", (e) => {
   const acItem = e.target.closest(".autocomplete-item");
   if (!acItem) return;
+  e.preventDefault();
+  e.stopPropagation();
   const val = acItem.dataset.value;
   if (!val) return;
+
+  // متن پیشنهاد رو تو input بذار
   itemInput.value = val;
   hideAutocomplete();
   if (clearInputBtn) clearInputBtn.classList.remove("hidden");
-  itemInput.focus();
+
+  // بعد مثل Enter بزن → اضافه به سبد
+  addItem();
 });
 
 // دکمه ×
@@ -1517,6 +1614,16 @@ function renderItems() {
   `,
     )
     .join("");
+
+  // ─── نمایش/مخفی کردن بخش سبد ───
+  if (basketSection) {
+    basketSection.classList.toggle("hidden", items.length === 0);
+  }
+  if (basketCount) {
+    basketCount.textContent =
+      items.length > 0 ? `(${toPersianNum(items.length)})` : "";
+  }
+
   searchBtn.disabled = items.length === 0;
   updateInputTriggerText();
 }
@@ -1527,7 +1634,6 @@ function renderItems() {
 function toggleInputBody(forceState) {
   if (!inputBody || !inputTrigger) return;
 
-  // در حال سرچ، پنل باز نشه
   if (inputTrigger.classList.contains("searching")) return;
 
   const isOpen =
@@ -1541,9 +1647,23 @@ function toggleInputBody(forceState) {
 
   if (isOpen) {
     setTimeout(() => itemInput?.focus(), 180);
+    // push به history
+    if (!closingViaPopstate) {
+      pushModalToHistory("input");
+    }
   } else {
     hideAutocomplete();
     if (clearInputBtn) clearInputBtn.classList.add("hidden");
+
+    // حذف از stack اگه مستقیم بسته شد
+    if (!closingViaPopstate) {
+      const idx = MODAL_STACK.lastIndexOf("input");
+      if (idx !== -1) {
+        MODAL_STACK.splice(idx, 1);
+        suppressNextPopstate = true;
+        history.back();
+      }
+    }
   }
 }
 
@@ -2387,17 +2507,23 @@ function openVariantsModal(pid) {
 
   modal.classList.remove("hidden");
   document.body.style.overflow = "hidden";
-  history.pushState({ variantsModal: true }, "");
+  pushModalToHistory("variants");
 }
 
-function closeVariantsModal(fromPopstate = false) {
+function closeVariantsModal() {
   const modal = document.getElementById("variants-modal");
   if (!modal || modal.classList.contains("hidden")) return;
+
   modal.classList.add("hidden");
   document.body.style.overflow = "";
-  if (!fromPopstate && history.state?.variantsModal) {
-    suppressNextPopstate = true;
-    history.back();
+
+  if (!closingViaPopstate) {
+    const idx = MODAL_STACK.lastIndexOf("variants");
+    if (idx !== -1) {
+      MODAL_STACK.splice(idx, 1);
+      suppressNextPopstate = true;
+      history.back();
+    }
   }
 }
 
@@ -2612,7 +2738,7 @@ async function openImageModal(
   renderImageModalContent();
   imageModal.classList.remove("hidden");
   document.body.style.overflow = "hidden";
-  history.pushState({ imageModal: true }, "");
+  pushModalToHistory("image");
 
   if (arr.length <= 1 && (productId || productUrl)) {
     const timeoutPromise = new Promise((resolve) =>
@@ -2636,18 +2762,24 @@ async function openImageModal(
   }
 }
 
-function closeImageModal(fromPopstate = false) {
+function closeImageModal() {
   if (!imageModal) return;
   if (imageModal.classList.contains("hidden")) return;
+
   imageModal.classList.add("hidden");
   imageModalImg.src = "";
   document.body.style.overflow = "";
   imageModalState.images = [];
   imageModalState.index = 0;
 
-  if (!fromPopstate && history.state?.imageModal) {
-    suppressNextPopstate = true;
-    history.back();
+  // حذف از stack اگه مستقیم بسته شد (نه با popstate)
+  if (!closingViaPopstate) {
+    const idx = MODAL_STACK.lastIndexOf("image");
+    if (idx !== -1) {
+      MODAL_STACK.splice(idx, 1);
+      suppressNextPopstate = true;
+      history.back();
+    }
   }
 }
 
@@ -3071,24 +3203,6 @@ document.addEventListener("click", (e) => {
   }
 });
 
-window.addEventListener("popstate", () => {
-  if (suppressNextPopstate) {
-    suppressNextPopstate = false;
-    return;
-  }
-
-  const imgModal = document.getElementById("image-modal");
-  if (imgModal && !imgModal.classList.contains("hidden")) {
-    closeImageModal(true);
-    return;
-  }
-
-  const varModal = document.getElementById("variants-modal");
-  if (varModal && !varModal.classList.contains("hidden")) {
-    closeVariantsModal(true);
-  }
-});
-
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     const wModal = document.getElementById("wishlist-modal");
@@ -3228,7 +3342,7 @@ async function openDebugModal() {
   renderDebugModal();
   debugModal.classList.remove("hidden");
   document.body.style.overflow = "hidden";
-  history.pushState({ debugModal: true }, "");
+  pushModalToHistory("debug");
 }
 
 function renderDebugModal() {
@@ -3322,13 +3436,19 @@ function renderDebugModal() {
   render();
 }
 
-function closeDebugModal(fromPopstate = false) {
+function closeDebugModal() {
   if (!debugModal || debugModal.classList.contains("hidden")) return;
+
   debugModal.classList.add("hidden");
   document.body.style.overflow = "";
-  if (!fromPopstate && history.state?.debugModal) {
-    suppressNextPopstate = true;
-    history.back();
+
+  if (!closingViaPopstate) {
+    const idx = MODAL_STACK.lastIndexOf("debug");
+    if (idx !== -1) {
+      MODAL_STACK.splice(idx, 1);
+      suppressNextPopstate = true;
+      history.back();
+    }
   }
 }
 
@@ -3349,8 +3469,12 @@ window.addEventListener("popstate", () => {
     suppressNextPopstate = false;
     return;
   }
-  if (debugModal && !debugModal.classList.contains("hidden")) {
-    closeDebugModal(true);
+
+  closingViaPopstate = true;
+  try {
+    popModalFromHistory();
+  } finally {
+    closingViaPopstate = false;
   }
 });
 
@@ -3500,6 +3624,7 @@ function showChangelogModal(versions) {
 
   modal.classList.remove("hidden");
   document.body.style.overflow = "hidden";
+  pushModalToHistory("changelog");
 }
 
 function showWelcomeModal(welcome) {
@@ -3554,34 +3679,41 @@ function showWelcomeModal(welcome) {
 
   modal.classList.remove("hidden");
   document.body.style.overflow = "hidden";
+  pushModalToHistory("changelog");
 }
 
 function closeChangelogModal() {
   const modal = document.getElementById("changelog-modal");
-  if (!modal) return;
+  if (!modal || modal.classList.contains("hidden")) return;
+
   modal.classList.add("hidden");
   document.body.style.overflow = "";
 
-  // ریست برای دفعه‌ی بعد
+  // ریست UI
   const iconEl = modal.querySelector(".changelog-modal-icon");
   if (iconEl) iconEl.textContent = "✨";
-
   const dateEl = document.getElementById("changelog-modal-date");
   if (dateEl) {
     dateEl.style.display = "";
     dateEl.textContent = "";
   }
-
   const titleEl = modal.querySelector(
     ".changelog-modal-title > div > div:first-child",
   );
   if (titleEl) titleEl.textContent = "به‌روزرسانی جدید";
-
   const taglineEl = document.getElementById("changelog-modal-tagline");
   if (taglineEl) taglineEl.textContent = "";
-
   const okBtn = document.getElementById("changelog-modal-ok");
   if (okBtn) okBtn.textContent = "باشه، فهمیدم 👍";
+
+  if (!closingViaPopstate) {
+    const idx = MODAL_STACK.lastIndexOf("changelog");
+    if (idx !== -1) {
+      MODAL_STACK.splice(idx, 1);
+      suppressNextPopstate = true;
+      history.back();
+    }
+  }
 }
 
 async function checkChangelog() {
@@ -3731,6 +3863,30 @@ if (wishlistFloatBtn)
 const wishlistClearAllBtn = document.getElementById("wishlist-clear-all");
 if (wishlistClearAllBtn)
   wishlistClearAllBtn.addEventListener("click", clearAllWishlist);
+// پاک کردن سبد خرید
+if (clearBasketBtn) {
+  clearBasketBtn.addEventListener("click", async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (items.length === 0) return;
+    if (itemsList.classList.contains("locked")) return;
+
+    const confirmed = await showConfirmDialog({
+      title: "پاک کردن سبد خرید",
+      message: `آیا مطمئن هستید که می‌خواهید همه‌ی ${toPersianNum(items.length)} آیتم را از سبد خرید پاک کنید؟`,
+      icon: "🗑️",
+      confirmText: "بله، پاک کن",
+      cancelText: "انصراف",
+      variant: "danger",
+    });
+    if (!confirmed) return;
+
+    items = [];
+    renderItems();
+    saveBasket();
+    hideError();
+  });
+}
 
 // کلیک روی چیپ‌های پیشنهادی
 document.addEventListener("click", (e) => {

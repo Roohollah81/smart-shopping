@@ -747,10 +747,87 @@ app.get("/api/popular-searches", async (req, res) => {
 });
 
 // ================================================================
-// API: Autocomplete — Google-style
+// API: Autocomplete — مستقیم از Digikala Discovery
 // ================================================================
 const suggestCache = new Map();
-const SUGGEST_TTL = 5 * 60 * 1000; // 5 دقیقه
+const SUGGEST_TTL = 5 * 60 * 1000;
+
+function normalizeForMatch(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/\u200c/g, "")
+    .replace(/\s+/g, "")
+    .replace(/ي/g, "ی")
+    .replace(/ك/g, "ک")
+    .replace(/ۀ/g, "ه")
+    .replace(/ة/g, "ه")
+    .replace(/[أإآ]/g, "ا")
+    .replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
+    .replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d));
+}
+
+function buildParts(title, query) {
+  const tWords = title.split(/\s+/).filter(Boolean);
+  const qWords = query.split(/\s+/).filter(Boolean);
+  const normQW = qWords.map(normalizeForMatch).filter(Boolean);
+
+  return tWords.map((tw) => {
+    const twNorm = normalizeForMatch(tw);
+    if (!twNorm) return { text: tw, bold: false };
+
+    const matched = normQW.some((qw) => {
+      if (!qw) return false;
+      if (qw === twNorm) return true;
+      if (qw.length >= 3 && twNorm.length >= 3) {
+        return twNorm.includes(qw) || qw.includes(twNorm);
+      }
+      return false;
+    });
+
+    return { text: tw, bold: !matched };
+  });
+}
+
+async function fetchDigikalaAutocomplete(q) {
+  try {
+    const url = `https://api.digikala.com/discovery/api/v2/autocomplete?q=${encodeURIComponent(q)}`;
+
+    const r = await axios.get(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+          "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept: "application/json, text/plain, */*",
+        "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
+        Referer: "https://www.digikala.com/",
+        Origin: "https://www.digikala.com",
+      },
+      timeout: 4500,
+      validateStatus: () => true,
+    });
+
+    if (r.status !== 200 || !r.data) {
+      console.warn(`[suggest] digikala HTTP ${r.status}`);
+      return [];
+    }
+
+    const list = r.data?.data?.auto_complete || [];
+    if (!Array.isArray(list)) return [];
+
+    // ─── دقیقاً همون ترتیب Digikala، بدون حذف، بدون تغییر ───
+    const results = [];
+    for (const item of list) {
+      const title = String(item?.title || "").trim();
+      if (!title) continue;
+      results.push(title);
+    }
+
+    return results;
+  } catch (e) {
+    console.error("[suggest] digikala error:", e.message);
+    return [];
+  }
+}
 
 app.get("/api/suggest", async (req, res) => {
   const q = String(req.query.q || "").trim();
@@ -762,103 +839,52 @@ app.get("/api/suggest", async (req, res) => {
     return res.json({ success: true, items: cached.items });
   }
 
-  const results = new Map(); // title → weight
-  const ql = q.toLowerCase();
+  // ─── ۱. Digikala (منبع اصلی) ───
+  let suggestions = await fetchDigikalaAutocomplete(q);
 
-  // ─── ۱. تاریخچه‌ی خودمون (وزن 10) ───
-  if (db) {
+  // ─── ۲. Fallback: تاریخچه‌ی خودمون ───
+  if (suggestions.length === 0 && db) {
     try {
       const [rows] = await db.query(
         `SELECT items FROM search_logs
          WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 60 DAY)`,
       );
+      const ql = q.toLowerCase();
+      const matches = new Set();
       for (const row of rows) {
         try {
           const arr = JSON.parse(row.items || "[]");
           for (const item of arr) {
             const t = String(item).trim();
-            if (t.length >= 2 && t.toLowerCase().includes(ql)) {
-              results.set(t, (results.get(t) || 0) + 10);
+            if (t.toLowerCase().includes(ql) && t.length >= 2) {
+              matches.add(t);
             }
           }
         } catch {}
       }
+      suggestions = [...matches].slice(0, 10);
     } catch {}
   }
 
-  // ─── ۲. Digikala search (وزن 5) ───
-  if (results.size < 8) {
-    try {
-      const r = await axios.get("https://api.digikala.com/v1/search/", {
-        params: { q, page: 1 },
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          Accept: "application/json",
-        },
-        timeout: 3500,
-        validateStatus: () => true,
-      });
-      const products = r.data?.data?.products || [];
-      for (const p of products.slice(0, 6)) {
-        const t = String(p.title_fa || "").trim();
-        if (t.length >= 2 && !results.has(t)) {
-          results.set(t, 5);
-        }
-      }
-      // همچنین پیشنهادهای digikala (اگه وجود داشت)
-      const suggestions = r.data?.data?.suggestions || [];
-      for (const s of suggestions.slice(0, 4)) {
-        const t =
-          typeof s === "string" ? s : s?.text || s?.title || s?.title_fa || "";
-        const trimmed = String(t).trim();
-        if (trimmed.length >= 2 && !results.has(trimmed)) {
-          results.set(trimmed, 4);
-        }
-      }
-    } catch (e) {
-      console.error("[suggest] digikala error:", e.message);
-    }
-  }
+  // ─── ساخت items با parts (بدون محدودیت) ───
+  let items = suggestions.map((title) => ({
+    full: title,
+    parts: buildParts(title, q),
+  }));
 
-  // ─── ۳. Torob search (وزن 3) ───
-  if (results.size < 6) {
-    try {
-      const r = await axios.get(
-        "https://api.torob.com/v4/base-product/search/",
-        {
-          params: { q, source: "next_desktop", page: 0, size: 8 },
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            Accept: "application/json",
-            Referer: "https://torob.com/",
-            Origin: "https://torob.com",
-          },
-          timeout: 3500,
-          validateStatus: () => true,
-        },
-      );
-      const items = r.data?.results || [];
-      for (const p of items.slice(0, 6)) {
-        const t = String(p.name1 || p.name || "").trim();
-        if (t.length >= 2 && !results.has(t)) {
-          results.set(t, 3);
-        }
-      }
-    } catch (e) {
-      console.error("[suggest] torob error:", e.message);
-    }
+  // ─── Fallback نهایی ───
+  if (items.length === 0) {
+    items = [
+      {
+        full: q,
+        fallback: true,
+        parts: [{ text: q, bold: true }],
+      },
+    ];
   }
-
-  const items = [...results.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([k]) => k)
-    .slice(0, 8);
 
   suggestCache.set(cacheKey, { items, at: Date.now() });
 
-  // پاک‌سازی دوره‌ای کش
   if (suggestCache.size > 200) {
     const entries = [...suggestCache.entries()].sort(
       (a, b) => a[1].at - b[1].at,
@@ -867,63 +893,6 @@ app.get("/api/suggest", async (req, res) => {
   }
 
   res.json({ success: true, items });
-});
-
-// ================================================================
-// API: چک قیمت آیتم‌های علاقه‌مندی (background)
-// ================================================================
-app.post("/api/check-prices", async (req, res) => {
-  const { items } = req.body || {};
-  if (!Array.isArray(items) || items.length === 0) {
-    return res.json({ success: true, results: [] });
-  }
-  if (items.length > 30) {
-    return res.status(400).json({ success: false, error: "too many items" });
-  }
-
-  const results = [];
-  const CONCURRENCY = 2;
-  let idx = 0;
-
-  async function worker() {
-    while (idx < items.length) {
-      const i = idx++;
-      const { title, storeName } = items[i];
-      if (!title || !storeName) continue;
-
-      try {
-        const searchResult = await compareBasket([title]);
-        const query = searchResult.queries?.[0];
-        if (!query) continue;
-
-        let found = null;
-        for (const match of query.matches || []) {
-          for (const offer of match.offers || []) {
-            if (offer.storeName === storeName && offer.price > 0) {
-              if (!found || offer.price < found.price) {
-                found = {
-                  title,
-                  storeName,
-                  price: offer.price,
-                  link: offer.link || "",
-                  image: offer.image || null,
-                };
-              }
-            }
-          }
-        }
-        if (found) results.push(found);
-      } catch (e) {
-        // silent — این چک پس‌زمینه‌ست، خطا مهم نیست
-      }
-    }
-  }
-
-  await Promise.all(
-    Array.from({ length: Math.min(CONCURRENCY, items.length) }, () => worker()),
-  );
-
-  res.json({ success: true, results });
 });
 
 // ================================================================

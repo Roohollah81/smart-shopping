@@ -1119,6 +1119,7 @@ body {
 .input-body.open {
   display: block;
   animation: slideDown 0.25s ease;
+  padding-top: 0.25rem;
 }
 
 @keyframes slideDown {
@@ -1147,6 +1148,7 @@ body {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
+  margin-bottom: 0.25rem;
 }
 .search-box:focus-within {
   background: var(--surface);
@@ -1171,12 +1173,32 @@ body {
   color: var(--text-muted);
   margin-inline-start: 0.35rem;
   overflow: hidden;
+  position: relative;
 }
 .search-box-icon svg {
   width: 1.15rem;
   height: 1.15rem;
   display: block;
   flex-shrink: 0;
+  transition: opacity 0.15s ease;
+}
+
+/* حالت لودینگ */
+.search-box-icon.loading svg {
+  opacity: 0;
+}
+
+.search-box-icon.loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(99, 102, 241, 0.25);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
 }
 
 .search-box input {
@@ -1280,12 +1302,73 @@ body {
   white-space: nowrap;
 }
 
+/* بولد داخل پیشنهادها */
+.autocomplete-text b {
+  font-weight: 800;
+  color: var(--text);
+}
+
+.autocomplete-text {
+  color: var(--text-soft);
+}
+
+/* حالت fallback (جستجو برای X) */
+.autocomplete-item.autocomplete-fallback {
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.08),
+    rgba(139, 92, 246, 0.05)
+  );
+}
+
+.autocomplete-fallback-text {
+  color: var(--primary-dark);
+  font-weight: 700;
+}
+
+.autocomplete-fallback-text strong {
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-inline-end: 0.35rem;
+}
+
+.autocomplete-fallback-text b {
+  color: var(--primary-dark);
+  font-weight: 800;
+}
+
+:root[data-theme="dark"] .autocomplete-fallback-text {
+  color: var(--primary-light);
+}
+:root[data-theme="dark"] .autocomplete-fallback-text b {
+  color: var(--primary-light);
+}
+:root[data-theme="dark"] .autocomplete-text b {
+  color: var(--text);
+}
+
 /* ─── Items list ─── */
+.basket-section {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.basket-section.hidden {
+  display: none;
+}
+
+.basket-count {
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.72rem;
+  margin-inline-start: 0.25rem;
+}
+
 .items-list {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  padding-top: 0.75rem;
   min-height: 0;
 }
 .items-list:empty {
