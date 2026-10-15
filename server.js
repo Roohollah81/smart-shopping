@@ -14,6 +14,21 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+
+// ─── هدرها برای نمایش در iframe ایتا (وب) ───
+app.use((req, res, next) => {
+  // حذف هدرهایی که از iframe جلوگیری می‌کنن
+  res.removeHeader("X-Frame-Options");
+  res.removeHeader("Content-Security-Policy");
+  // اجازه‌ی نمایش در iframe
+  res.setHeader("X-Frame-Options", "ALLOWALL");
+  res.setHeader(
+    "Content-Security-Policy",
+    "frame-ancestors 'self' https://eitaa.com https://*.eitaa.com https://web.eitaa.com",
+  );
+  next();
+});
+
 app.use(express.static(path.join(__dirname, "public")));
 
 // ================================================================
@@ -1901,49 +1916,6 @@ app.get("/admin", async (req, res) => {
 });
 
 app.get("/admin/logs", (req, res) => res.redirect("/admin"));
-
-// ================================================================
-// API: نرخ دلار
-// ================================================================
-app.get("/api/dollar", async (req, res) => {
-  try {
-    const r = await axios.get("https://bitpin.ir/academy/live/currency/", {
-      timeout: 8000,
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Accept: "text/html,application/xhtml+xml",
-        "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
-      },
-      validateStatus: () => true,
-    });
-
-    if (r.status !== 200 || typeof r.data !== "string") {
-      throw new Error(`HTTP ${r.status}`);
-    }
-
-    const html = r.data;
-    const match = html.match(
-      /data-price-symbol="USDIRT"[\s\S]*?data-price-value[^>]*>\s*([\d,،٬۰-۹]+)\s*</,
-    );
-
-    if (!match || !match[1]) throw new Error("dollar rate not found");
-
-    const normalized = match[1]
-      .replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
-      .replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d))
-      .replace(/[,،٬]/g, "");
-
-    const price = parseInt(normalized, 10);
-    if (!price || price < 50000 || price > 1000000)
-      throw new Error("invalid price");
-
-    res.json({ success: true, price });
-  } catch (e) {
-    console.error("[dollar] error:", e.message);
-    res.status(502).json({ success: false, error: e.message });
-  }
-});
 
 // ================================================================
 // HELPERS — گالری

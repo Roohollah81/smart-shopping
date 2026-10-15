@@ -241,10 +241,52 @@ function tokensMatch(queryToken, titleToken) {
   return false;
 }
 
+// ─── کلمات مترادف که اگه با هم بیان، محصول متفاوته ───
+const COMPOUND_WORDS = [
+  // ترکیب‌هایی که کلمه‌ی دوم رو به چیز دیگه تبدیل می‌کنه
+  { query: "کفش", conflict: ["دوزک", "دوز", "دوزک"] },
+  { query: "دست", conflict: ["مالی", "بند", "کش"] },
+  { query: "سر", conflict: ["گرد", "خود", "سرد"] },
+  { query: "گل", conflict: ["دوز", "ابی", "خانه"] },
+  { query: "کتاب", conflict: ["خانه"] },
+  { query: "چشم", conflict: ["ک"] },
+  { query: "قلم", conflict: ["و"] }, // قلمو != قلم
+  { query: "سنگ", conflict: ["ک"] },
+  { query: "برگ", conflict: ["ه"] },
+  { query: "پا", conflict: ["ک"] },
+  { query: "شیر", conflict: ["ین", "ینی"] },
+  { query: "مو", conflict: ["تور", "رو"] },
+  { query: "شیر", conflict: ["از", "ینی"] },
+];
+
+function findCompoundConflict(query, title) {
+  const qNorm = normalize(query);
+  const tNorm = normalize(title);
+
+  for (const rule of COMPOUND_WORDS) {
+    const qHas = qNorm.split(" ").includes(rule.query);
+    if (!qHas) continue;
+
+    for (const bad of rule.conflict) {
+      // اگه bad قبل یا بعد از query چسبیده باشه
+      const combined = rule.query + bad;
+      const combinedReverse = bad + rule.query;
+      if (tNorm.includes(combined) || tNorm.includes(combinedReverse)) {
+        return `${rule.query}+${bad}`;
+      }
+    }
+  }
+  return null;
+}
+
 function findUnwantedModifier(query, title) {
   const qTokens = new Set(tokenize(query));
   const tTokens = tokenize(title);
   if (tTokens.length === 0) return null;
+
+  // ─── جدید: چک ترکیب‌های خطرناک ───
+  const compound = findCompoundConflict(query, title);
+  if (compound) return `compound:${compound}`;
 
   for (const token of tTokens) {
     if (ALWAYS_NEGATIVE.has(token) && !qTokens.has(token)) {
@@ -273,6 +315,103 @@ function findUnwantedModifier(query, title) {
   return null;
 }
 
+// ================================================================
+// 🎯 تشخیص کلمات مرکب و ویژگی‌بودن query
+// ================================================================
+
+// پسوندهای رایج فارسی که با کلمه ترکیب می‌شن ولی معنی رو عوض نمی‌کنن
+const COMMON_PERSIAN_SUFFIXES = new Set([
+  "ها",
+  "های",
+  "هایی",
+  "هام",
+  "هامان",
+  "هايت",
+  "هايش",
+  "ی",
+  "اي",
+  "ای",
+  "تر",
+  "ترین",
+  "ترين",
+  "شان",
+  "مان",
+  "تان",
+  "اش",
+  "ام",
+  "ات",
+]);
+
+// ─── چک ترکیب چسبیده: «کفش» تو «کفشدوزک» ───
+function findCompoundMismatch(query, title) {
+  const qTokens = tokenize(query);
+  const tTokens = tokenize(title);
+
+  if (qTokens.length === 0 || tTokens.length === 0) return null;
+  // فقط برای query تک‌کلمه اعمال کن
+  if (qTokens.length !== 1) return null;
+
+  const qNorm = normalizeCompact(qTokens[0]);
+  if (qNorm.length < 2) return null;
+
+  for (const tToken of tTokens) {
+    const tNorm = normalizeCompact(tToken);
+    if (tNorm === qNorm) continue; // دقیقاً همون کلمه
+    if (tNorm.length <= qNorm.length + 1) continue; // خیلی کوتاه‌تر از ترکیب
+
+    // چک کن tToken با qNorm شروع یا تموم می‌شه
+    let extra = null;
+    if (tNorm.startsWith(qNorm)) extra = tNorm.slice(qNorm.length);
+    else if (tNorm.endsWith(qNorm)) extra = tNorm.slice(0, -qNorm.length);
+
+    if (!extra || extra.length < 2) continue;
+
+    // اگه پسوند معمولی هست، نادیده بگیر
+    if (COMMON_PERSIAN_SUFFIXES.has(extra)) continue;
+
+    // ترکیب مشکوک
+    return {
+      queryToken: qTokens[0],
+      titleToken: tToken,
+      extra,
+    };
+  }
+  return null;
+}
+
+// ─── چک ویژگی‌بودن: query تو موقعیت ۳ به بعد باشه ───
+function isQueryAFeature(query, title) {
+  const qTokens = tokenize(query);
+  const tTokens = tokenize(title);
+
+  if (qTokens.length === 0 || tTokens.length === 0) return false;
+  // فقط برای query تک‌کلمه
+  if (qTokens.length !== 1) return false;
+  // عنوان باید حداقل ۳ کلمه باشه که معنی داشته باشه
+  if (tTokens.length < 3) return false;
+
+  const qNorm = normalize(qTokens[0]);
+  if (!qNorm) return false;
+
+  // چک کن تو ۲ کلمه‌ی اول هست
+  for (let i = 0; i < Math.min(2, tTokens.length); i++) {
+    const t = normalize(tTokens[i]);
+    if (t === qNorm || t.startsWith(qNorm) || qNorm.startsWith(t)) {
+      return false; // query جزء اصلی محصول
+    }
+  }
+
+  // چک کن تو کلمات بعدی هست
+  for (let i = 2; i < tTokens.length; i++) {
+    const t = normalize(tTokens[i]);
+    if (t === qNorm || t.startsWith(qNorm) || qNorm.startsWith(t)) {
+      return true; // query فقط یه ویژگیه
+    }
+  }
+
+  return false;
+}
+
 function hasCategoryConflict(query, title) {
   const qNorm = normalize(query);
   const tNorm = normalize(title);
@@ -297,6 +436,29 @@ function queryMatchScore(query, title) {
       matchedTokens: [],
       missedTokens: [],
       reason: null,
+    };
+  }
+
+  // ─── چک ۱: ترکیب چسبیده (کفش → کفشدوزک) ───
+  const compound = findCompoundMismatch(query, title);
+  if (compound) {
+    return {
+      score: 0,
+      ratio: 0,
+      matchedTokens: [],
+      missedTokens: [compound.queryToken],
+      reason: `compound word: "${compound.queryToken}" inside "${compound.titleToken}"`,
+    };
+  }
+
+  // ─── چک ۲: query به‌عنوان ویژگی نه محصول اصلی ───
+  if (isQueryAFeature(query, title)) {
+    return {
+      score: 0,
+      ratio: 0,
+      matchedTokens: [],
+      missedTokens: qt,
+      reason: `query is a feature not main product`,
     };
   }
 

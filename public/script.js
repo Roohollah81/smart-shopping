@@ -51,6 +51,42 @@ let suppressNextPopstate = false;
 const MODAL_STACK = [];
 let closingViaPopstate = false;
 
+// ─── Eitaa BackButton ───
+function updateEitaaBackButton() {
+  if (!window.Eitaa || !window.Eitaa.WebApp) return;
+  const bb = window.Eitaa.WebApp.BackButton;
+  if (!bb) return;
+
+  try {
+    if (MODAL_STACK.length > 0) {
+      bb.show();
+    } else {
+      bb.hide();
+    }
+  } catch (e) {
+    // silent
+  }
+}
+
+// اتصال BackButton به سیستم modal
+function initEitaaBackButton() {
+  if (!window.Eitaa || !window.Eitaa.WebApp) return;
+  const bb = window.Eitaa.WebApp.BackButton;
+  if (!bb) return;
+
+  bb.onClick(() => {
+    // معادل دکمه back مرورگر
+    if (MODAL_STACK.length > 0) {
+      history.back();
+    } else {
+      // اگه modal باز نیست → از برنامک خارج شو
+      if (window.Eitaa.WebApp.close) {
+        window.Eitaa.WebApp.close();
+      }
+    }
+  });
+}
+
 const productDataMap = new Map();
 let productDataCounter = 0;
 const imageGalleryCache = new Map();
@@ -504,12 +540,11 @@ const MODAL_HANDLERS = {
 
 function pushModalToHistory(type) {
   if (closingViaPopstate) return;
-
-  // اگه همین type قبلاً بازه، دوباره push نکن
   if (MODAL_STACK.includes(type)) return;
 
   MODAL_STACK.push(type);
   history.pushState({ modal: type, stackSize: MODAL_STACK.length }, "");
+  updateEitaaBackButton(); // ← جدید
 }
 
 function popModalFromHistory() {
@@ -518,6 +553,7 @@ function popModalFromHistory() {
 
   const handler = MODAL_HANDLERS[type];
   if (handler) handler();
+  updateEitaaBackButton(); // ← جدید
 }
 
 // ----------------------------------------------------------------
@@ -1185,6 +1221,7 @@ function renderSuggestions() {
 // ================================================================
 let autocompleteTimer = null;
 let autocompleteAbort = null;
+let suppressAutocomplete = false; // ← جدید
 
 function renderAutocomplete(items, query) {
   if (!autocompleteBox) return;
@@ -1249,6 +1286,21 @@ function showSuggestionsAndItems(show) {
 }
 
 function hideAutocomplete() {
+  // ─── پاک کردن تایمر معلق (باگ اصلی!) ───
+  if (autocompleteTimer) {
+    clearTimeout(autocompleteTimer);
+    autocompleteTimer = null;
+  }
+  // ─── لغو درخواست در حال انجام ───
+  if (autocompleteAbort) {
+    try {
+      autocompleteAbort.abort();
+    } catch {}
+    autocompleteAbort = null;
+  }
+  // ─── مخفی کردن اسپینر ───
+  setAutocompleteLoading(false);
+  // ─── مخفی کردن box ───
   if (!autocompleteBox) return;
   autocompleteBox.classList.add("hidden");
   autocompleteBox.innerHTML = "";
@@ -1256,6 +1308,9 @@ function hideAutocomplete() {
 }
 
 async function fetchAutocomplete(q) {
+  // ─── چک suppress (وقتی Enter زده شد، نپرس) ───
+  if (suppressAutocomplete) return;
+
   if (!q || q.length < 2) {
     hideAutocomplete();
     setAutocompleteLoading(false);
@@ -1273,6 +1328,13 @@ async function fetchAutocomplete(q) {
       signal: autocompleteAbort.signal,
     });
     const data = await r.json();
+
+    // چک دوباره: اگه تو این مدت suppress شده، نمایش نده
+    if (suppressAutocomplete) {
+      hideAutocomplete();
+      return;
+    }
+
     if (data.success && Array.isArray(data.items)) {
       renderAutocomplete(data.items, q);
     }
@@ -1299,13 +1361,19 @@ itemInput.addEventListener("input", () => {
     clearInputBtn.classList.toggle("hidden", val.length === 0);
   }
 
+  // اگه suppress شده، هیچ کاری نکن
+  if (suppressAutocomplete) return;
+
   // debounce autocomplete
   if (autocompleteTimer) clearTimeout(autocompleteTimer);
   if (!val || val.length < 2) {
     hideAutocomplete();
     return;
   }
-  autocompleteTimer = setTimeout(() => fetchAutocomplete(val), 250);
+  autocompleteTimer = setTimeout(() => {
+    autocompleteTimer = null;
+    fetchAutocomplete(val);
+  }, 250);
 });
 
 // کلیک روی autocomplete item → مثل Enter عمل کنه
@@ -1444,30 +1512,6 @@ function updateDateTime() {
   set("top-datetime-time", timeStr);
 }
 
-async function fetchDollarRate() {
-  const set = (id, txt) => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = txt;
-  };
-  set("dollar-value", "...");
-  set("top-dollar-value", "...");
-  try {
-    const res = await fetch("/api/dollar");
-    const data = await res.json();
-    if (data?.success && data.price) {
-      const txt = Number(data.price).toLocaleString("fa-IR");
-      set("dollar-value", txt);
-      set("top-dollar-value", txt);
-    } else {
-      set("dollar-value", "—");
-      set("top-dollar-value", "—");
-    }
-  } catch {
-    set("dollar-value", "—");
-    set("top-dollar-value", "—");
-  }
-}
-
 async function loadPopularItems() {
   try {
     const r = await fetch("/api/popular-searches?limit=10");
@@ -1492,24 +1536,12 @@ function initStickyHeader() {
 
   let ticking = false;
 
-  function checkDollar() {
-    const center = stickyHeader.querySelector(".sticky-center");
-    const dollar = stickyHeader.querySelector(".sticky-dollar");
-    if (!center || !dollar) return;
-    stickyHeader.classList.remove("hide-dollar");
-    void stickyHeader.offsetWidth;
-    if (center.scrollWidth > center.clientWidth + 2) {
-      stickyHeader.classList.add("hide-dollar");
-    }
-  }
-
   function updateSticky() {
     const topInfoBarBottom = topInfoBar
       ? topInfoBar.getBoundingClientRect().bottom
       : 200;
     if (topInfoBarBottom < 0) {
       stickyHeader.classList.add("visible");
-      checkDollar();
     } else {
       stickyHeader.classList.remove("visible");
     }
@@ -1534,7 +1566,6 @@ function initStickyHeader() {
     { passive: true },
   );
 
-  window.addEventListener("resize", () => setTimeout(checkDollar, 100));
   updateSticky();
 }
 
@@ -1574,23 +1605,53 @@ function getProductIcon(title) {
 function addItem() {
   const value = itemInput.value.trim();
   if (!value) return;
+
+  // ─── suppress کن (تا input event دوباره autocomplete باز نکنه) ───
+  suppressAutocomplete = true;
+  hideAutocomplete();
+
+  // ─── چک تکراری ───
   if (items.includes(value)) {
     itemInput.value = "";
     if (clearInputBtn) clearInputBtn.classList.add("hidden");
+
+    showToast(
+      "قبلاً اضافه شده",
+      `«${value}» از قبل تو سبد خریدته`,
+      "info",
+      3500,
+    );
+
+    // آزاد کردن suppress بعد از یه لحظه
+    setTimeout(() => {
+      suppressAutocomplete = false;
+    }, 300);
     return;
   }
+
+  // ─── چک ظرفیت ───
   if (items.length >= 10) {
     showError("حداکثر ۱۰ آیتم قابل افزودن است.");
+    setTimeout(() => {
+      suppressAutocomplete = false;
+    }, 300);
     return;
   }
+
+  // ─── افزودن ───
   items.push(value);
   removeFromRecent(value);
   itemInput.value = "";
   if (clearInputBtn) clearInputBtn.classList.add("hidden");
-  hideAutocomplete();
+
   itemInput.focus();
   renderItems();
   saveBasket();
+
+  // آزاد کردن suppress بعد از یه لحظه
+  setTimeout(() => {
+    suppressAutocomplete = false;
+  }, 300);
 }
 
 function removeItem(i) {
@@ -2075,11 +2136,17 @@ function renderResults(data) {
     document.getElementById("sticky-sort")?.classList.add("hidden");
     return;
   }
+
   lastBasketComparison = basketComparison;
   const sorted = applySorting(basketComparison);
   renderStoreSections(sorted);
 
-  document.getElementById("top-sort")?.classList.remove("hidden");
+  // ─── نمایش sort فقط اگه معنی‌دار باشه ───
+  const topSort = document.getElementById("top-sort");
+  if (topSort) {
+    topSort.classList.toggle("hidden", !isSortUseful(basketComparison));
+  }
+
   resultsSection.classList.remove("hidden");
   resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
 
@@ -2091,6 +2158,24 @@ function renderResults(data) {
       3500,
     );
   }, 400);
+}
+
+// ─── آیا فیلتر معنی داره؟ ───
+function isSortUseful(basketComparison) {
+  if (!basketComparison || basketComparison.length < 2) return false;
+
+  // چک کن قیمت‌ها متفاوت باشن (برای sort قیمت)
+  const prices = basketComparison.map((s) => s.total);
+  const uniquePrices = new Set(prices);
+  const hasPriceDiff = uniquePrices.size > 1;
+
+  // چک کن تعداد آیتم‌ها متفاوت باشن (برای sort موجودی)
+  const counts = basketComparison.map((s) => s.itemCount);
+  const uniqueCounts = new Set(counts);
+  const hasCountDiff = uniqueCounts.size > 1;
+
+  // اگه هیچ‌کدوم تفاوت نداشتن، فیلتر بی‌فایده‌ست
+  return hasPriceDiff || hasCountDiff;
 }
 
 function renderStoreSections(sortedStores) {
@@ -3825,11 +3910,19 @@ if (itemInput) {
   itemInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
+      // ─── فوری suppress کن ───
+      suppressAutocomplete = true;
+      hideAutocomplete();
       addItem();
     }
     if (e.key === "Escape") {
+      suppressAutocomplete = true;
+      hideAutocomplete();
       toggleInputBody(false);
       itemInput.blur();
+      setTimeout(() => {
+        suppressAutocomplete = false;
+      }, 300);
     }
   });
 }
@@ -3938,12 +4031,12 @@ disableAllDraggable();
 initSortToggle();
 updateWishlistFloatBtn();
 updateDateTime();
-fetchDollarRate();
 setInterval(updateDateTime, 1000);
-setInterval(fetchDollarRate, 600000);
 initStickyHeader();
 setTimeout(backgroundCheckWishlistPrices, 3000);
 setTimeout(checkChangelog, 1500);
+// راه‌اندازی Eitaa BackButton
+setTimeout(initEitaaBackButton, 500);
 trackVisit();
 loadPopularItems();
 

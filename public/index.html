@@ -12,8 +12,30 @@
       href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
+
+    <!-- 🎯 Eitaa WebApp SDK -->
+    <script src="https://developer.eitaa.com/eitaa-web-app.js"></script>
   </head>
   <body>
+    <!-- 🎯 Eitaa WebApp initialization -->
+    <script>
+      (function initEitaa() {
+        if (!window.Eitaa || !window.Eitaa.WebApp) return;
+
+        try {
+          window.Eitaa.WebApp.ready();
+          window.Eitaa.WebApp.expand();
+          if (typeof window.Eitaa.WebApp.disableVerticalSwipes === "function") {
+            window.Eitaa.WebApp.disableVerticalSwipes();
+          }
+          // ذخیره در window برای استفاده در script.js
+          window.__eitaaReady = true;
+        } catch (e) {
+          console.error("[eitaa] init error:", e);
+        }
+      })();
+    </script>
+
     <!-- 🎯 نوار چسبان بالای صفحه -->
     <div id="sticky-header" class="sticky-header">
       <div class="sticky-header-inner">
@@ -32,11 +54,6 @@
           <div class="sticky-datetime" id="sticky-datetime">
             <span class="datetime-date" id="datetime-date">—</span>
             <span class="datetime-time" id="datetime-time">—</span>
-          </div>
-          <!-- 🎯 قیمت دلار -->
-          <div class="sticky-dollar" id="sticky-dollar">
-            <span class="dollar-label">دلار</span>
-            <span class="dollar-value" id="dollar-value">—</span>
           </div>
           <!-- 🎯 فیلتر ترتیب (کپی از پایین) -->
           <div class="sticky-sort hidden" id="sticky-sort">
@@ -74,48 +91,14 @@
         </div>
       </header>
 
-      <!-- نوار اطلاعات بالای صفحه (تاریخ، ساعت، دلار) -->
       <div class="top-info-bar" id="top-info-bar">
-        <!-- ردیف ۱: تاریخ و ساعت -->
+        <!-- تاریخ و ساعت -->
         <div class="sticky-datetime" id="top-datetime">
           <span class="datetime-date" id="top-datetime-date">—</span>
           <span class="datetime-time" id="top-datetime-time">—</span>
         </div>
 
-        <!-- ردیف ۲: دلار (راست) | اکشن‌ها (چپ) -->
-        <div class="top-info-row">
-          <!-- اطلاعات: دلار -->
-          <div class="sticky-dollar" id="top-dollar">
-            <span class="dollar-label">دلار</span>
-            <span class="dollar-value" id="top-dollar-value">—</span>
-          </div>
-
-          <!-- اکشن‌ها: گروه‌بندی شده -->
-          <div class="top-actions">
-            <button
-              id="changelog-btn"
-              class="top-action-btn"
-              type="button"
-              aria-label="مشاهده تغییرات"
-            >
-              <span class="top-action-icon">📢</span>
-              <span class="top-action-text">تغییرات</span>
-            </button>
-            <button
-              id="theme-toggle-top"
-              class="top-action-btn"
-              type="button"
-              aria-label="تغییر حالت"
-            >
-              <span class="top-action-icon" id="theme-icon-top">🌙</span>
-              <span class="top-action-text" id="theme-toggle-text"
-                >حالت شب</span
-              >
-            </button>
-          </div>
-        </div>
-
-        <!-- ردیف ۳: sort -->
+        <!-- فیلتر اولویت -->
         <div class="sort-inline hidden" id="top-sort">
           <span class="sort-toggle-label">اولویت نمایش فروشگاه‌ها:</span>
           <button class="sort-option" data-sort="price" type="button">
@@ -123,6 +106,28 @@
           </button>
           <button class="sort-option" data-sort="count" type="button">
             بیشترین موجودی
+          </button>
+        </div>
+
+        <!-- اکشن‌ها -->
+        <div class="top-actions">
+          <button
+            id="theme-toggle-top"
+            class="top-action-btn"
+            type="button"
+            aria-label="تغییر حالت"
+          >
+            <span class="top-action-icon" id="theme-icon-top">🌙</span>
+            <span class="top-action-text" id="theme-toggle-text">حالت شب</span>
+          </button>
+          <button
+            id="changelog-btn"
+            class="top-action-btn"
+            type="button"
+            aria-label="مشاهده تغییرات"
+          >
+            <span class="top-action-icon">📢</span>
+            <span class="top-action-text">تغییرات</span>
           </button>
         </div>
       </div>
@@ -223,7 +228,10 @@
           <div id="autocomplete-box" class="autocomplete-box hidden"></div>
 
           <!-- سبد خرید (آیتم‌های انتخابی) -->
-          <div id="basket-section" class="basket-section suggestions-section hidden">
+          <div
+            id="basket-section"
+            class="basket-section suggestions-section hidden"
+          >
             <div class="suggestions-header">
               <span class="suggestions-title">
                 سبد خرید
