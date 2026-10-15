@@ -7,6 +7,18 @@ const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
 // ================================================================
 // LOGGER — timestamp + clean output
 // ================================================================
+// ─── نام فروشگاه‌ها برای pad خودکار ───
+const KNOWN_STORES_PAD = new Set([
+  "Digikala",
+  "Torob",
+  "Ghalamtarash",
+  "ArmanArt",
+  "Alemzadeh",
+  "MahestanArt",
+  "MadjMarket",
+]);
+const STORE_PAD_WIDTH = 14;
+
 function log(level, scopeOrMsg, message) {
   const time = new Date().toTimeString().slice(0, 8);
   const tag = `[${String(level).padEnd(5)}]`;
@@ -20,8 +32,17 @@ function log(level, scopeOrMsg, message) {
     msg = message;
   }
 
-  const sc = scope ? `[${String(scope).padEnd(8)}] ` : "";
+  // ─── Pad خودکار نام فروشگاه ───
+  const colonIdx = msg.indexOf(":");
+  if (colonIdx > 0) {
+    const possibleStore = msg.substring(0, colonIdx).trim();
+    if (KNOWN_STORES_PAD.has(possibleStore)) {
+      const paddedStore = possibleStore.padEnd(STORE_PAD_WIDTH, " ");
+      msg = paddedStore + msg.substring(colonIdx);
+    }
+  }
 
+  const sc = scope ? `[${String(scope).padEnd(10)}] ` : "";
   console.log(`[${time}] ${tag} ${sc}${msg}`);
 }
 
@@ -73,7 +94,7 @@ const STORE_EN_NAME = {
   "آرمان آرت": "ArmanArt",
   عالم‌زاده: "Alemzadeh",
   "مهستان آرت": "MahestanArt",
-  "مجد مارکت": "MadjMarket",
+  "مجد مارکت": "MajdMarket",
 };
 
 function enName(name) {
@@ -889,8 +910,7 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
     });
 
     if (response.status !== 200 || !response.data) {
-      log("WARN", `${enName(name)}: HTTP ${response.status}`);
-      return [];
+      throw new Error(`HTTP ${response.status}`);
     }
 
     const $ = cheerio.load(response.data);
@@ -975,7 +995,7 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
     return products;
   } catch (error) {
     log("ERR", `${enName(name)}: ${error.message}`);
-    return [];
+    throw error;
   }
 }
 
@@ -1053,10 +1073,11 @@ async function searchDigikala(query, limit = 20) {
       timeout: 15000,
     });
     const products = response.data?.data?.products || [];
+    const sliced = products.slice(0, limit);
 
-    log("OK", `Digikala: ${products.length} products`);
+    log("OK", `Digikala: ${sliced.length} products`);
 
-    return products.slice(0, limit).map((p) => {
+    return sliced.map((p) => {
       const imgs = extractDigikalaImages(p);
       return {
         storeName: "دیجی‌کالا",
@@ -1077,7 +1098,7 @@ async function searchDigikala(query, limit = 20) {
     });
   } catch (error) {
     log("ERR", `Digikala: ${error.message}`);
-    return [];
+    throw error;
   }
 }
 
@@ -1107,8 +1128,9 @@ async function searchTorob(query, limit = 20) {
       },
     );
     const products = response.data?.results || [];
-    log("OK", `Torob: ${products.length} products`);
-    return products.slice(0, limit).map((p) => {
+    const sliced = products.slice(0, limit);
+    log("OK", `Torob: ${sliced.length} products`);
+    return sliced.map((p) => {
       const imgs = [];
       if (Array.isArray(p.images)) imgs.push(...p.images);
       if (p.image_url) imgs.push(p.image_url);
@@ -1130,11 +1152,11 @@ async function searchTorob(query, limit = 20) {
     });
   } catch (error) {
     log("ERR", `Torob: ${error.message}`);
-    return [];
+    throw error;
   }
 }
 
-async function searchMadjMarket(query, limit = 20) {
+async function searchMajdMarket(query, limit = 20) {
   try {
     const url = `https://majdmarket.com/products?search=${encodeURIComponent(query)}`;
     const r = await axios.get(url, {
@@ -1149,8 +1171,7 @@ async function searchMadjMarket(query, limit = 20) {
     });
 
     if (r.status !== 200 || typeof r.data !== "string") {
-      log("WARN", `MadjMarket: HTTP ${r.status}`);
-      return [];
+      throw new Error(`HTTP ${r.status}`);
     }
 
     const html = r.data;
@@ -1193,8 +1214,9 @@ async function searchMadjMarket(query, limit = 20) {
     }
 
     if (products.length > 0) {
-      log("OK", `MadjMarket: ${products.length} (NEXT_DATA)`);
-      return products.slice(0, limit);
+      const sliced = products.slice(0, limit);
+      log("OK", `MajdMarket: ${sliced.length} (NEXT_DATA)`);
+      return sliced;
     }
 
     // fallback cheerio
@@ -1237,17 +1259,32 @@ async function searchMadjMarket(query, limit = 20) {
       });
     });
 
-    log("OK", `MadjMarket: ${products.length} (cheerio)`);
-    return products.slice(0, limit);
+    const sliced2 = products.slice(0, limit);
+    log("OK", `MajdMarket: ${sliced2.length} (cheerio)`);
+    return sliced2;
   } catch (error) {
-    log("ERR", `MadjMarket: ${error.message.split("\n")[0]}`);
-    return [];
+    log("ERR", `MajdMarket: ${error.message.split("\n")[0]}`);
+    throw error;
   }
 }
 
 // ================================================================
 // MAIN FUNCTION
 // ================================================================
+const STORE_EN_MAP = {
+  دیجی‌کالا: "Digikala",
+  ترب: "Torob",
+  قلم‌تراش: "Ghalamtarash",
+  "آرمان آرت": "ArmanArt",
+  عالم‌زاده: "Alemzadeh",
+  "مهستان آرت": "MahestanArt",
+  "مجد مارکت": "MajdMarket",
+};
+
+function getStoreEn(name) {
+  return STORE_EN_MAP[name] || name;
+}
+
 async function compareBasket(shoppingList, options = {}) {
   const MIN_QUERY_MATCH = 0.6;
   const MIN_TOKEN_RATIO = 0.75;
@@ -1283,15 +1320,64 @@ async function compareBasket(shoppingList, options = {}) {
 
     const otherStores = NEW_STORES_CONFIG.filter((s) => s.name !== "مجد مارکت");
 
-    const allResults = await Promise.allSettled([
-      searchDigikala(query, 20),
-      searchTorob(query, 20),
-      ...otherStores.map((s) => searchWooCommerceStore(s, query, 20)),
-      searchMadjMarket(query, 20),
-    ]).then((results) =>
-      results.map((r) => (r.status === "fulfilled" ? r.value : [])),
-    );
-    const allProducts = allResults.flat();
+    // ساخت آرایه‌ی تسک‌ها با نام فروشگاه
+    const storeTasks = [
+      { name: "دیجی‌کالا", promise: searchDigikala(query, 20) },
+      { name: "ترب", promise: searchTorob(query, 20) },
+      ...otherStores.map((s) => ({
+        name: s.name,
+        promise: searchWooCommerceStore(s, query, 20),
+      })),
+      { name: "مجد مارکت", promise: searchMajdMarket(query, 20) },
+    ];
+
+    const settled = await Promise.allSettled(storeTasks.map((t) => t.promise));
+
+    const storeStatuses = [];
+    const allProducts = [];
+
+    // ─── خط QRY ───
+    const qryTime = Date.now();
+    const progressTag =
+      batchTotal > 1 && batchIndex ? `(${batchIndex}/${batchTotal}) ` : "";
+    storeStatuses.push({
+      store: "",
+      status: "QRY",
+      count: 0,
+      message: `"${query}"`,
+      progress: progressTag,
+      at: qryTime,
+    });
+
+    settled.forEach((result, idx) => {
+      const storeName = storeTasks[idx].name;
+      const storeEn = getStoreEn(storeName);
+      const at = Date.now();
+
+      if (result.status === "fulfilled") {
+        const products = Array.isArray(result.value) ? result.value : [];
+        const count = products.length;
+        const status = count > 0 ? "OK" : "WARN";
+        const message = count > 0 ? `${count} products` : "0 products";
+        storeStatuses.push({
+          store: storeEn,
+          status,
+          count,
+          message,
+          at,
+        });
+        allProducts.push(...products);
+      } else {
+        const errMsg = result.reason?.message || "unknown error";
+        storeStatuses.push({
+          store: storeEn,
+          status: "ERR",
+          count: 0,
+          message: errMsg.substring(0, 120),
+          at,
+        });
+      }
+    });
 
     const queryTokens = tokenize(query);
     const queryIds = queryTokens.filter(isCriticalIdentifier);
@@ -1381,10 +1467,20 @@ async function compareBasket(shoppingList, options = {}) {
       });
 
     log("DONE", `"${query}" -> ${matches.length} clusters`);
+    // محصولات نهایی که به کاربر نشون داده می‌شن
+    const visibleProductTitles = [];
+    for (const match of matches) {
+      if (match.productName) {
+        visibleProductTitles.push(match.productName);
+      }
+    }
+
     queries.push({
       query,
       matches,
       rejectedProducts,
+      storeStatuses,
+      visibleProductTitles,
       stats: {
         totalReceived: allProducts.length,
         accepted: acceptedCount,

@@ -802,6 +802,12 @@ function removeFromWishlist(item) {
   saveWishlist();
   updateAllWishlistButtons();
   renderWishlistModal();
+  showToast(
+    "حذف شد",
+    `«${item.title}» از علاقه‌مندی‌ها حذف شد`,
+    "remove",
+    3000,
+  );
 }
 
 function updateAllWishlistButtons() {
@@ -1406,12 +1412,25 @@ if (clearInputBtn) {
 }
 
 // دکمه‌ی پاک کردن اخیرها
-document.addEventListener("click", (e) => {
+document.addEventListener("click", async (e) => {
   if (e.target.closest("#clear-recent-btn")) {
     e.preventDefault();
     e.stopPropagation();
+
+    const confirmed = await showConfirmDialog({
+      title: "پاک کردن جستجوهای اخیر",
+      message: "آیا مطمئن هستید که می‌خواهید همه‌ی جستجوهای اخیر را پاک کنید؟",
+      icon: "🗑️",
+      confirmText: "بله، پاک کن",
+      cancelText: "انصراف",
+      variant: "danger",
+    });
+
+    if (!confirmed) return;
+
     localStorage.setItem(RECENT_KEY, "[]");
     renderSuggestions();
+    showToast("پاک شد", "جستجوهای اخیر پاک شدند", "remove", 3000);
   }
 });
 
@@ -1656,11 +1675,13 @@ function addItem() {
 
 function removeItem(i) {
   if (itemsList.classList.contains("locked")) return;
-  const removedItem = items[i];
+  const removed = items[i];
   items.splice(i, 1);
-  addToRecent(removedItem);
   renderItems();
   saveBasket();
+  if (removed) {
+    showToast("حذف شد", `«${removed}» از سبد خرید حذف شد`, "remove", 3000);
+  }
 }
 
 function renderItems() {
@@ -1774,42 +1795,24 @@ if (inputTrigger) {
 document.addEventListener("mousedown", (e) => {
   if (!inputBody || !inputBody.classList.contains("open")) return;
   if (inputSection && inputSection.contains(e.target)) return;
+
+  // ─── استثناها: مودال‌ها و دیالوگ‌ها ───
+  if (e.target.closest(".confirm-dialog")) return;
+  if (e.target.closest(".wishlist-modal")) return;
+  if (e.target.closest(".variants-modal")) return;
+  if (e.target.closest(".image-modal")) return;
+  if (e.target.closest(".debug-modal")) return;
+  if (e.target.closest(".changelog-modal")) return;
+
   toggleInputBody(false);
 });
 
 function clearAll() {
-  if (itemsList.classList.contains("locked")) return;
-
-  // قبل از خالی کردن، آیتم‌ها رو به recent برگردون
-  const itemsToRestore = [...items];
-  items = [];
-
-  itemsToRestore.reverse().forEach((it) => {
-    const key = String(it).trim().toLowerCase();
-    const recent = getRecentSearches().filter(
-      (x) => String(x).trim().toLowerCase() !== key,
-    );
-    recent.unshift(it);
-    localStorage.setItem(
-      RECENT_KEY,
-      JSON.stringify(recent.slice(0, RECENT_LIMIT)),
-    );
-  });
-
-  renderItems();
-  saveBasket();
-
-  if (itemsList.classList.contains("locked")) return;
-  items = [];
-  renderItems();
-  saveBasket();
+  // ─── فقط نتایج پاک می‌شن، سبد دست‌نخورده ───
   resultsSection.classList.add("hidden");
   document.getElementById("top-sort")?.classList.add("hidden");
   document.getElementById("sticky-sort")?.classList.add("hidden");
   hideError();
-  stopStoreCycle();
-  searchBtn.classList.remove("searching");
-  setLoading(false);
   lastBasketComparison = null;
   window.__lastQueries = null;
 
@@ -1823,8 +1826,15 @@ function clearAll() {
     varModal.classList.add("hidden");
     document.body.style.overflow = "";
   }
-  renderSuggestions();
-  toggleInputBody(false);
+
+  if (clearBtn) clearBtn.classList.add("hidden");
+
+  document
+    .querySelectorAll(".item-chip")
+    .forEach((chip) => chip.classList.remove("done", "error", "active"));
+
+  // ─── Toast ───
+  showToast("پاک شد", "نتایج جستجو پاک شدند", "remove", 3000);
 }
 
 function markChipActive(index) {
@@ -2003,6 +2013,7 @@ async function search() {
         rejectedCount: 0,
         storesWithResults: [],
         storesWithoutResults: SUPPORTED_STORES.map((s) => s.name),
+        storesStatus: [],
         durationMs,
       });
       return;
@@ -2020,15 +2031,34 @@ async function search() {
     let totalAccepted = 0;
     let totalRejected = 0;
 
+    const allStoreStatuses = [];
+    const allProductTitles = [];
+    const allQueryProducts = [];
+
     for (const q of validQueries) {
+      const queryTitle = q.query || "";
+      const queryProducts = [];
+
       for (const m of q.matches || []) {
         for (const o of m.offers || []) storesWithResultsSet.add(o.storeName);
         totalResults += (m.offers || []).length;
+        if (m.productName) {
+          allProductTitles.push(m.productName);
+          queryProducts.push(m.productName);
+        }
       }
       if (q.stats) {
         totalAccepted += q.stats.accepted || 0;
         totalRejected += q.stats.rejected || 0;
       }
+      if (Array.isArray(q.storeStatuses)) {
+        allStoreStatuses.push(...q.storeStatuses);
+      }
+
+      allQueryProducts.push({
+        query: queryTitle,
+        products: queryProducts,
+      });
     }
 
     const storesWithoutResults = SUPPORTED_STORES.map((s) => s.name).filter(
@@ -2042,6 +2072,9 @@ async function search() {
       rejectedCount: totalRejected,
       storesWithResults: Array.from(storesWithResultsSet),
       storesWithoutResults,
+      storesStatus: allStoreStatuses,
+      productTitles: allProductTitles,
+      queryProducts: allQueryProducts,
       durationMs,
     });
   } catch (e) {
@@ -2051,12 +2084,16 @@ async function search() {
     }
   } finally {
     stopStoreCycle();
-    setTriggerSearching(false); // ← برگرد به حالت عادی
+    setTriggerSearching(false);
     setLoading(false);
     if (itemsList) itemsList.classList.remove("locked");
     if (addBtn) addBtn.disabled = false;
-    if (clearBtn) clearBtn.classList.remove("hidden");
     if (cancelBtn) cancelBtn.classList.add("hidden");
+    // ─── نمایش دکمه‌ی پاک کردن نتایج، فقط اگه نتیجه داریم ───
+    if (clearBtn) {
+      const hasResults = !resultsSection.classList.contains("hidden");
+      clearBtn.classList.toggle("hidden", !hasResults);
+    }
     searchController = null;
     document
       .querySelectorAll(".item-chip.active")
@@ -2134,6 +2171,7 @@ function renderResults(data) {
     resultsSection.classList.add("hidden");
     document.getElementById("top-sort")?.classList.add("hidden");
     document.getElementById("sticky-sort")?.classList.add("hidden");
+    if (clearBtn) clearBtn.classList.add("hidden");
     return;
   }
 
@@ -2148,6 +2186,7 @@ function renderResults(data) {
   }
 
   resultsSection.classList.remove("hidden");
+  if (clearBtn) clearBtn.classList.remove("hidden");
   resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
 
   setTimeout(() => {
@@ -3931,24 +3970,24 @@ if (searchBtn) {
   searchBtn.addEventListener("click", search);
 }
 
-clearBtn.addEventListener("click", async () => {
-  if (itemsList.classList.contains("locked")) return;
-  if (items.length === 0 && !lastBasketComparison) return;
+if (clearBtn) {
+  clearBtn.addEventListener("click", async () => {
+    if (itemsList.classList.contains("locked")) return;
+    if (!lastBasketComparison) return;
 
-  const confirmed = await showConfirmDialog({
-    title: "پاک کردن همه",
-    message: `آیا مطمئن هستید که می‌خواهید همه‌ی آیتم‌ها (${toPersianNum(
-      items.length,
-    )} مورد) و نتایج جستجو را پاک کنید؟ این عملیات قابل بازگشت نیست.`,
-    icon: "🗑️",
-    confirmText: "بله، پاک کن",
-    cancelText: "انصراف",
-    variant: "danger",
+    const confirmed = await showConfirmDialog({
+      title: "پاک کردن نتایج",
+      message: "آیا مطمئن هستید که می‌خواهید نتایج جستجو را پاک کنید؟",
+      icon: "🗑️",
+      confirmText: "بله، پاک کن",
+      cancelText: "انصراف",
+      variant: "danger",
+    });
+
+    if (!confirmed) return;
+    clearAll();
   });
-
-  if (!confirmed) return;
-  clearAll();
-});
+}
 
 const wishlistFloatBtn = document.getElementById("wishlist-float-btn");
 if (wishlistFloatBtn)
@@ -3964,9 +4003,10 @@ if (clearBasketBtn) {
     if (items.length === 0) return;
     if (itemsList.classList.contains("locked")) return;
 
+    const count = items.length;
     const confirmed = await showConfirmDialog({
       title: "پاک کردن سبد خرید",
-      message: `آیا مطمئن هستید که می‌خواهید همه‌ی ${toPersianNum(items.length)} آیتم را از سبد خرید پاک کنید؟`,
+      message: `آیا مطمئن هستید که می‌خواهید همه‌ی ${toPersianNum(count)} آیتم را از سبد خرید پاک کنید؟`,
       icon: "🗑️",
       confirmText: "بله، پاک کن",
       cancelText: "انصراف",
@@ -3978,6 +4018,12 @@ if (clearBasketBtn) {
     renderItems();
     saveBasket();
     hideError();
+    showToast(
+      "پاک شد",
+      `${toPersianNum(count)} آیتم از سبد خرید حذف شد`,
+      "remove",
+      3000,
+    );
   });
 }
 

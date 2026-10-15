@@ -17,10 +17,8 @@ app.use(express.json());
 
 // ─── هدرها برای نمایش در iframe ایتا (وب) ───
 app.use((req, res, next) => {
-  // حذف هدرهایی که از iframe جلوگیری می‌کنن
   res.removeHeader("X-Frame-Options");
   res.removeHeader("Content-Security-Policy");
-  // اجازه‌ی نمایش در iframe
   res.setHeader("X-Frame-Options", "ALLOWALL");
   res.setHeader(
     "Content-Security-Policy",
@@ -32,7 +30,7 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, "public")));
 
 // ================================================================
-// 🗄️ DATABASE — MySQL
+// 🗄️ DATABASE
 // ================================================================
 let db = null;
 
@@ -70,6 +68,9 @@ async function initDatabase() {
       { name: "rejected_count", type: "INT DEFAULT 0" },
       { name: "stores_with_results", type: "TEXT" },
       { name: "stores_without_results", type: "TEXT" },
+      { name: "stores_status", type: "TEXT" },
+      { name: "product_titles", type: "TEXT" },
+      { name: "query_products", type: "TEXT" },
       { name: "duration_ms", type: "INT DEFAULT 0" },
       { name: "quality_score", type: "VARCHAR(20)" },
     ];
@@ -92,7 +93,6 @@ async function initDatabase() {
       }
     }
 
-    // ─── جدول بازدید صفحات ───
     await db.query(`
       CREATE TABLE IF NOT EXISTS page_visits (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -148,7 +148,7 @@ async function sendTelegramNotification(logEntry) {
 }
 
 // ================================================================
-// 🗺️ GEO — نگاشت کد استان‌های ایران
+// 🗺️ GEO
 // ================================================================
 const IRAN_REGIONS = {
   "00": "مرکزی",
@@ -184,11 +184,7 @@ const IRAN_REGIONS = {
   30: "البرز",
 };
 
-// ================================================================
-// 🏙️ ترجمه‌ی نام شهرها و استان‌ها به فارسی
-// ================================================================
 const PERSIAN_CITIES = {
-  // شهرهای بزرگ
   tehran: "تهران",
   esfahan: "اصفهان",
   isfahan: "اصفهان",
@@ -226,8 +222,6 @@ const PERSIAN_CITIES = {
   bojnord: "بجنورد",
   "shahr-e kord": "شهرکرد",
   "bandar-e abbas": "بندرعباس",
-
-  // شهرهای کوچیک‌تر که ممکنه بیاد
   kashan: "کاشان",
   najafabad: "نجف‌آباد",
   khomeynishahr: "خمینی‌شهر",
@@ -248,7 +242,6 @@ const PERSIAN_CITIES = {
   marand: "مرند",
   khoy: "خوی",
   maku: "ماکو",
-  lاهیجان: "لاهیجان",
   lahijan: "لاهیجان",
   anzali: "انزلی",
   "bandar anzali": "بندر انزلی",
@@ -259,11 +252,8 @@ const PERSIAN_CITIES = {
   babol: "بابل",
   qaemshahr: "قائم‌شهر",
   behshahr: "بهشهر",
-  semnan: "سمنان",
   shahrud: "شاهرود",
   damghan: "دامغان",
-
-  // کشورها
   iran: "ایران",
   iraq: "عراق",
   turkey: "ترکیه",
@@ -291,7 +281,6 @@ const PERSIAN_CITIES = {
   japan: "ژاپن",
 };
 
-// استان‌های ایران به انگلیسی → فارسی
 const PERSIAN_REGIONS = {
   tehran: "تهران",
   esfahan: "اصفهان",
@@ -339,43 +328,31 @@ const PERSIAN_REGIONS = {
 
 function toPersianLocation(value) {
   if (!value || typeof value !== "string") return value || "";
-
   const trimmed = value.trim();
   if (!trimmed) return "";
-
-  // اگه از قبل فارسیه (شامل کاراکتر فارسی)، دست نزن
   if (/[\u0600-\u06FF]/.test(trimmed)) return trimmed;
 
   const lower = trimmed.toLowerCase();
-
-  // جستجو در دیکشنری شهرها
   if (PERSIAN_CITIES[lower]) return PERSIAN_CITIES[lower];
-
-  // جستجو در دیکشنری استان‌ها
   if (PERSIAN_REGIONS[lower]) return PERSIAN_REGIONS[lower];
 
-  // حذف پسوندهای رایج و تلاش دوباره
   const cleaned = lower
     .replace(/\s+(province|county|city|state|ostan)$/i, "")
     .trim();
   if (PERSIAN_CITIES[cleaned]) return PERSIAN_CITIES[cleaned];
   if (PERSIAN_REGIONS[cleaned]) return PERSIAN_REGIONS[cleaned];
-
-  // اگه پیدا نشد، همون اصلی رو برگردون
   return trimmed;
 }
 
 function formatRegion(region) {
   if (!region) return "";
   const str = String(region).trim();
-  if (/^\d+$/.test(str)) {
-    return IRAN_REGIONS[str] || "";
-  }
+  if (/^\d+$/.test(str)) return IRAN_REGIONS[str] || "";
   return str;
 }
 
 // ================================================================
-// 🌍 LOCATION — تشخیص موقعیت از IP (تسک ۱)
+// 🌍 LOCATION
 // ================================================================
 async function getLocationFromIp(ip) {
   if (
@@ -389,7 +366,6 @@ async function getLocationFromIp(ip) {
     return { city: "شبکه محلی", region: "", country: "IR" };
   }
 
-  // ── تلاش ۱: geoip-lite (محلی، برای IPهای ایران دقیق‌تره) ──
   try {
     const geo = geoip.lookup(ip);
     if (geo && (geo.city || geo.region)) {
@@ -401,7 +377,6 @@ async function getLocationFromIp(ip) {
     }
   } catch (e) {}
 
-  // ── تلاش ۲: ip-api.com با زبان فارسی ──
   try {
     const r = await axios.get(`http://ip-api.com/json/${ip}`, {
       timeout: 5000,
@@ -419,7 +394,6 @@ async function getLocationFromIp(ip) {
     }
   } catch (e) {}
 
-  // ── تلاش ۳: ipwho.is ──
   try {
     const r = await axios.get(`https://ipwho.is/${ip}`, { timeout: 5000 });
     if (r.data?.success && (r.data.city || r.data.region)) {
@@ -431,7 +405,6 @@ async function getLocationFromIp(ip) {
     }
   } catch (e) {}
 
-  // ── تلاش ۴: ipapi.co ──
   try {
     const r = await axios.get(`https://ipapi.co/${ip}/json/`, {
       timeout: 5000,
@@ -450,7 +423,7 @@ async function getLocationFromIp(ip) {
 }
 
 // ================================================================
-// 🎯 کیفیت جستجو
+// 🎯 QUALITY
 // ================================================================
 function calculateQuality({
   totalResults,
@@ -459,13 +432,8 @@ function calculateQuality({
 }) {
   const storesCount = storesWithResults.length;
   const totalStores = storesCount + storesWithoutResults.length;
-
-  if (totalResults === 0 || storesCount === 0) {
-    return "none";
-  }
-
+  if (totalResults === 0 || storesCount === 0) return "none";
   const coverage = totalStores > 0 ? storesCount / totalStores : 0;
-
   if (coverage >= 0.6 && totalResults >= 5) return "excellent";
   if (coverage >= 0.4 && totalResults >= 3) return "good";
   if (coverage >= 0.2) return "low";
@@ -477,7 +445,6 @@ function calculateQuality({
 // ================================================================
 async function logSearch(data) {
   if (!db) return;
-
   try {
     const {
       ip,
@@ -488,11 +455,13 @@ async function logSearch(data) {
       rejectedCount = 0,
       storesWithResults = [],
       storesWithoutResults = [],
+      storesStatus = [],
+      productTitles = [],
+      queryProducts = [],
       durationMs = 0,
     } = data;
 
     const location = await getLocationFromIp(ip);
-
     const quality = calculateQuality({
       totalResults,
       acceptedCount,
@@ -514,8 +483,9 @@ async function logSearch(data) {
       `INSERT INTO search_logs
        (timestamp, ip, city, region, country, items, user_agent,
         total_results, accepted_count, rejected_count,
-        stores_with_results, stores_without_results, duration_ms, quality_score)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        stores_with_results, stores_without_results, stores_status,
+        product_titles, query_products, duration_ms, quality_score)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         new Date(),
         logEntry.ip,
@@ -529,6 +499,9 @@ async function logSearch(data) {
         rejectedCount,
         JSON.stringify(storesWithResults),
         JSON.stringify(storesWithoutResults),
+        JSON.stringify(storesStatus),
+        JSON.stringify(productTitles),
+        JSON.stringify(queryProducts),
         durationMs,
         quality,
       ],
@@ -541,7 +514,7 @@ async function logSearch(data) {
 }
 
 // ================================================================
-// API: مقایسه سبد خرید
+// API: COMPARE
 // ================================================================
 app.post("/api/compare", async (req, res) => {
   const { items, _batch } = req.body;
@@ -578,9 +551,7 @@ app.post("/api/compare", async (req, res) => {
 
     for (const q of result.queries || []) {
       for (const m of q.matches || []) {
-        for (const o of m.offers || []) {
-          storesWithResults.add(o.storeName);
-        }
+        for (const o of m.offers || []) storesWithResults.add(o.storeName);
       }
     }
 
@@ -616,7 +587,77 @@ app.post("/api/compare", async (req, res) => {
 });
 
 // ================================================================
-// API: ثبت لاگ جستجو
+// API: DIAGNOSE IP
+// ================================================================
+app.get("/api/diagnose-ip", async (req, res) => {
+  const rawIp =
+    (req.headers["x-forwarded-for"] || "").split(",")[0].trim() ||
+    req.socket.remoteAddress ||
+    "";
+  const cleanIp = rawIp.replace(/^::ffff:/, "").replace(/^::1$/, "127.0.0.1");
+
+  const results = {};
+
+  try {
+    const geo = geoip.lookup(cleanIp);
+    results["geoip-lite"] = geo
+      ? {
+          city: geo.city || null,
+          region: geo.region || null,
+          country: geo.country || null,
+          ll: geo.ll || null,
+        }
+      : null;
+  } catch (e) {
+    results["geoip-lite"] = { error: e.message };
+  }
+
+  try {
+    const r = await axios.get(`http://ip-api.com/json/${cleanIp}`, {
+      timeout: 5000,
+      params: {
+        fields:
+          "status,message,city,regionName,country,countryCode,lat,lon,isp,org,as",
+        lang: "fa",
+      },
+    });
+    results["ip-api.com-fa"] = r.data;
+  } catch (e) {
+    results["ip-api.com-fa"] = { error: e.message };
+  }
+
+  try {
+    const r = await axios.get(`https://ipwho.is/${cleanIp}`, { timeout: 5000 });
+    results["ipwho.is"] = r.data;
+  } catch (e) {
+    results["ipwho.is"] = { error: e.message };
+  }
+
+  try {
+    const r = await axios.get(`https://ipapi.co/${cleanIp}/json/`, {
+      timeout: 5000,
+      headers: { "User-Agent": "smart-shopping/1.0" },
+    });
+    results["ipapi.co"] = r.data;
+  } catch (e) {
+    results["ipapi.co"] = { error: e.message };
+  }
+
+  const finalLocation = await getLocationFromIp(cleanIp);
+
+  res.json({
+    success: true,
+    detectedIp: cleanIp,
+    rawForwardedFor: req.headers["x-forwarded-for"] || null,
+    realIp: req.headers["x-real-ip"] || null,
+    remoteAddress: req.socket.remoteAddress,
+    finalLocation,
+    providers: results,
+  });
+});
+
+// ================================================================
+// API: LOG SEARCH
 // ================================================================
 app.post("/api/log-search", async (req, res) => {
   const {
@@ -626,6 +667,9 @@ app.post("/api/log-search", async (req, res) => {
     rejectedCount = 0,
     storesWithResults = [],
     storesWithoutResults = [],
+    storesStatus = [],
+    productTitles = [],
+    queryProducts = [],
     durationMs = 0,
   } = req.body || {};
 
@@ -648,6 +692,9 @@ app.post("/api/log-search", async (req, res) => {
     rejectedCount,
     storesWithResults,
     storesWithoutResults,
+    storesStatus,
+    productTitles,
+    queryProducts,
     durationMs,
   });
 
@@ -655,11 +702,10 @@ app.post("/api/log-search", async (req, res) => {
 });
 
 // ================================================================
-// API: ردیابی بازدید صفحه (تسک ۱۱)
+// API: TRACK VISIT
 // ================================================================
 app.post("/api/track-visit", async (req, res) => {
   if (!db) return res.json({ success: true });
-
   try {
     const {
       referrer = "",
@@ -674,15 +720,12 @@ app.post("/api/track-visit", async (req, res) => {
       "";
     const cleanIp = rawIp.replace(/^::ffff:/, "").replace(/^::1$/, "127.0.0.1");
 
-    // dedup: skip if same IP visited in last 30 min
     const [recent] = await db.query(
       `SELECT COUNT(*) AS c FROM page_visits
        WHERE ip = ? AND timestamp >= DATE_SUB(NOW(), INTERVAL 30 MINUTE)`,
       [cleanIp],
     );
-    if (recent[0].c > 0) {
-      return res.json({ success: true, skipped: true });
-    }
+    if (recent[0].c > 0) return res.json({ success: true, skipped: true });
 
     const location = await getLocationFromIp(cleanIp);
 
@@ -711,23 +754,19 @@ app.post("/api/track-visit", async (req, res) => {
 });
 
 // ================================================================
-// API: پرطرفدارترین جستجوها
+// API: POPULAR SEARCHES
 // ================================================================
 let popularCache = { data: [], expires: 0 };
-const POPULAR_CACHE_TTL = 10 * 60 * 1000; // 10 دقیقه
+const POPULAR_CACHE_TTL = 10 * 60 * 1000;
 
 app.get("/api/popular-searches", async (req, res) => {
   if (!db) return res.json({ success: true, items: [] });
-
   const now = Date.now();
   if (popularCache.expires > now) {
     return res.json({ success: true, items: popularCache.data });
   }
-
   try {
     const limit = Math.min(parseInt(req.query.limit) || 10, 20);
-
-    // جستجوهای ۳۰ روز اخیر
     const [rows] = await db.query(
       `SELECT items FROM search_logs
        WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)
@@ -735,7 +774,6 @@ app.get("/api/popular-searches", async (req, res) => {
          AND total_results >= 3
          AND accepted_count >= 3`,
     );
-
     const counts = new Map();
     for (const row of rows) {
       try {
@@ -747,12 +785,10 @@ app.get("/api/popular-searches", async (req, res) => {
         }
       } catch {}
     }
-
     const sorted = [...counts.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, limit)
       .map(([item]) => item);
-
     popularCache = { data: sorted, expires: now + POPULAR_CACHE_TTL };
     res.json({ success: true, items: sorted });
   } catch (e) {
@@ -762,7 +798,7 @@ app.get("/api/popular-searches", async (req, res) => {
 });
 
 // ================================================================
-// API: Autocomplete — مستقیم از Digikala Discovery
+// API: AUTOCOMPLETE (Digikala)
 // ================================================================
 const suggestCache = new Map();
 const SUGGEST_TTL = 5 * 60 * 1000;
@@ -789,7 +825,6 @@ function buildParts(title, query) {
   return tWords.map((tw) => {
     const twNorm = normalizeForMatch(tw);
     if (!twNorm) return { text: tw, bold: false };
-
     const matched = normQW.some((qw) => {
       if (!qw) return false;
       if (qw === twNorm) return true;
@@ -798,7 +833,6 @@ function buildParts(title, query) {
       }
       return false;
     });
-
     return { text: tw, bold: !matched };
   });
 }
@@ -806,7 +840,6 @@ function buildParts(title, query) {
 async function fetchDigikalaAutocomplete(q) {
   try {
     const url = `https://api.digikala.com/discovery/api/v2/autocomplete?q=${encodeURIComponent(q)}`;
-
     const r = await axios.get(url, {
       headers: {
         "User-Agent":
@@ -820,23 +853,15 @@ async function fetchDigikalaAutocomplete(q) {
       timeout: 4500,
       validateStatus: () => true,
     });
-
-    if (r.status !== 200 || !r.data) {
-      console.warn(`[suggest] digikala HTTP ${r.status}`);
-      return [];
-    }
-
+    if (r.status !== 200 || !r.data) return [];
     const list = r.data?.data?.auto_complete || [];
     if (!Array.isArray(list)) return [];
-
-    // ─── دقیقاً همون ترتیب Digikala، بدون حذف، بدون تغییر ───
     const results = [];
     for (const item of list) {
       const title = String(item?.title || "").trim();
       if (!title) continue;
       results.push(title);
     }
-
     return results;
   } catch (e) {
     console.error("[suggest] digikala error:", e.message);
@@ -854,10 +879,8 @@ app.get("/api/suggest", async (req, res) => {
     return res.json({ success: true, items: cached.items });
   }
 
-  // ─── ۱. Digikala (منبع اصلی) ───
   let suggestions = await fetchDigikalaAutocomplete(q);
 
-  // ─── ۲. Fallback: تاریخچه‌ی خودمون ───
   if (suggestions.length === 0 && db) {
     try {
       const [rows] = await db.query(
@@ -871,9 +894,7 @@ app.get("/api/suggest", async (req, res) => {
           const arr = JSON.parse(row.items || "[]");
           for (const item of arr) {
             const t = String(item).trim();
-            if (t.toLowerCase().includes(ql) && t.length >= 2) {
-              matches.add(t);
-            }
+            if (t.toLowerCase().includes(ql) && t.length >= 2) matches.add(t);
           }
         } catch {}
       }
@@ -881,25 +902,16 @@ app.get("/api/suggest", async (req, res) => {
     } catch {}
   }
 
-  // ─── ساخت items با parts (بدون محدودیت) ───
   let items = suggestions.map((title) => ({
     full: title,
     parts: buildParts(title, q),
   }));
 
-  // ─── Fallback نهایی ───
   if (items.length === 0) {
-    items = [
-      {
-        full: q,
-        fallback: true,
-        parts: [{ text: q, bold: true }],
-      },
-    ];
+    items = [{ full: q, fallback: true, parts: [{ text: q, bold: true }] }];
   }
 
   suggestCache.set(cacheKey, { items, at: Date.now() });
-
   if (suggestCache.size > 200) {
     const entries = [...suggestCache.entries()].sort(
       (a, b) => a[1].at - b[1].at,
@@ -941,6 +953,134 @@ function escapeHtml(s) {
     .replace(/'/g, "&#39;");
 }
 
+// ─── highlight server-side ───
+function serverHighlight(title, queryWords) {
+  if (!title) return "";
+  if (!queryWords || queryWords.length === 0) return escapeHtml(title);
+
+  var titleLen = title.length;
+  var marks = [];
+  var i, j, k;
+  for (i = 0; i < titleLen; i++) marks.push(false);
+
+  function nch(ch) {
+    var c = ch.charCodeAt(0);
+    if (c === 0x200b || c === 0x200c || c === 0x200d) return "";
+    if (c === 0x200e || c === 0x200f) return "";
+    if (c === 0xfeff) return "";
+    if (c === 0x0640) return "";
+    if (c >= 0x064b && c <= 0x065f) return "";
+    if (c === 0x0670) return "";
+    if (c === 0x064a || c === 0x0649 || c === 0x06d2) return "ی";
+    if (c === 0x0643 || c === 0x06aa || c === 0x06ab) return "ک";
+    if (c === 0x0629 || c === 0x06c0 || c === 0x06c1 || c === 0x06d5)
+      return "ه";
+    if (c === 0x0622 || c === 0x0623 || c === 0x0625) return "ا";
+    if (c === 0x0624) return "و";
+    if (c === 0x0626) return "ی";
+    var pd = "۰۱۲۳۴۵۶۷۸۹";
+    var ad = "٠١٢٣٤٥٦٧٨٩";
+    var pdi = pd.indexOf(ch);
+    if (pdi !== -1) return String(pdi);
+    var adi = ad.indexOf(ch);
+    if (adi !== -1) return String(adi);
+    return ch.toLowerCase();
+  }
+
+  function nstr(s) {
+    var r = "";
+    for (var x = 0; x < s.length; x++) r += nch(s[x]);
+    return r;
+  }
+
+  var nTitle = "";
+  var pMap = [];
+  for (i = 0; i < titleLen; i++) {
+    var nc = nch(title[i]);
+    for (j = 0; j < nc.length; j++) {
+      nTitle += nc[j];
+      pMap.push(i);
+    }
+  }
+
+  function markRange(from, len) {
+    if (len <= 0) return;
+    var s = pMap[from];
+    var e = pMap[from + len - 1];
+    if (s === undefined || e === undefined) return;
+    for (var x = s; x <= e; x++) {
+      if (x >= 0 && x < titleLen) marks[x] = true;
+    }
+  }
+
+  // مرحله ۱: جستجوی مستقیم
+  for (var w = 0; w < queryWords.length; w++) {
+    var qw = String(queryWords[w] || "").trim();
+    if (!qw) continue;
+    var nqw = nstr(qw);
+    if (!nqw) continue;
+    if (nqw.length < 2 && !/^[0-9]$/.test(nqw)) continue;
+
+    var from = 0;
+    while (true) {
+      var idx = nTitle.indexOf(nqw, from);
+      if (idx === -1) break;
+      markRange(idx, nqw.length);
+      from = idx + nqw.length;
+    }
+  }
+
+  // مرحله ۲: جستجوی ترکیبی (قلمو → قلم + مو)
+  for (var w2 = 0; w2 < queryWords.length; w2++) {
+    var qw2 = String(queryWords[w2] || "").trim();
+    if (!qw2) continue;
+    var nqw2 = nstr(qw2);
+    if (nqw2.length < 4) continue;
+    if (nTitle.indexOf(nqw2) !== -1) continue;
+
+    for (var sp = 2; sp <= nqw2.length - 2; sp++) {
+      var p1 = nqw2.substring(0, sp);
+      var p2 = nqw2.substring(sp);
+      if (!p1 || !p2) continue;
+
+      var f1 = 0;
+      while (true) {
+        var i1 = nTitle.indexOf(p1, f1);
+        if (i1 === -1) break;
+
+        var j1 = i1 + p1.length;
+        while (j1 < nTitle.length && /\s/.test(nTitle[j1])) j1++;
+
+        if (nTitle.substring(j1, j1 + p2.length) === p2) {
+          var s1 = pMap[i1];
+          var e1 = pMap[j1 + p2.length - 1];
+          for (var m = s1; m <= e1; m++) {
+            if (m >= 0 && m < titleLen) marks[m] = true;
+          }
+        }
+
+        f1 = i1 + p1.length;
+      }
+    }
+  }
+
+  var html = "";
+  var inBold = false;
+  for (i = 0; i < titleLen; i++) {
+    if (marks[i] && !inBold) {
+      html += "<b>";
+      inBold = true;
+    } else if (!marks[i] && inBold) {
+      html += "</b>";
+      inBold = false;
+    }
+    html += escapeHtml(title[i]);
+  }
+  if (inBold) html += "</b>";
+
+  return html;
+}
+
 function renderLoginPage(errorMsg = "") {
   return `
     <!DOCTYPE html>
@@ -969,7 +1109,7 @@ function renderLoginPage(errorMsg = "") {
           background: linear-gradient(135deg, #f0f4ff 0%, #f8fafc 100%);
           color: var(--text); min-height: 100vh;
           display: flex; align-items: center; justify-content: center;
-          padding: 2rem 1rem; transition: background 0.3s ease;
+          padding: 2rem 1rem;
         }
         :root[data-theme="dark"] body {
           background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
@@ -1005,8 +1145,7 @@ function renderLoginPage(errorMsg = "") {
         input {
           width: 100%; padding: 0.9rem 1rem; border: 2px solid var(--border);
           border-radius: 0.75rem; font-family: inherit; font-size: 1rem;
-          background: var(--bg); color: var(--text); transition: all 0.2s;
-          text-align: left; direction: ltr;
+          background: var(--bg); color: var(--text); text-align: left; direction: ltr;
         }
         input:focus {
           outline: none; border-color: var(--primary);
@@ -1016,9 +1155,7 @@ function renderLoginPage(errorMsg = "") {
           width: 100%; padding: 0.9rem;
           background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 55%, #6366f1 100%);
           color: white; border: none; border-radius: 0.75rem;
-          font-family: inherit; font-size: 1rem; font-weight: 700;
-          cursor: pointer; transition: all 0.2s;
-          box-shadow: 0 4px 14px rgba(129, 140, 248, 0.45);
+          font-family: inherit; font-size: 1rem; font-weight: 700; cursor: pointer;
         }
         button:hover { transform: translateY(-2px); }
         .error { color: var(--danger); font-size: 0.85rem; margin-bottom: 0.75rem; min-height: 1.2rem; font-weight: 600; }
@@ -1071,16 +1208,6 @@ const QUALITY_LABELS = {
   suspicious: { label: "مشکوک", color: "#f97316", bg: "rgba(249,115,22,0.15)" },
 };
 
-function loadChangelog() {
-  try {
-    const filePath = path.join(__dirname, "public", "changelog.json");
-    const raw = fs.readFileSync(filePath, "utf8");
-    return JSON.parse(raw);
-  } catch {
-    return { latestVersion: "", versions: [] };
-  }
-}
-
 async function renderAdminPage(req) {
   const limit = Math.min(parseInt(req.query.limit) || 200, 1000);
   const search = String(req.query.search || "").trim();
@@ -1110,10 +1237,21 @@ async function renderAdminPage(req) {
     total = countRows[0].c;
   }
 
-  const [topCities] = await db.query(
+  const [rawCities] = await db.query(
     `SELECT city, COUNT(*) as c FROM search_logs
-     WHERE city != '' GROUP BY city ORDER BY c DESC LIMIT 10`,
+     WHERE city != '' GROUP BY city`,
   );
+
+  const cityMap = new Map();
+  for (const row of rawCities) {
+    const normalized = toPersianLocation(row.city) || row.city;
+    const existing = cityMap.get(normalized) || 0;
+    cityMap.set(normalized, existing + row.c);
+  }
+  const topCities = [...cityMap.entries()]
+    .map(([city, c]) => ({ city, c }))
+    .sort((a, b) => b.c - a.c)
+    .slice(0, 10);
 
   const [last7Days] = await db.query(
     `SELECT DATE(timestamp) as day, COUNT(*) as c FROM search_logs
@@ -1121,7 +1259,13 @@ async function renderAdminPage(req) {
      GROUP BY day ORDER BY day DESC`,
   );
 
-  let visitStats = { total: 0, today: 0, since: null };
+  const [visits7Days] = await db.query(
+    `SELECT DATE(timestamp) as day, COUNT(*) as c FROM page_visits
+     WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+     GROUP BY day ORDER BY day DESC`,
+  );
+
+  let visitStats = { total: 0, today: 0, since: null, last24h: 0 };
   try {
     const [v] = await db.query(
       `SELECT COUNT(*) as c, MIN(timestamp) as first FROM page_visits`,
@@ -1133,6 +1277,20 @@ async function renderAdminPage(req) {
       `SELECT COUNT(*) as c FROM page_visits WHERE DATE(timestamp) = CURDATE()`,
     );
     visitStats.today = vt[0].c;
+
+    const [v24] = await db.query(
+      `SELECT COUNT(*) as c FROM page_visits
+       WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 24 HOUR)`,
+    );
+    visitStats.last24h = v24[0].c;
+
+    const [recentVisits] = await db.query(
+      `SELECT timestamp, ip, city, region, country
+       FROM page_visits
+       ORDER BY timestamp DESC
+       LIMIT 3`,
+    );
+    visitStats.recent = recentVisits;
   } catch {}
 
   const rowsHtml = logs
@@ -1163,6 +1321,7 @@ async function renderAdminPage(req) {
           return new Date(log.timestamp).toLocaleString("fa-IR");
         }
       })();
+
       const locationStr = log.city
         ? `<span class="location">📍 ${escapeHtml(log.city)}${log.region ? "، " + escapeHtml(log.region) : ""}</span>`
         : '<span class="location empty-loc">نامشخص</span>';
@@ -1170,25 +1329,55 @@ async function renderAdminPage(req) {
       const qualityInfo =
         QUALITY_LABELS[log.quality_score] || QUALITY_LABELS.none;
       const qualityBadge = `
-        <span class="quality-badge"
-              style="color: ${qualityInfo.color}; background: ${qualityInfo.bg};"
-              title="${qualityInfo.label}">
+        <button class="quality-badge quality-badge-btn"
+                style="color: ${qualityInfo.color}; background: ${qualityInfo.bg};"
+                title="${qualityInfo.label} - کلیک برای جزئیات"
+                data-log-id="${log.id}"
+                type="button">
           ${qualityInfo.label}
-        </span>
+        </button>
       `;
 
       let statsLine = "";
       try {
         const storesWith = JSON.parse(log.stores_with_results || "[]");
         const storesWithout = JSON.parse(log.stores_without_results || "[]");
+        const storesStatus = JSON.parse(log.stores_status || "[]");
+
+        const errorStores = storesStatus.filter((s) => s.status === "ERR");
+
         statsLine = `
           <div class="stats-line">
-            <span>✅ ${storesWith.length} فروشگاه</span>
+            <button class="stats-btn stats-btn-stores" type="button" data-log-id="${log.id}" title="مشاهده محصولات">
+              ✅ ${storesWith.length} فروشگاه
+            </button>
             <span>❌ ${storesWithout.length} بدون نتیجه</span>
             <span>📦 ${log.total_results || 0} محصول</span>
             <span>⏱️ ${log.duration_ms || 0}ms</span>
           </div>
         `;
+
+        if (errorStores.length > 0) {
+          const seenErrors = new Set();
+          const uniqueErrors = [];
+          for (const s of errorStores) {
+            const key = s.store + "::" + s.message;
+            if (seenErrors.has(key)) continue;
+            seenErrors.add(key);
+            uniqueErrors.push(s);
+          }
+
+          statsLine += `
+            <div class="stats-line stats-line-errors">
+              ${uniqueErrors
+                .map(
+                  (s) =>
+                    `<span class="error-tag" title="${escapeHtml(s.message)}">⚠️ ${escapeHtml(s.store)}: ${escapeHtml(s.message)}</span>`,
+                )
+                .join("")}
+            </div>
+          `;
+        }
       } catch {}
 
       return `
@@ -1217,55 +1406,12 @@ async function renderAdminPage(req) {
     })
     .join("");
 
-  const changelog = loadChangelog();
-
-  const changelogHtml = (changelog.versions || [])
-    .map((v) => {
-      const isLatest = v.version === changelog.latestVersion;
-      const dateStr = new Date(v.date).toLocaleString("fa-IR");
-      const userList = (v.userChanges || [])
-        .map((c) => `<li>${escapeHtml(c)}</li>`)
-        .join("");
-      const allList = (v.allChanges || [])
-        .map((c) => `<li><code>${escapeHtml(c)}</code></li>`)
-        .join("");
-      return `
-      <div class="changelog-card ${isLatest ? "latest" : ""}">
-        <div class="changelog-card-header">
-          <div>
-            <span class="changelog-version">v${escapeHtml(v.version)}</span>
-            ${isLatest ? '<span class="changelog-badge">آخرین نسخه</span>' : ""}
-          </div>
-          <span class="changelog-date">${dateStr}</span>
-        </div>
-        ${v.title ? `<div class="changelog-title">${escapeHtml(v.title)}</div>` : ""}
-        ${
-          userList
-            ? `<div class="changelog-section">
-                 <h4>👤 تغییرات قابل مشاهده برای کاربر</h4>
-                 <ul class="changelog-user-list">${userList}</ul>
-               </div>`
-            : ""
-        }
-        ${
-          allList
-            ? `<details class="changelog-details">
-                 <summary>🛠️ همه‌ی تغییرات فنی (${(v.allChanges || []).length})</summary>
-                 <ul class="changelog-all-list">${allList}</ul>
-               </details>`
-            : ""
-        }
-      </div>
-    `;
+  const visits7DaysHtml = visits7Days
+    .map((d) => {
+      const dayStr = d.day ? new Date(d.day).toLocaleDateString("fa-IR") : "—";
+      return `<li><strong>${dayStr}</strong><span class="count-badge count-badge-green">${d.c}</span></li>`;
     })
     .join("");
-
-  const changelogSectionHtml = `
-    <div class="changelog-wrapper">
-      <h3 class="changelog-wrapper-title">📋 تاریخچه‌ی نسخه‌ها</h3>
-      ${changelogHtml || '<p class="empty-list">تاریخچه‌ای ثبت نشده</p>'}
-    </div>
-  `;
 
   return `
     <!DOCTYPE html>
@@ -1295,134 +1441,73 @@ async function renderAdminPage(req) {
           font-family: "Vazirmatn", system-ui, sans-serif;
           background: linear-gradient(135deg, #f0f4ff 0%, #f8fafc 100%);
           color: var(--text); min-height: 100vh; padding: 1.5rem 1rem;
-          transition: background 0.3s ease;
         }
         :root[data-theme="dark"] body {
           background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
         }
         .container { max-width: 1200px; margin: 0 auto; }
         .header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          flex-wrap: nowrap;
-          gap: 0.75rem;
-
-          position: sticky;
-          top: 0;
-          z-index: 100;
-          padding: 0.75rem 1rem;
-          margin: -1.5rem -1rem 1.5rem;
+          display: flex; align-items: center; justify-content: space-between;
+          flex-wrap: nowrap; gap: 0.75rem;
+          position: sticky; top: 0; z-index: 100;
+          padding: 0.75rem 1rem; margin: -1.5rem -1rem 1.5rem;
           background: color-mix(in srgb, var(--bg) 88%, transparent);
-          backdrop-filter: blur(16px);
-          -webkit-backdrop-filter: blur(16px);
+          backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
           border-bottom: 1px solid transparent;
           transition: box-shadow 0.25s ease, border-color 0.25s ease;
         }
-
         .header.stuck {
           box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
           border-bottom-color: var(--border);
         }
-
-        :root[data-theme="dark"] .header {
-          background: color-mix(in srgb, var(--bg) 85%, transparent);
-        }
-        :root[data-theme="dark"] .header.stuck {
-          box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-        }
-
-        /* موبایل — عرض کمتر */
+        :root[data-theme="dark"] .header { background: color-mix(in srgb, var(--bg) 85%, transparent); }
+        :root[data-theme="dark"] .header.stuck { box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4); }
         @media (max-width: 700px) {
-          .header {
-            padding: 0.6rem 0.75rem;
-            margin-inline: -0.75rem;
-            padding-inline: 0.75rem;
-          }
+          .header { padding: 0.6rem 0.75rem; margin-inline: -0.75rem; padding-inline: 0.75rem; }
         }
-        .logo {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.75rem;
-          min-width: 0;
-          flex-shrink: 1;
-        }
+        .logo { display: inline-flex; align-items: center; gap: 0.75rem; min-width: 0; flex-shrink: 1; }
         .logo-icon {
-          width: 2.75rem;
-          height: 2.75rem;
-          border-radius: 0.75rem;
+          width: 2.75rem; height: 2.75rem; border-radius: 0.75rem;
           background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 1.25rem;
-          flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 1.25rem; flex-shrink: 0;
           box-shadow: 0 6px 18px rgba(99, 102, 241, 0.35);
         }
-        .logo-text {
-          display: flex;
-          flex-direction: column;
-          min-width: 0;
-        }
+        .logo-text { display: flex; flex-direction: column; min-width: 0; }
         h1 {
           font-family: "Inter", "Vazirmatn", sans-serif;
-          font-size: 1.3rem;
-          font-weight: 800;
-          color: var(--text);
-          line-height: 1.2;
-          letter-spacing: -0.5px;
-          white-space: nowrap;
+          font-size: 1.3rem; font-weight: 800; color: var(--text);
+          line-height: 1.2; letter-spacing: -0.5px; white-space: nowrap;
         }
         .subtitle {
-          font-size: 0.72rem;
-          color: var(--text-muted);
-          font-weight: 500;
-          line-height: 1.3;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          font-size: 0.72rem; color: var(--text-muted); font-weight: 500;
+          line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .header-actions {
-          display: flex;
-          gap: 0.5rem;
-          flex-shrink: 0;
-        }
+        .header-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
         .btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.4rem;
-          padding: 0.6rem 1rem;
-          border-radius: 0.65rem;
-          font-family: inherit;
-          font-size: 0.85rem;
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          border: 1.5px solid;
-          text-decoration: none;
-          white-space: nowrap;
+          display: inline-flex; align-items: center; justify-content: center;
+          gap: 0.4rem; padding: 0.6rem 1rem; border-radius: 0.65rem;
+          font-family: inherit; font-size: 0.85rem; font-weight: 700;
+          cursor: pointer; transition: all 0.2s ease;
+          border: 1.5px solid; text-decoration: none; white-space: nowrap;
         }
         .btn-theme {
-          background: var(--surface);
-          border-color: var(--border);
-          color: var(--text);
-          font-size: 1.05rem;
-          width: 2.5rem;
-          height: 2.5rem;
-          padding: 0;
-          flex-shrink: 0;
+          background: var(--surface); border-color: var(--border);
+          color: var(--text); font-size: 1.05rem;
+          width: 2.5rem; height: 2.5rem; padding: 0; flex-shrink: 0;
         }
         .btn-theme:hover { border-color: var(--primary); transform: rotate(20deg) scale(1.08); }
-        .btn-logout {
-          background: var(--surface); border-color: rgba(239,68,68,0.3); color: var(--danger);
-        }
+        .btn-logout { background: var(--surface); border-color: rgba(239,68,68,0.3); color: var(--danger); }
         .btn-logout:hover {
           background: linear-gradient(135deg, #ef4444, #dc2626);
-          border-color: #ef4444; color: white;
-          box-shadow: 0 4px 14px rgba(239,68,68,0.35); transform: translateY(-1px);
+          border-color: #ef4444; color: white; transform: translateY(-1px);
         }
-        .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+        .stats {
+          display: grid; grid-template-columns: repeat(4, 1fr);
+          gap: 1rem; margin-bottom: 1rem;
+        }
+        @media (max-width: 1200px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 700px) { .stats { grid-template-columns: 1fr; } }
         .stat-card {
           background: var(--surface); padding: 1.25rem; border-radius: 1.25rem;
           box-shadow: var(--shadow); border: 1.5px solid var(--border);
@@ -1436,182 +1521,16 @@ async function renderAdminPage(req) {
         .stat-card.cities::before { background: linear-gradient(180deg, #6366f1, #8b5cf6); }
         .stat-card.days::before { background: linear-gradient(180deg, #10b981, #059669); }
         .stat-card.visits::before { background: linear-gradient(180deg, #f59e0b, #d97706); }
+        .stat-card.visits-days::before { background: linear-gradient(180deg, #f59e0b, #d97706); }
         .stat-card h3 {
           font-size: 0.85rem; font-weight: 800; color: var(--text-muted);
           margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.4rem;
         }
-        /* ============================================================
-           CHANGELOG (Admin)
-        ============================================================ */
-        .changelog-wrapper {
-          background: var(--surface);
-          border: 1.5px solid var(--border);
-          border-radius: 1.25rem;
-          padding: 1.25rem;
-          margin-bottom: 1rem;
-          box-shadow: var(--shadow);
-        }
-        .changelog-wrapper-title {
-          font-size: 1rem;
-          font-weight: 800;
-          color: var(--text);
-          margin-bottom: 1rem;
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-        }
-        .changelog-card {
-          padding: 1rem;
-          background: var(--bg);
-          border: 1.5px solid var(--border);
-          border-radius: 0.875rem;
-          margin-bottom: 0.75rem;
-        }
-        .changelog-card:last-child { margin-bottom: 0; }
-        .changelog-card.latest {
-          border-color: var(--primary);
-          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-        }
-        .changelog-card-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 0.5rem;
-          margin-bottom: 0.5rem;
-          flex-wrap: wrap;
-        }
-        .changelog-version {
-          font-size: 1rem;
-          font-weight: 800;
-          color: var(--primary);
-          font-variant-numeric: tabular-nums;
-        }
-        .changelog-badge {
-          font-size: 0.68rem;
-          font-weight: 800;
-          padding: 0.15rem 0.5rem;
-          background: linear-gradient(135deg, #10b981, #059669);
-          color: white;
-          border-radius: 0.4rem;
-          margin-inline-start: 0.5rem;
-        }
-        .changelog-date {
-          font-size: 0.72rem;
-          color: var(--text-muted);
-          font-weight: 600;
-          font-variant-numeric: tabular-nums;
-        }
-        .changelog-title {
-          font-size: 0.85rem;
-          font-weight: 700;
-          color: var(--text);
-          margin-bottom: 0.75rem;
-        }
-        .changelog-section h4 {
-          font-size: 0.75rem;
-          font-weight: 800;
-          color: var(--text-muted);
-          margin-bottom: 0.4rem;
-        }
-        .changelog-user-list {
-          list-style: none;
-          padding: 0;
-          margin: 0 0 0.75rem 0;
-          display: flex;
-          flex-direction: column;
-          gap: 0.3rem;
-        }
-        .changelog-user-list li {
-          font-size: 0.8rem;
-          color: var(--text);
-          padding: 0.35rem 0.6rem;
-          background: rgba(16, 185, 129, 0.08);
-          border-right: 3px solid #10b981;
-          border-radius: 0.4rem;
-          line-height: 1.5;
-        }
-        .changelog-details {
-          margin-top: 0.5rem;
-        }
-        .changelog-details summary {
-          cursor: pointer;
-          font-size: 0.75rem;
-          font-weight: 700;
-          color: var(--text-muted);
-          padding: 0.3rem 0;
-          user-select: none;
-        }
-        .changelog-details summary:hover { color: var(--primary); }
-        .changelog-all-list {
-          list-style: none;
-          padding: 0.5rem 0 0 0;
-          margin: 0;
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-        }
-        .changelog-all-list li {
-          font-size: 0.85rem;
-          color: var(--text-muted);
-          padding: 0.5rem 0.75rem;
-          background: var(--surface);
-          border-radius: 0.35rem;
-          font-family: 'Courier New', monospace;
-          direction: ltr;
-          text-align: left;
-          unicode-bidi: embed;
-          line-height: 1.6;
-          overflow-wrap: anywhere;
-          word-break: break-word;
-        }
-        .visits-row {
-          display: flex;
-          gap: 1rem;
-          align-items: center;
-          justify-content: space-around;
-        }
-        .visit-block {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.25rem;
-          padding: 0.5rem;
-          background: var(--bg);
-          border-radius: 0.6rem;
-        }
-        .visit-number {
-          font-size: 1.5rem;
-          font-weight: 900;
-          color: var(--primary);
-          line-height: 1;
-          font-variant-numeric: tabular-nums;
-        }
-        .visit-number-today {
-          color: var(--success);
-        }
-        .visit-label {
-          font-size: 0.68rem;
-          color: var(--text-muted);
-          font-weight: 700;
-        }
-        .visits-since {
-          margin-top: 0.6rem;
-          font-size: 0.7rem;
-          color: var(--text-muted);
-          font-weight: 600;
-          text-align: center;
-          padding-top: 0.5rem;
-          border-top: 1px dashed var(--border);
-        }
-        .stat-list {
-          list-style: none; padding: 0; margin: 0;
-          display: flex; flex-direction: column; gap: 0.5rem;
-        }
+        .stat-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
         .stat-list li {
           display: flex; align-items: center; justify-content: space-between;
           gap: 0.5rem; font-size: 0.83rem; padding: 0.4rem 0.65rem;
-          background: var(--bg); border-radius: 0.5rem; transition: all 0.2s;
+          background: var(--bg); border-radius: 0.5rem;
         }
         .stat-list li:hover { background: var(--border); }
         .stat-list strong { font-weight: 700; color: var(--text); }
@@ -1621,6 +1540,47 @@ async function renderAdminPage(req) {
           background: linear-gradient(135deg, var(--primary), var(--primary-dark));
           color: white; border-radius: 1rem; font-size: 0.72rem;
           font-weight: 800; font-variant-numeric: tabular-nums;
+        }
+        .count-badge-green { background: linear-gradient(135deg, #10b981, #059669) !important; }
+        .visits-row { display: flex; gap: 1rem; align-items: center; justify-content: space-around; }
+        .visit-block {
+          flex: 1; display: flex; flex-direction: column; align-items: center;
+          gap: 0.25rem; padding: 0.5rem; background: var(--bg); border-radius: 0.6rem;
+        }
+        .visit-number {
+          font-size: 1.5rem; font-weight: 900; color: #f59e0b;
+          line-height: 1; font-variant-numeric: tabular-nums;
+        }
+        :root[data-theme="dark"] .visit-number { color: #fbbf24; }
+        .visit-number-today { color: #10b981; font-size: 1.5rem; font-weight: 900; }
+        :root[data-theme="dark"] .visit-number-today { color: #34d399; }
+        .visit-label { font-size: 0.68rem; color: var(--text-muted); font-weight: 700; }
+        .visits-since {
+          margin-top: 0.6rem; font-size: 0.7rem; color: var(--text-muted);
+          font-weight: 600; text-align: center; padding-top: 0.5rem;
+          border-top: 1px dashed var(--border);
+        }
+        .recent-visits {
+          margin-top: 0.75rem; padding-top: 0.75rem;
+          border-top: 1px dashed var(--border);
+          display: flex; flex-direction: column; gap: 0.35rem;
+        }
+        .recent-visits-title {
+          font-size: 0.68rem; font-weight: 800; color: var(--text-muted);
+          margin-bottom: 0.25rem; letter-spacing: 0.5px;
+        }
+        .recent-visit-row {
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 0.5rem; padding: 0.35rem 0.5rem; background: var(--bg);
+          border-radius: 0.4rem; font-size: 0.7rem;
+        }
+        .rv-time { color: var(--text-muted); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .rv-loc { color: var(--text); font-weight: 700; flex: 1; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .rv-ip {
+          color: var(--primary); font-family: 'Courier New', monospace;
+          font-size: 0.65rem; font-weight: 600; background: var(--surface);
+          padding: 0.15rem 0.35rem; border-radius: 0.3rem;
+          border: 1px solid var(--border); white-space: nowrap;
         }
         .empty-list {
           color: var(--text-muted); font-size: 0.8rem; text-align: center;
@@ -1634,7 +1594,7 @@ async function renderAdminPage(req) {
         .search-form input {
           flex: 1; padding: 0.7rem 1rem; border: 2px solid var(--border);
           border-radius: 0.65rem; font-family: inherit; font-size: 0.9rem;
-          background: var(--bg); color: var(--text); transition: all 0.2s;
+          background: var(--bg); color: var(--text);
         }
         .search-form input:focus {
           outline: none; border-color: var(--primary);
@@ -1645,17 +1605,14 @@ async function renderAdminPage(req) {
           background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 55%, #6366f1 100%);
           color: white; border: none; border-radius: 0.65rem;
           font-family: inherit; font-size: 0.9rem; font-weight: 700;
-          cursor: pointer; transition: all 0.2s;
-          box-shadow: 0 4px 14px rgba(129, 140, 248, 0.35);
+          cursor: pointer; box-shadow: 0 4px 14px rgba(129, 140, 248, 0.35);
         }
         .search-form button:hover { transform: translateY(-2px); }
         .table-wrapper {
           background: var(--surface); border-radius: 1.25rem;
           box-shadow: var(--shadow); border: 1.5px solid var(--border);
-          overflow-x: auto; -webkit-overflow-scrolling: touch;
+          overflow-x: auto;
         }
-        .table-wrapper::-webkit-scrollbar { height: 6px; }
-        .table-wrapper::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
         table { width: 100%; border-collapse: collapse; min-width: 800px; }
         th {
           background: linear-gradient(135deg, #6366f1, #4f46e5);
@@ -1667,20 +1624,12 @@ async function renderAdminPage(req) {
           font-size: 0.83rem; vertical-align: middle; color: var(--text);
         }
         tr:last-child td { border-bottom: none; }
-        tbody tr { transition: background 0.2s; }
         tbody tr:hover { background: var(--bg); }
         .time {
-          white-space: nowrap;
-          color: var(--text);
-          font-size: 0.83rem;
-          font-weight: 600;
-          letter-spacing: -0.2px;
-          line-height: 1.5;
+          white-space: nowrap; color: var(--text); font-size: 0.83rem;
+          font-weight: 600; letter-spacing: -0.2px;
         }
-        .location {
-          display: inline-flex; align-items: center; gap: 0.25rem;
-          font-size: 0.83rem; font-weight: 600;
-        }
+        .location { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.83rem; font-weight: 600; }
         .empty-loc { color: var(--text-muted); font-style: italic; font-weight: 500; }
         .ip code {
           background: var(--bg); padding: 0.25rem 0.55rem;
@@ -1694,6 +1643,13 @@ async function renderAdminPage(req) {
           font-size: 0.75rem; font-weight: 700;
           white-space: nowrap; border: 1.5px solid currentColor;
         }
+        .quality-badge-btn {
+          cursor: pointer; font-family: inherit; transition: all 0.2s ease;
+        }
+        .quality-badge-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
         .item-tag {
           display: inline-block;
           background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08));
@@ -1702,39 +1658,183 @@ async function renderAdminPage(req) {
           font-size: 0.78rem; font-weight: 600;
           border: 1px solid rgba(99,102,241,0.2);
         }
-        :root[data-theme="dark"] .item-tag {
-          color: var(--primary-light); border-color: rgba(129,140,248,0.3);
+        .stats-line { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.4rem; font-size: 0.68rem; color: var(--text-muted); }
+        .stats-line span { padding: 0.15rem 0.4rem; background: var(--bg); border-radius: 0.3rem; border: 1px solid var(--border); }
+        .stats-line-errors { margin-top: 0.3rem; }
+        .error-tag {
+          display: inline-block; padding: 0.15rem 0.5rem;
+          background: rgba(239, 68, 68, 0.15); color: #dc2626;
+          border: 1px solid rgba(239, 68, 68, 0.3);
+          border-radius: 0.4rem; font-size: 0.68rem; font-weight: 700;
+          font-family: 'Courier New', monospace;
+          max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
-        .stats-line {
-          display: flex; flex-wrap: wrap; gap: 0.35rem;
-          margin-top: 0.4rem; font-size: 0.68rem; color: var(--text-muted);
+        .stats-btn {
+          display: inline-flex; align-items: center; gap: 0.3rem;
+          padding: 0.2rem 0.55rem; background: var(--bg);
+          border: 1.5px solid var(--border); border-radius: 0.4rem;
+          font-family: inherit; font-size: 0.72rem; font-weight: 700;
+          color: var(--text); cursor: pointer; transition: all 0.2s ease;
         }
-        .stats-line span {
-          padding: 0.15rem 0.4rem; background: var(--bg);
-          border-radius: 0.3rem; border: 1px solid var(--border);
+        .stats-btn:hover {
+          background: var(--surface); border-color: var(--primary);
+          color: var(--primary); transform: translateY(-1px);
         }
+        .stats-btn-stores { color: #059669; border-color: rgba(16, 185, 129, 0.3); }
+        .stats-btn-stores:hover { border-color: #10b981; color: #10b981; }
+        :root[data-theme="dark"] .stats-btn-stores { color: #34d399; }
         .empty { text-align: center; padding: 3rem; color: var(--text-muted); font-size: 0.9rem; }
-        .limit-info {
-          margin-top: 1rem; text-align: center;
-          color: var(--text-muted); font-size: 0.8rem;
+        .limit-info { margin-top: 1rem; text-align: center; color: var(--text-muted); font-size: 0.8rem; }
+        .admin-datetime {
+          display: inline-flex; align-items: center; gap: 0.5rem;
+          padding: 0.45rem 0.75rem; background: var(--bg);
+          border: 1.5px solid var(--border); border-radius: 0.6rem;
+          font-size: 0.78rem; font-weight: 700; white-space: nowrap;
         }
-        @media (max-width: 900px) {
-          .stats { grid-template-columns: 1fr; }
+        .admin-datetime #admin-time {
+          color: var(--primary); font-variant-numeric: tabular-nums;
+          letter-spacing: 0.5px; padding-inline-start: 0.5rem;
+          border-inline-start: 1.5px solid var(--border);
+        }
+        .admin-datetime #admin-date { color: var(--text-muted); }
+        @media (max-width: 900px) { .admin-datetime { display: none; } }
+        .visits-toast {
+          position: fixed; top: 100px; left: 50%;
+          transform: translateX(-50%) translateY(-100px);
+          background: linear-gradient(135deg, #10b981, #059669);
+          color: white; padding: 0.875rem 1.5rem; border-radius: 1rem;
+          font-family: inherit; font-size: 0.875rem; font-weight: 700;
+          box-shadow: 0 8px 30px rgba(16, 185, 129, 0.4);
+          z-index: 10000; opacity: 0;
+          transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+          display: flex; align-items: center; gap: 0.6rem;
+          pointer-events: none;
+        }
+        .visits-toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+        .visits-toast-icon { font-size: 1.25rem; }
+        .quality-modal {
+          position: fixed; inset: 0; z-index: 9500;
+          display: flex; align-items: center; justify-content: center;
+          padding: 2rem;
+        }
+        .quality-modal.hidden { display: none !important; }
+        .quality-modal-backdrop {
+          position: absolute; inset: 0;
+          background: rgba(0, 0, 0, 0.75);
+          backdrop-filter: blur(6px); cursor: pointer;
+        }
+        .quality-modal-content {
+          position: relative; z-index: 1; background: var(--surface);
+          border-radius: 1.25rem; padding: 1.5rem;
+          width: 100%; max-width: 800px; max-height: 85vh;
+          display: flex; flex-direction: column;
+          box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+          overflow: hidden; border: 1.5px solid var(--border);
+        }
+        .quality-modal-header {
+          display: flex; justify-content: space-between; align-items: center;
+          margin-bottom: 1rem; padding-bottom: 1rem;
+          border-bottom: 2px dashed var(--border);
+        }
+        .quality-modal-title {
+          display: flex; align-items: center; gap: 0.6rem;
+          font-size: 1rem; font-weight: 800; color: var(--text);
+        }
+        .quality-modal-title > span { font-size: 1.3rem; }
+        .quality-modal-subtitle {
+          font-size: 0.72rem; color: var(--text-muted);
+          font-weight: 600; margin-top: 0.15rem;
+        }
+        .quality-modal-close {
+          width: 2rem; height: 2rem; border-radius: 50%;
+          background: var(--bg); border: 1.5px solid var(--border);
+          color: var(--text-muted); cursor: pointer;
+          font-family: inherit; display: flex;
+          align-items: center; justify-content: center;
+          transition: all 0.2s ease;
+        }
+        .quality-modal-close:hover {
+          background: #ef4444; color: white; border-color: #ef4444;
+          transform: rotate(90deg);
+        }
+        .quality-modal-body {
+          flex: 1; overflow-y: auto;
+          background: #0f172a; border-radius: 0.75rem;
+          padding: 1rem;
+          font-family: 'Courier New', 'Consolas', monospace;
+          direction: ltr; text-align: left;
+          font-size: 0.8rem; line-height: 1.75;
+        }
+        .quality-modal-line {
+          display: flex; align-items: baseline;
+          font-family: 'Courier New', 'Consolas', monospace;
+          font-size: 0.78rem; line-height: 1.7;
+          padding: 0.1rem 0; white-space: pre;
+          direction: ltr; text-align: left;
+        }
+        .quality-modal-line.qry-line {
+          color: #a5b4fc; font-weight: 700;
+          margin-top: 0.5rem; margin-bottom: 0.25rem;
+        }
+        .quality-modal-line.qry-line:first-child { margin-top: 0; }
+        .qml-time { color: #94a3b8; white-space: pre; margin-inline-end: 0.5rem; }
+        .qml-status { font-weight: 800; white-space: pre; margin-inline-end: 0.5rem; }
+        .qml-status-ok { color: #4ade80; }
+        .qml-status-warn { color: #fbbf24; }
+        .qml-status-err { color: #f87171; }
+        .qml-status-qry { color: #a5b4fc; }
+        .qml-store { color: #a5b4fc; font-weight: 700; white-space: pre; }
+        .qml-msg { color: #e2e8f0; white-space: pre-wrap; word-break: break-word; }
+        .quality-modal-loading,
+        .quality-modal-empty {
+          color: #94a3b8; text-align: center; padding: 2rem;
+        }
+        .products-query-group {
+          margin-bottom: 1rem; padding-bottom: 0.75rem;
+          border-bottom: 1px dashed rgba(148, 163, 184, 0.2);
+        }
+        .products-query-group:last-child { border-bottom: none; margin-bottom: 0; }
+        .products-query-header {
+          display: flex; align-items: center; gap: 0.5rem;
+          font-size: 0.82rem; font-weight: 800; color: #a5b4fc;
+          margin-bottom: 0.5rem; direction: rtl; text-align: right;
+          font-family: 'Vazirmatn', sans-serif;
+        }
+        .products-query-count { font-size: 0.68rem; color: #94a3b8; font-weight: 600; }
+        .products-list { display: flex; flex-direction: column; gap: 0.35rem; direction: rtl; }
+        .product-item {
+          display: flex; align-items: baseline; gap: 0.5rem;
+          padding: 0.45rem 0.7rem;
+          background: rgba(99, 102, 241, 0.05);
+          border: 1px solid rgba(99, 102, 241, 0.15);
+          border-radius: 0.5rem;
+          font-family: 'Vazirmatn', sans-serif;
+          font-size: 0.78rem; color: #cbd5e1;
+          text-align: right; direction: rtl;
+        }
+        .product-item-index {
+          color: #64748b; font-size: 0.68rem; font-weight: 700;
+          flex-shrink: 0; font-variant-numeric: tabular-nums;
+        }
+        .product-item-title { flex: 1; line-height: 1.5; word-break: break-word; }
+        .product-item-title b {
+          color: #fbbf24 !important;
+          font-weight: 900 !important;
+          background: rgba(251, 191, 36, 0.2) !important;
+          padding: 0 0.2rem !important;
+          border-radius: 0.2rem !important;
+        }
+        .products-empty {
+          text-align: center; color: #94a3b8;
+          padding: 2rem; font-family: 'Vazirmatn', sans-serif;
         }
         @media (max-width: 700px) {
           body { padding: 1rem 0.75rem; }
-          .stats { grid-template-columns: 1fr; }
           th, td { padding: 0.6rem 0.7rem; font-size: 0.75rem; }
           .search-form { flex-direction: column; }
           .search-form button { width: 100%; }
           table { min-width: 700px; }
-
-          .header {
-            gap: 0.5rem;
-            padding: 0.65rem 0.75rem;
-            margin: -1rem -0.75rem 1rem;
-          }
-          /* فقط subtitle موبایل مخفی می‌شه، بقیه سایز اصلی */
+          .header { gap: 0.5rem; padding: 0.65rem 0.75rem; margin: -1rem -0.75rem 1rem; }
           .subtitle { display: none; }
         }
       </style>
@@ -1750,6 +1850,10 @@ async function renderAdminPage(req) {
             </div>
           </div>
           <div class="header-actions">
+            <span class="admin-datetime" id="admin-datetime">
+              <span id="admin-date">—</span>
+              <span id="admin-time">—</span>
+            </span>
             <button class="btn btn-theme" id="theme-btn">🌙</button>
             <a href="/admin/logout" class="btn btn-logout">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1770,16 +1874,22 @@ async function renderAdminPage(req) {
             </ul>
           </div>
           <div class="stat-card days">
-            <h3>📅 ۷ روز اخیر</h3>
+            <h3>🔍 جستجوها ۷ روز اخیر</h3>
             <ul class="stat-list">
               ${daysHtml || '<li class="empty-list">داده‌ای نیست</li>'}
+            </ul>
+          </div>
+          <div class="stat-card visits-days">
+            <h3>👁️ بازدیدها ۷ روز اخیر</h3>
+            <ul class="stat-list">
+              ${visits7DaysHtml || '<li class="empty-list">داده‌ای نیست</li>'}
             </ul>
           </div>
           <div class="stat-card visits">
             <h3>👁️ بازدید صفحات</h3>
             <div class="visits-row">
               <div class="visit-block">
-                <div class="visit-number">${visitStats.total}</div>
+                <div class="visit-number" id="visit-total" data-total="${visitStats.total}">${visitStats.total}</div>
                 <div class="visit-label">کل</div>
               </div>
               <div class="visit-block">
@@ -1792,10 +1902,43 @@ async function renderAdminPage(req) {
                 ? `<div class="visits-since">آمارگیری از ${new Date(visitStats.since).toLocaleDateString("fa-IR-u-ca-persian", { year: "numeric", month: "long", day: "numeric" })}</div>`
                 : ""
             }
+            ${
+              visitStats.recent && visitStats.recent.length > 0
+                ? `
+                  <div class="recent-visits">
+                    <div class="recent-visits-title">آخرین بازدیدها</div>
+                    ${visitStats.recent
+                      .map((v) => {
+                        const timeStr = new Date(v.timestamp).toLocaleString(
+                          "fa-IR",
+                          {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: false,
+                          },
+                        );
+                        const dateStr = new Date(
+                          v.timestamp,
+                        ).toLocaleDateString("fa-IR-u-ca-persian", {
+                          month: "2-digit",
+                          day: "2-digit",
+                        });
+                        const loc = v.city ? escapeHtml(v.city) : "نامشخص";
+                        return `
+                          <div class="recent-visit-row">
+                            <span class="rv-time">${dateStr} · ${timeStr}</span>
+                            <span class="rv-loc">📍 ${loc}</span>
+                            <code class="rv-ip">${escapeHtml(v.ip || "—")}</code>
+                          </div>
+                        `;
+                      })
+                      .join("")}
+                  </div>
+                `
+                : ""
+            }
           </div>
         </div>
-        
-        ${changelogSectionHtml}
 
         <form class="search-form" method="GET" action="/admin">
           <input type="text" name="search" placeholder="جستجو در آیتم‌ها، شهر یا IP..." value="${escapeHtml(search)}" />
@@ -1822,7 +1965,186 @@ async function renderAdminPage(req) {
         <div class="limit-info">نمایش ${logs.length} از ${total} رکورد</div>
       </div>
 
+      <!-- مودال محصولات -->
+      <div id="products-modal" class="quality-modal hidden">
+        <div class="quality-modal-backdrop"></div>
+        <div class="quality-modal-content">
+          <div class="quality-modal-header">
+            <div class="quality-modal-title">
+              <span>📦</span>
+              <div>
+                <div>محصولات پیدا شده</div>
+                <div class="quality-modal-subtitle" id="products-modal-subtitle"></div>
+              </div>
+            </div>
+            <button class="quality-modal-close" type="button">✕</button>
+          </div>
+          <div class="quality-modal-body" id="products-modal-body"></div>
+        </div>
+      </div>
+
+      <!-- مودال کیفیت -->
+      <div id="quality-modal" class="quality-modal hidden">
+        <div class="quality-modal-backdrop"></div>
+        <div class="quality-modal-content">
+          <div class="quality-modal-header">
+            <div class="quality-modal-title">
+              <span>🔍</span>
+              <div>
+                <div>وضعیت فروشگاه‌ها</div>
+                <div class="quality-modal-subtitle" id="quality-modal-subtitle"></div>
+              </div>
+            </div>
+            <button class="quality-modal-close" type="button">✕</button>
+          </div>
+          <div class="quality-modal-body" id="quality-modal-body"></div>
+        </div>
+      </div>
+    
       <script>
+        // ═══════════════════════════════════════════════════════════
+        // 🎯 GLOBAL: escapeHtml + highlightQuery
+        // ═══════════════════════════════════════════════════════════
+        window.escapeHtml = window.escapeHtml || function(s) {
+          if (!s) return "";
+          return String(s)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+        };
+
+        // ─── highlightQuery (mark-based) ───
+        window.highlightQuery = function(title, queryWords) {
+          if (!title) return "";
+          if (!queryWords || queryWords.length === 0) return window.escapeHtml(title);
+
+          var titleLen = title.length;
+          var marks = [];
+          var i, j, k;
+          for (i = 0; i < titleLen; i++) marks.push(false);
+
+          function nch(ch) {
+            var c = ch.charCodeAt(0);
+            if (c === 0x200B || c === 0x200C || c === 0x200D) return "";
+            if (c === 0x200E || c === 0x200F) return "";
+            if (c === 0xFEFF) return "";
+            if (c === 0x0640) return "";
+            if (c >= 0x064B && c <= 0x065F) return "";
+            if (c === 0x0670) return "";
+            if (c === 0x064A || c === 0x0649 || c === 0x06D2) return "ی";
+            if (c === 0x0643 || c === 0x06AA || c === 0x06AB) return "ک";
+            if (c === 0x0629 || c === 0x06C0 || c === 0x06C1 || c === 0x06D5) return "ه";
+            if (c === 0x0622 || c === 0x0623 || c === 0x0625) return "ا";
+            if (c === 0x0624) return "و";
+            if (c === 0x0626) return "ی";
+            var pd = "۰۱۲۳۴۵۶۷۸۹";
+            var ad = "٠١٢٣٤٥٦٧٨٩";
+            var pdi = pd.indexOf(ch);
+            if (pdi !== -1) return String(pdi);
+            var adi = ad.indexOf(ch);
+            if (adi !== -1) return String(adi);
+            return ch.toLowerCase();
+          }
+
+          function nstr(s) {
+            var r = "";
+            for (var x = 0; x < s.length; x++) r += nch(s[x]);
+            return r;
+          }
+
+          var nTitle = "";
+          var pMap = [];
+          for (i = 0; i < titleLen; i++) {
+            var nc = nch(title[i]);
+            for (j = 0; j < nc.length; j++) {
+              nTitle += nc[j];
+              pMap.push(i);
+            }
+          }
+
+          function markRange(from, len) {
+            if (len <= 0) return;
+            var s = pMap[from];
+            var e = pMap[from + len - 1];
+            if (s === undefined || e === undefined) return;
+            for (var x = s; x <= e; x++) {
+              if (x >= 0 && x < titleLen) marks[x] = true;
+            }
+          }
+
+          // مرحله ۱: جستجوی مستقیم
+          for (var w = 0; w < queryWords.length; w++) {
+            var qw = String(queryWords[w] || "").trim();
+            if (!qw) continue;
+            var nqw = nstr(qw);
+            if (!nqw) continue;
+            if (nqw.length < 2 && !/^[0-9]$/.test(nqw)) continue;
+
+            var from = 0;
+            while (true) {
+              var idx = nTitle.indexOf(nqw, from);
+              if (idx === -1) break;
+              markRange(idx, nqw.length);
+              from = idx + nqw.length;
+            }
+          }
+
+          // مرحله ۲: جستجوی ترکیبی (قلمو → قلم + مو)
+          for (var w2 = 0; w2 < queryWords.length; w2++) {
+            var qw2 = String(queryWords[w2] || "").trim();
+            if (!qw2) continue;
+            var nqw2 = nstr(qw2);
+            if (nqw2.length < 4) continue;
+            if (nTitle.indexOf(nqw2) !== -1) continue;
+
+            for (var sp = 2; sp <= nqw2.length - 2; sp++) {
+              var p1 = nqw2.substring(0, sp);
+              var p2 = nqw2.substring(sp);
+              if (!p1 || !p2) continue;
+
+              var f1 = 0;
+              while (true) {
+                var i1 = nTitle.indexOf(p1, f1);
+                if (i1 === -1) break;
+
+                var j1 = i1 + p1.length;
+                while (j1 < nTitle.length && /\s/.test(nTitle[j1])) j1++;
+
+                if (nTitle.substring(j1, j1 + p2.length) === p2) {
+                  var s1 = pMap[i1];
+                  var e1 = pMap[j1 + p2.length - 1];
+                  for (var m = s1; m <= e1; m++) {
+                    if (m >= 0 && m < titleLen) marks[m] = true;
+                  }
+                }
+
+                f1 = i1 + p1.length;
+              }
+            }
+          }
+
+          var html = "";
+          var inBold = false;
+          for (i = 0; i < titleLen; i++) {
+            if (marks[i] && !inBold) {
+              html += "<b>";
+              inBold = true;
+            } else if (!marks[i] && inBold) {
+              html += "</b>";
+              inBold = false;
+            }
+            html += window.escapeHtml(title[i]);
+          }
+          if (inBold) html += "</b>";
+
+          return html;
+        };
+
+        // ═══════════════════════════════════════════════════════════
+        // 🎯 ADMIN PANEL INIT
+        // ═══════════════════════════════════════════════════════════
         (function() {
           const btn = document.getElementById('theme-btn');
           const saved = localStorage.getItem('adminTheme');
@@ -1836,6 +2158,205 @@ async function renderAdminPage(req) {
           btn.addEventListener('click', () => {
             const c = document.documentElement.getAttribute('data-theme') || 'light';
             applyTheme(c === 'dark' ? 'light' : 'dark');
+          });
+
+          // ─── Datetime ───
+          function updateAdminDateTime() {
+            const now = new Date();
+            try {
+              const parts = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+                weekday: "long", year: "numeric", month: "long", day: "numeric",
+              }).formatToParts(now);
+              const get = (t) => parts.find((p) => p.type === t)?.value || "";
+              const dateStr = get("weekday") + " " + get("day") + " " + get("month") + " " + get("year");
+              const timeStr = new Intl.DateTimeFormat("fa-IR", {
+                hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+              }).format(now);
+              const dateEl = document.getElementById("admin-date");
+              const timeEl = document.getElementById("admin-time");
+              if (dateEl) dateEl.textContent = dateStr;
+              if (timeEl) timeEl.textContent = timeStr;
+            } catch (e) {}
+          }
+          updateAdminDateTime();
+          setInterval(updateAdminDateTime, 1000);
+
+          // ─── Toast بازدید ───
+          (function() {
+            const el = document.getElementById("visit-total");
+            if (!el) return;
+            const total = parseInt(el.dataset.total || "0", 10);
+            const LAST_KEY = "adminLastSeenVisitTotal";
+            const lastSeen = parseInt(localStorage.getItem(LAST_KEY) || "0", 10);
+
+            if (lastSeen > 0 && total > lastSeen) {
+              const diff = total - lastSeen;
+              const toast = document.createElement("div");
+              toast.className = "visits-toast";
+              toast.innerHTML =
+                '<span class="visits-toast-icon">👁️</span>' +
+                '<span>' + diff + ' بازدید جدید از آخرین بار</span>';
+              document.body.appendChild(toast);
+
+              setTimeout(function() { toast.classList.add("visible"); }, 300);
+              setTimeout(function() {
+                toast.classList.remove("visible");
+                setTimeout(function() { toast.remove(); }, 500);
+              }, 5500);
+            }
+
+            localStorage.setItem(LAST_KEY, String(total));
+          })();
+
+          // ─── کلیک روی کیفیت ───
+          document.addEventListener("click", async (e) => {
+            const qualityBtn = e.target.closest(".quality-badge-btn");
+            if (!qualityBtn) return;
+            e.preventDefault();
+            const logId = qualityBtn.dataset.logId;
+            if (!logId) return;
+
+            const modal = document.getElementById("quality-modal");
+            const body = document.getElementById("quality-modal-body");
+            const subtitle = document.getElementById("quality-modal-subtitle");
+
+            body.innerHTML = '<div class="quality-modal-loading">در حال بارگذاری...</div>';
+            subtitle.textContent = "";
+            modal.classList.remove("hidden");
+
+            try {
+              const r = await fetch("/admin/log-status/" + logId);
+              const data = await r.json();
+              if (!data.success) throw new Error("failed");
+
+              const statuses = data.statuses || [];
+              if (statuses.length === 0) {
+                body.innerHTML = '<div class="quality-modal-empty">اطلاعاتی ثبت نشده</div>';
+                return;
+              }
+
+              const storeCount = statuses.filter(function(s) {
+                return s.status !== "QRY";
+              }).length;
+              subtitle.textContent = storeCount + " فروشگاه · log #" + logId;
+
+              let html = "";
+              for (let i = 0; i < statuses.length; i++) {
+                const s = statuses[i];
+                const time = new Date(s.at).toLocaleTimeString("en-GB", { hour12: false });
+                const isQuery = s.status === "QRY";
+
+                if (isQuery) {
+                  const progress = s.progress ? s.progress : "";
+                  html += '<div class="quality-modal-line qry-line">';
+                  html += '<span class="qml-time">[' + time + ']</span>';
+                  html += '<span class="qml-status qml-status-qry">[QRY  ]</span>';
+                  html += '<span class="qml-msg">' + progress + window.escapeHtml(s.message) + '</span>';
+                  html += '</div>';
+                } else {
+                  const statusPadded = String(s.status).padEnd(5, " ");
+                  const statusLower = String(s.status).toLowerCase();
+                  const storePadded = (String(s.store || "") + ":").padEnd(15, " ");
+                  html += '<div class="quality-modal-line">';
+                  html += '<span class="qml-time">[' + time + ']</span>';
+                  html += '<span class="qml-status qml-status-' + statusLower + '">[' + statusPadded + ']</span>';
+                  html += '<span class="qml-store">' + window.escapeHtml(storePadded) + '</span>';
+                  html += '<span class="qml-msg">' + window.escapeHtml(s.message) + '</span>';
+                  html += '</div>';
+                }
+              }
+              body.innerHTML = html;
+            } catch (err) {
+              body.innerHTML = '<div class="quality-modal-empty">خطا در بارگذاری</div>';
+            }
+          });
+
+          // ─── کلیک روی "✅ X فروشگاه" ───
+          document.addEventListener("click", async (e) => {
+            const statsBtn = e.target.closest(".stats-btn-stores");
+            if (!statsBtn) return;
+            e.preventDefault();
+            const logId = statsBtn.dataset.logId;
+            if (!logId) return;
+
+            const modal = document.getElementById("products-modal");
+            const body = document.getElementById("products-modal-body");
+            const subtitle = document.getElementById("products-modal-subtitle");
+
+            body.innerHTML = '<div class="quality-modal-loading">در حال بارگذاری...</div>';
+            subtitle.textContent = "";
+            modal.classList.remove("hidden");
+
+            try {
+              const r = await fetch("/admin/log-products/" + logId);
+              const data = await r.json();
+              if (!data.success) throw new Error("failed");
+
+              const qp = data.queryProducts || [];
+              if (qp.length === 0) {
+                body.innerHTML = '<div class="products-empty">محصولی پیدا نشده</div>';
+                return;
+              }
+
+              let totalCount = 0;
+              for (let i = 0; i < qp.length; i++) {
+                totalCount += (qp[i].products || []).length;
+              }
+              subtitle.textContent = totalCount + " محصول در " + qp.length + " جستجو · log #" + logId;
+
+              let html = "";
+              for (let i = 0; i < qp.length; i++) {
+                const group = qp[i];
+                const query = group.query || "";
+                const products = group.products || [];
+                const queryWords = query.split(/\s+/).filter(function(w) { return w.length >= 1; });
+
+                html += '<div class="products-query-group">';
+                html += '<div class="products-query-header">';
+                html += '<span>🔍 "' + window.escapeHtml(query) + '"</span>';
+                html += '<span class="products-query-count">(' + products.length + ' محصول)</span>';
+                html += '</div>';
+
+                if (products.length === 0) {
+                  html += '<div class="products-empty" style="padding:0.5rem;">محصولی پیدا نشد</div>';
+                } else {
+                  html += '<div class="products-list">';
+                  for (let j = 0; j < products.length; j++) {
+                    const product = products[j];
+                    const highlighted = (typeof product === "object" && product.html)
+                      ? product.html
+                      : window.escapeHtml(typeof product === "string" ? product : (product.title || ""));
+                    html += '<div class="product-item">';
+                    html += '<span class="product-item-index">' + (j + 1) + '.</span>';
+                    html += '<span class="product-item-title">' + highlighted + '</span>';
+                    html += '</div>';
+                  }
+                  html += '</div>';
+                }
+                html += '</div>';
+              }
+              body.innerHTML = html;
+            } catch (err) {
+              body.innerHTML = '<div class="products-empty">خطا در بارگذاری</div>';
+            }
+          });
+
+          // ─── بستن مودال محصولات ───
+          document.addEventListener("click", (e) => {
+            const modal = document.getElementById("products-modal");
+            if (!modal || modal.classList.contains("hidden")) return;
+            if (e.target.closest(".quality-modal-close") || e.target.classList.contains("quality-modal-backdrop")) {
+              modal.classList.add("hidden");
+            }
+          });
+
+          // ─── بستن مودال کیفیت ───
+          document.addEventListener("click", (e) => {
+            const modal = document.getElementById("quality-modal");
+            if (!modal || modal.classList.contains("hidden")) return;
+            if (e.target.closest(".quality-modal-close") || e.target.classList.contains("quality-modal-backdrop")) {
+              modal.classList.add("hidden");
+            }
           });
 
           // ─── نوار چسبان ───
@@ -1916,6 +2437,82 @@ app.get("/admin", async (req, res) => {
 });
 
 app.get("/admin/logs", (req, res) => res.redirect("/admin"));
+
+app.get("/admin/log-status/:id", async (req, res) => {
+  if (!db) return res.json({ success: false });
+  if (!isAuthed(req)) return res.status(401).json({ success: false });
+
+  const logId = parseInt(req.params.id, 10);
+  if (!logId) return res.json({ success: false, error: "invalid id" });
+
+  try {
+    const [rows] = await db.query(
+      `SELECT stores_status FROM search_logs WHERE id = ?`,
+      [logId],
+    );
+    if (rows.length === 0)
+      return res.json({ success: false, error: "not found" });
+
+    let statuses = [];
+    try {
+      statuses = JSON.parse(rows[0].stores_status || "[]");
+    } catch {}
+    res.json({ success: true, statuses });
+  } catch (e) {
+    console.error("[admin] log-status error:", e.message);
+    res.json({ success: false, error: e.message });
+  }
+});
+
+app.get("/admin/log-products/:id", async (req, res) => {
+  if (!db) return res.json({ success: false });
+  if (!isAuthed(req)) return res.status(401).json({ success: false });
+
+  const logId = parseInt(req.params.id, 10);
+  if (!logId) return res.json({ success: false, error: "invalid id" });
+
+  try {
+    const [rows] = await db.query(
+      `SELECT query_products, items FROM search_logs WHERE id = ?`,
+      [logId],
+    );
+    if (rows.length === 0)
+      return res.json({ success: false, error: "not found" });
+
+    let queryProducts = [];
+    try {
+      queryProducts = JSON.parse(rows[0].query_products || "[]");
+    } catch {}
+
+    let items = [];
+    try {
+      items = JSON.parse(rows[0].items || "[]");
+    } catch {}
+
+    if (queryProducts.length === 0 && items.length > 0) {
+      queryProducts = items.map((q) => ({ query: q, products: [] }));
+    }
+
+    // ─── highlight تو سرور ───
+    const highlighted = queryProducts.map((group) => {
+      const qWords = String(group.query || "")
+        .split(/\s+/)
+        .filter((w) => w.length >= 1);
+      return {
+        query: group.query,
+        products: (group.products || []).map((title) => ({
+          title: String(title),
+          html: serverHighlight(String(title), qWords),
+        })),
+      };
+    });
+
+    res.json({ success: true, queryProducts: highlighted });
+  } catch (e) {
+    console.error("[admin] log-products error:", e.message);
+    res.json({ success: false, error: e.message });
+  }
+});
 
 // ================================================================
 // HELPERS — گالری
@@ -2239,7 +2836,7 @@ function scrapeImagesFromHtml(html, baseUrl) {
               else final.push(obj.image);
             }
           }
-          Object.values(obj).walk(walk);
+          Object.values(obj).forEach(walk);
         };
         walk(data);
       } catch {}
