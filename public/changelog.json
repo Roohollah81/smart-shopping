@@ -1,7 +1,7 @@
 {
-  "latestVersion": "1.10.0",
+  "latestVersion": "1.11.0",
   "welcome": {
-    "title": "به خرید هوشمند خوش اومدی!",
+    "title": "به خرید هوشمند خوش اومدی! 👋",
     "tagline": "اینجا می‌تونی لیست خریدت رو وارد کنی و ببینی کدوم فروشگاه ارزون‌تره",
     "features": [
       {
@@ -33,6 +33,20 @@
   },
   "versions": [
     {
+      "version": "1.11.0",
+      "date": "2026-10-15T20:00:00+03:30",
+      "title": "جستجوی هوشمند و بازطراحی ظاهری",
+      "userChanges": [
+        "کادر جستجو حالا با پیشنهادهای لحظه‌ای از دیجی‌کالا کار می‌کنه",
+        "پیشنهادها بر اساس چیزی که تایپ می‌کنی، دقیق‌تر شده",
+        "نتایج جستجو حالا دقیق‌تر و مرتبط‌تر هستن",
+        "ظاهر نوار بالای صفحه بازطراحی و تمیزتر شد",
+        "برنامه حالا داخل ایتا به‌درستی باز می‌شه",
+        "دکمه بازگشت تلفن حالا داخل برنامه کار می‌کنه",
+        "اسکرول صفحه دیگه به‌اشتباه برنامه رو نمی‌بنده"
+      ]
+    },
+    {
       "version": "1.10.0",
       "date": "2026-10-12T10:00:00+03:30",
       "title": "جستجوی حرفه‌ای‌تر",
@@ -42,9 +56,6 @@
         "دکمه‌ی × برای پاک کردن سریع متن اضافه شد",
         "موقع جستجو، پیشرفت کار داخل همون کادر نمایش داده می‌شه",
         "دکمه‌های تغییرات و حالت شب حالا با متن واضح‌ترن"
-      ],
-      "allChanges": [
-        "feat(search,ui): accordion search box with Google-like autocomplete and inline loading"
       ]
     },
     {
@@ -55,14 +66,6 @@
         "کاربران جدید با یه پیام خوش‌آمدگویی کوتاه آشنا می‌شن",
         "رنگ‌بندی چیپ‌های پیشنهادی زیباتر و هماهنگ‌تر شد",
         "قیمت آیتم‌های علاقه‌مندی حتی بدون سرچ مجدد هم چک می‌شه"
-      ],
-      "allChanges": [
-        "feat(admin): show visit-tracking start date in stats card",
-        "feat(changelog,geo): welcome modal, release notes, and Persian geo translation",
-        "feat(admin): sticky single-row header and themed suggestion chips",
-        "fix(changelog): keep date+time inline and improve admin table date styling",
-        "chore(public): add changelog.json for release notes",
-        "feat(changelog): add release notes modal and auto-check wishlist prices in background"
       ]
     },
     {
@@ -78,16 +81,6 @@
         "تجربه‌ی جستجو روان‌تر شد و دیگه صفحه خالی نمی‌بینی",
         "پیام‌های تشویقی دوستانه برای خالی نبودن روی صفحه اضافه شد",
         "کیفیت نتایج جستجو حالا با معیار دقیق‌تری سنجیده می‌شه"
-      ],
-      "allChanges": [
-        "style(logs): add blank line between consecutive search queries",
-        "fix(skeleton): remove title placeholder that has no matching element in results",
-        "refactor(logs): use [timestamp] [level] [scope] format and map store names to English",
-        "feat(quality): score searches by store coverage instead of absolute counts",
-        "feat(suggestions): smart suggestions with basket sync and popular searches",
-        "feat(analytics): session-based visit tracking to prevent refresh over-counting",
-        "refactor(logs): switch all log output to concise English",
-        "add skeleton loading, suggestions, persistence and price tracking"
       ]
     }
   ]
