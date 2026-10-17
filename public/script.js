@@ -147,35 +147,35 @@ const SUPPORTED_STORES = [
 const STORE_META = {
   دیجی‌کالا: {
     shipping: "سراسر ایران",
-    shippingIcon: "/badges/map-icon.png",
+    shippingIcon: "/media/icons/badges/map-icon.png",
     badges: [
       {
         category: "trust",
-        img: "/badges/enamad.png",
+        img: "/media/icons/badges/enamad.png",
         link: "https://trustseal.enamad.ir/?id=19077&Code=sScdOJOzhFxtcEqkjP7P",
         alt: "اینماد",
       },
       {
         category: "trust",
-        img: "/badges/ecunion.png",
+        img: "/media/icons/badges/ecunion.png",
         link: "https://www.ecunion.ir/verify/digikala.com?token=35858775acf0232a8063",
         alt: "مجوز کشوری",
       },
       {
         category: "trust",
-        img: "/badges/samandehi.png",
+        img: "/media/icons/badges/samandehi.png",
         link: "https://logo.samandehi.ir/Verify.aspx?id=28177&p=uiwkmcsirfthjyoejyoe",
         alt: "نشان ملی ثبت",
       },
       {
         category: "trust",
-        img: "/badges/sapra.png",
+        img: "/media/icons/badges/sapra.png",
         link: "https://sapra.ir/",
         alt: "ساپرا",
       },
       {
         category: "payment",
-        img: "/badges/digipay.png",
+        img: "/media/icons/badges/digipay.png",
         link: "https://www.mydigipay.com/",
         alt: "دیجی‌پی",
       },
@@ -189,41 +189,41 @@ const STORE_META = {
   },
   قلم‌تراش: {
     shipping: "شهرکرد",
-    shippingIcon: "/badges/map-icon.png",
+    shippingIcon: "/media/icons/badges/map-icon.png",
     badges: [
       {
         category: "trust",
-        img: "/badges/enamad.png",
+        img: "/media/icons/badges/enamad.png",
         link: "https://trustseal.enamad.ir/?id=714545&Code=A7bJ06l5V5qU4Gx7kGCBPAtLRo1DuKVY",
         alt: "اینماد",
       },
       {
         category: "trust",
-        img: "/badges/torob-guarantee.png",
+        img: "/media/icons/badges/torob-guarantee.png",
         link: "https://torob.com/shop/1043/",
         alt: "ضمانت ترب",
       },
       {
         category: "trust",
-        img: "/badges/digikala-trust.png",
+        img: "/media/icons/badges/digikala-trust.png",
         link: "https://buy-with-digikala.digify.shop/d-namad/store/d743959b-3dc3-4ebe-9b46-b003c695d645",
         alt: "اعتماد دیجی‌کالا",
       },
       {
         category: "shipping",
-        img: "/badges/express-shipping.png",
+        img: "/media/icons/badges/express-shipping.png",
         link: null,
         alt: "اکسپرس",
       },
       {
         category: "payment",
-        img: "/badges/digipay.png",
+        img: "/media/icons/badges/digipay.png",
         link: "https://www.mydigipay.com/",
         alt: "دیجی‌پی",
       },
       {
         category: "payment",
-        img: "/badges/torob-pay.png",
+        img: "/media/icons/badges/torob-pay.png",
         link: "https://pay.torob.com/",
         alt: "ترب‌پی",
       },
@@ -231,23 +231,23 @@ const STORE_META = {
   },
   "آرمان آرت": {
     shipping: "کرج",
-    shippingIcon: "/badges/map-icon.png",
+    shippingIcon: "/media/icons/badges/map-icon.png",
     badges: [
       {
         category: "trust",
-        img: "/badges/enamad.png",
+        img: "/media/icons/badges/enamad.png",
         link: "https://trustseal.enamad.ir/?id=372725&Code=xZuYs61DQQXouB2rIBBg",
         alt: "اینماد",
       },
       {
         category: "trust",
-        img: "/badges/zarinpal.png",
+        img: "/media/icons/badges/zarinpal.png",
         link: "https://www.zarinpal.com/trustPage/armanartstore.com",
         alt: "زرین‌پال",
       },
       {
         category: "shipping",
-        img: "/badges/express-shipping.png",
+        img: "/media/icons/badges/express-shipping.png",
         link: null,
         alt: "اکسپرس",
       },
@@ -255,23 +255,23 @@ const STORE_META = {
   },
   عالم‌زاده: {
     shipping: "مشهد",
-    shippingIcon: "/badges/map-icon.png",
+    shippingIcon: "/media/icons/badges/map-icon.png",
     badges: [
       {
         category: "trust",
-        img: "/badges/enamad.png",
+        img: "/media/icons/badges/enamad.png",
         link: "https://trustseal.enamad.ir/?id=528349&Code=xiOEZ5iHyYK6XJPHJiGU6g71l0Htw2bP",
         alt: "اینماد",
       },
       {
         category: "shipping",
-        img: "/badges/express-shipping.png",
+        img: "/media/icons/badges/express-shipping.png",
         link: null,
         alt: "اکسپرس",
       },
       {
         category: "shipping",
-        img: "/badges/tipax.png",
+        img: "/media/icons/badges/tipax.png",
         link: "https://www.tipax.ir/",
         alt: "تیپاکس",
       },
@@ -279,23 +279,23 @@ const STORE_META = {
   },
   "مهستان آرت": {
     shipping: "کرج",
-    shippingIcon: "/badges/map-icon.png",
+    shippingIcon: "/media/icons/badges/map-icon.png",
     badges: [
       {
         category: "trust",
-        img: "/badges/enamad.png",
+        img: "/media/icons/badges/enamad.png",
         link: "https://trustseal.enamad.ir/?id=140414&Code=tGHPEYjqMPGlftMGEWnq",
         alt: "اینماد",
       },
       {
         category: "shipping",
-        img: "/badges/express-shipping.png",
+        img: "/media/icons/badges/express-shipping.png",
         link: null,
         alt: "اکسپرس",
       },
       {
         category: "shipping",
-        img: "/badges/tipax.png",
+        img: "/media/icons/badges/tipax.png",
         link: "https://www.tipax.ir/",
         alt: "تیپاکس",
       },
@@ -303,36 +303,41 @@ const STORE_META = {
   },
   "مجد مارکت": {
     shipping: "قم",
-    shippingIcon: "/badges/map-icon.png",
+    shippingIcon: "/media/icons/badges/map-icon.png",
     badges: [
       {
         category: "trust",
-        img: "/badges/enamad.png",
+        img: "/media/icons/badges/enamad.png",
         link: "https://trustseal.enamad.ir/?id=133075&Code=IME8ioiVnfPkSp88S8el",
         alt: "اینماد",
       },
       {
         category: "trust",
-        img: "/badges/digikala-trust.png",
+        img: "/media/icons/badges/digikala-trust.png",
         link: "https://buy-with-digikala.digify.shop/d-namad/store/0a83edab-5f33-4c2f-a3e7-920523b05a1e",
         alt: "اعتماد دیجی‌کالا",
       },
-      { category: "shipping", img: "/badges/post.png", link: null, alt: "پست" },
       {
         category: "shipping",
-        img: "/badges/tipax.png",
+        img: "/media/icons/badges/post.png",
+        link: null,
+        alt: "پست",
+      },
+      {
+        category: "shipping",
+        img: "/media/icons/badges/tipax.png",
         link: "https://www.tipax.ir/",
         alt: "تیپاکس",
       },
       {
         category: "payment",
-        img: "/badges/torob-pay.png",
+        img: "/media/icons/badges/torob-pay.png",
         link: "https://pay.torob.com/",
         alt: "ترب‌پی",
       },
       {
         category: "payment",
-        img: "/badges/snapp-pay.png",
+        img: "/media/icons/badges/snapp-pay.png",
         link: "https://snapppay.ir/",
         alt: "اسنپ‌پی",
       },
@@ -1241,14 +1246,13 @@ function renderAutocomplete(items, query) {
 
   autocompleteBox.innerHTML = items
     .map((item) => {
-      // ─── حالت fallback (جستجو برای X) ───
-      if (item && item.fallback) {
+      // ─── حالت تصحیح (آیا منظورتان X بود؟) ───
+      if (item && item.correction) {
         return `
-          <button class="autocomplete-item autocomplete-fallback" type="button" data-value="${escapeHtml(item.full || query)}">
-            <span class="autocomplete-icon">🔍</span>
-            <span class="autocomplete-text autocomplete-fallback-text">
-              <strong>جستجو برای</strong>
-              <b>${escapeHtml(item.full || query)}</b>
+          <button class="autocomplete-item autocomplete-correction" type="button" data-value="${escapeHtml(item.full)}" data-correction="1">
+            <span class="autocomplete-icon">💡</span>
+            <span class="autocomplete-text autocomplete-correction-text">
+              آیا منظورتان <b>${escapeHtml(item.full)}</b> بود؟
             </span>
           </button>
         `;
@@ -1382,22 +1386,35 @@ itemInput.addEventListener("input", () => {
   }, 250);
 });
 
-// کلیک روی autocomplete item → مثل Enter عمل کنه
+// کلیک روی autocomplete item
 document.addEventListener("click", (e) => {
   const acItem = e.target.closest(".autocomplete-item");
   if (!acItem) return;
   e.preventDefault();
   e.stopPropagation();
   const val = acItem.dataset.value;
+  const isCorrection = acItem.dataset.correction === "1";
   if (!val) return;
 
-  // متن پیشنهاد رو تو input بذار
   itemInput.value = val;
-  hideAutocomplete();
   if (clearInputBtn) clearInputBtn.classList.remove("hidden");
 
-  // بعد مثل Enter بزن → اضافه به سبد
-  addItem();
+  if (isCorrection) {
+    // ─── تصحیح: بذار تو باکس بمونه و پیشنهادهای جدید رو بیار ───
+    hideAutocomplete();
+    itemInput.focus();
+
+    if (autocompleteTimer) clearTimeout(autocompleteTimer);
+    suppressAutocomplete = false;
+    autocompleteTimer = setTimeout(() => {
+      autocompleteTimer = null;
+      fetchAutocomplete(val);
+    }, 100);
+  } else {
+    // ─── حالت عادی: اضافه به سبد ───
+    hideAutocomplete();
+    addItem();
+  }
 });
 
 // دکمه ×
@@ -1982,7 +1999,8 @@ async function search() {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
         if (data.success && data.data?.queries?.[0]) {
-          queryResults.push(data.data.queries[0]);
+          const q = data.data.queries[0];
+          queryResults.push(q);
           markChipDone(i);
         } else {
           markChipError(i);
@@ -2001,6 +2019,8 @@ async function search() {
     }
 
     const validQueries = queryResults.filter(Boolean);
+    window.__lastQueries = validQueries;
+
     const durationMs = Date.now() - searchStartTime;
 
     if (validQueries.length === 0) {
@@ -2018,8 +2038,6 @@ async function search() {
       });
       return;
     }
-
-    window.__lastQueries = validQueries;
 
     const basketComparison = computeBasketComparison(validQueries);
     renderResults({ queries: validQueries, basketComparison });
@@ -2316,7 +2334,7 @@ function renderStoreSection(store, isBest) {
 
   const noteHtml = storeMeta.note
     ? `<aside class="store-note-vertical">
-         <img src="/badges/warning-icon.png" alt="" class="store-note-icon" onerror="this.style.display='none';" />
+         <img src="/media/icons/badges/warning-icon.png" alt="" class="store-note-icon" onerror="this.style.display='none';" />
          <div class="store-note-text">${escapeHtml(storeMeta.note)}</div>
        </aside>`
     : "";

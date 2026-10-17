@@ -5455,3 +5455,47 @@ a img,
   background: rgba(239, 68, 68, 0.15);
   color: #fca5a5;
 }
+
+/* ================================================================
+   AUTOCOMPLETE CORRECTION (آیا منظورتان... بود؟)
+   ================================================================ */
+.autocomplete-item.autocomplete-correction {
+  background: linear-gradient(
+    135deg,
+    rgba(245, 158, 11, 0.08),
+    rgba(217, 119, 6, 0.03)
+  );
+  border-bottom: 1.5px solid rgba(245, 158, 11, 0.25);
+}
+
+.autocomplete-correction-text {
+  color: #b45309;
+  font-weight: 700;
+  font-family: "Vazirmatn", sans-serif;
+}
+
+.autocomplete-correction-text b {
+  color: #d97706;
+  font-weight: 900;
+  background: rgba(245, 158, 11, 0.15);
+  padding: 0.05rem 0.3rem;
+  border-radius: 0.25rem;
+}
+
+:root[data-theme="dark"] .autocomplete-item.autocomplete-correction {
+  background: linear-gradient(
+    135deg,
+    rgba(251, 191, 36, 0.1),
+    rgba(217, 119, 6, 0.05)
+  );
+  border-bottom-color: rgba(251, 191, 36, 0.3);
+}
+
+:root[data-theme="dark"] .autocomplete-correction-text {
+  color: #fbbf24;
+}
+
+:root[data-theme="dark"] .autocomplete-correction-text b {
+  color: #fcd34d;
+  background: rgba(251, 191, 36, 0.18);
+}

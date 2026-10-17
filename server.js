@@ -8,6 +8,7 @@ const cheerio = require("cheerio");
 const mysql = require("mysql2/promise");
 const geoip = require("geoip-lite");
 const { compareBasket } = require("./services/searcher");
+const { correctQuery, learnFromItems } = require("./services/corrections");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -531,13 +532,49 @@ app.post("/api/compare", async (req, res) => {
     });
   }
 
+  // ─── تصحیح غلط املایی (Local + Google) ───
+  const corrections = await Promise.all(
+    items.map((item) =>
+      correctQuery(item).catch(() => ({
+        original: item,
+        corrected: item,
+        changed: false,
+      })),
+    ),
+  );
+  const correctedItems = corrections.map((c) => c.corrected);
+
+  // لاگ
+  const changedCount = corrections.filter((c) => c.changed).length;
+  if (changedCount > 0) {
+    console.log(
+      `[correct] ${changedCount}/${items.length} corrected: ` +
+        corrections
+          .filter((c) => c.changed)
+          .map((c) => `"${c.original}"→"${c.corrected}"(${c.reason})`)
+          .join(", "),
+    );
+  }
+
   try {
-    const result = await compareBasket(items, {
+    const result = await compareBasket(correctedItems, {
       batchId: _batch?.id || null,
       batchIndex: _batch?.index || null,
       batchTotal: _batch?.total || null,
     });
 
+    // ─── پیوست اطلاعات تصحیح به پاسخ ───
+    if (result.queries) {
+      for (let i = 0; i < result.queries.length; i++) {
+        const c = corrections[i];
+        if (c) {
+          result.queries[i].originalQuery = c.original;
+          result.queries[i].correctedQuery = c.corrected;
+          result.queries[i].correctionChanged = c.changed;
+          result.queries[i].correctionReason = c.reason || null;
+        }
+      }
+    }
     const allStoreNames = [
       "دیجی‌کالا",
       "ترب",
@@ -907,6 +944,39 @@ app.get("/api/suggest", async (req, res) => {
     parts: buildParts(title, q),
   }));
 
+  // ─── بررسی و اضافه کردن تصحیح ───
+  let correctionResult = { changed: false, corrected: q };
+  try {
+    correctionResult = await correctQuery(q);
+  } catch (e) {}
+
+  if (correctionResult.changed && correctionResult.corrected !== q) {
+    // ۱. حذف کلمه‌ی غلط/محاوره از لیست پیشنهادها
+    items = items.filter(
+      (it) => it.full.trim().toLowerCase() !== q.trim().toLowerCase(),
+    );
+
+    // ۲. گذاشتن تصحیح در ردیف اول
+    items.unshift({
+      full: correctionResult.corrected,
+      correction: true,
+      original: q,
+      parts: [{ text: correctionResult.corrected, bold: true }],
+    });
+  } else {
+    // اگه تصحیحی نبود (کلمه درست بود)، کلمه‌ی دقیق رو ببر اول
+    const exactMatchIdx = items.findIndex(
+      (it) => !it.correction && !it.fallback && it.full.trim() === q.trim(),
+    );
+    if (exactMatchIdx !== -1) {
+      const [exactItem] = items.splice(exactMatchIdx, 1);
+      items.unshift(exactItem);
+    } else {
+      items.unshift({ full: q, parts: buildParts(q, q) });
+    }
+  }
+
+  // ─── Fallback نهایی ───
   if (items.length === 0) {
     items = [{ full: q, fallback: true, parts: [{ text: q, bold: true }] }];
   }
@@ -2959,7 +3029,31 @@ app.post("/api/product-images-batch", async (req, res) => {
 // ================================================================
 // START
 // ================================================================
-initDatabase().then(() => {
+async function learnCorrectionsFromDB() {
+  if (!db) return;
+  try {
+    const [rows] = await db.query(
+      `SELECT items FROM search_logs
+       WHERE quality_score IN ('excellent', 'good')
+         AND timestamp >= DATE_SUB(NOW(), INTERVAL 90 DAY)
+       LIMIT 500`,
+    );
+    let learned = 0;
+    for (const row of rows) {
+      try {
+        const items = JSON.parse(row.items || "[]");
+        learnFromItems(items);
+        learned++;
+      } catch {}
+    }
+    console.log(`[corrections] learned from ${learned} logs`);
+  } catch (e) {
+    console.error("[corrections] learn failed:", e.message);
+  }
+}
+
+initDatabase().then(async () => {
+  await learnCorrectionsFromDB();
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`[server] listening on port ${PORT}`);
     console.log(`[server] admin panel: /admin`);
