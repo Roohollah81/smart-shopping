@@ -32,18 +32,15 @@ function log(level, scopeOrMsg, message) {
     msg = message;
   }
 
-  // ─── Pad خودکار نام فروشگاه ───
-  const colonIdx = msg.indexOf(":");
-  if (colonIdx > 0) {
-    const possibleStore = msg.substring(0, colonIdx).trim();
-    if (KNOWN_STORES_PAD.has(possibleStore)) {
-      const paddedStore = possibleStore.padEnd(STORE_PAD_WIDTH, " ");
-      msg = paddedStore + msg.substring(colonIdx);
-    }
-  }
+  // نام فروشگاه را دقیقاً ۱۴ کاراکتر می‌کنیم تا کولون‌ها همیشه در یک ستون باشند
+  const storeStr = scope
+    ? `[${String(scope).padEnd(14, " ")}]`
+    : `[${" ".repeat(14)}]`;
 
-  const sc = scope ? `[${String(scope).padEnd(10)}] ` : "";
-  console.log(`[${time}] ${tag} ${sc}${msg}`);
+  // پیام را تمیز می‌کنیم تا فاصله‌های اضافی حذف شوند
+  msg = msg.trim();
+
+  console.log(`[${time}] ${tag} ${storeStr} : ${msg}`);
 }
 
 const STOPWORDS = new Set([
@@ -908,7 +905,7 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
         const nextData = JSON.parse(nextDataMatch[1]);
         const nextProducts = extractFromNextData(nextData, name, domain);
         if (nextProducts.length > 0) {
-          log("OK", `${enName(name)}: ${nextProducts.length} (NEXT_DATA)`);
+          log("OK", `${enName(name)}: ${nextProducts.length} products`);
           return nextProducts.slice(0, limit);
         }
       } catch (e) {}
@@ -970,13 +967,13 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
       });
 
     if (products.length === 0) {
-      log("WARN", `${enName(name)}: 0 products`);
+      log("WARN", enName(name), `0 products`);
     } else {
-      log("OK", `${enName(name)}: ${products.length} products`);
+      log("OK", enName(name), `${products.length} products`);
     }
     return products;
   } catch (error) {
-    log("ERR", `${enName(name)}: ${error.message}`);
+    log("ERR", enName(name), error.message);
     throw error;
   }
 }
@@ -1057,7 +1054,7 @@ async function searchDigikala(query, limit = 20) {
     const products = response.data?.data?.products || [];
     const sliced = products.slice(0, limit);
 
-    log("OK", `Digikala: ${sliced.length} products`);
+    log("OK", "Digikala", `${sliced.length} products`);
 
     return sliced.map((p) => {
       const imgs = extractDigikalaImages(p);
@@ -1100,7 +1097,7 @@ async function searchDigikala(query, limit = 20) {
       };
     });
   } catch (error) {
-    log("ERR", `Digikala: ${error.message}`);
+    log("ERR", "Digikala", error.message);
     throw error;
   }
 }
@@ -1132,7 +1129,7 @@ async function searchTorob(query, limit = 20) {
     );
     const products = response.data?.results || [];
     const sliced = products.slice(0, limit);
-    log("OK", `Torob: ${sliced.length} products`);
+    log("OK", "Torob", `${sliced.length} products`);
     return sliced.map((p) => {
       const imgs = [];
       if (Array.isArray(p.images)) imgs.push(...p.images);
@@ -1154,7 +1151,7 @@ async function searchTorob(query, limit = 20) {
       };
     });
   } catch (error) {
-    log("ERR", `Torob: ${error.message}`);
+    log("ERR", "Torob", error.message);
     throw error;
   }
 }
@@ -1218,7 +1215,7 @@ async function searchMajdMarket(query, limit = 20) {
 
     if (products.length > 0) {
       const sliced = products.slice(0, limit);
-      log("OK", `MajdMarket: ${sliced.length} (NEXT_DATA)`);
+      log("OK", "MajdMarket", `${sliced.length} products`);
       return sliced;
     }
 
@@ -1263,10 +1260,10 @@ async function searchMajdMarket(query, limit = 20) {
     });
 
     const sliced2 = products.slice(0, limit);
-    log("OK", `MajdMarket: ${sliced2.length} (cheerio)`);
+    log("OK", "MajdMarket", `${sliced2.length} products`);
     return sliced2;
   } catch (error) {
-    log("ERR", `MajdMarket: ${error.message.split("\n")[0]}`);
+    log("ERR", "MajdMarket", error.message.split("\n")[0]);
     throw error;
   }
 }
@@ -1301,25 +1298,29 @@ async function compareBasket(shoppingList, options = {}) {
     queryIndex++;
 
     // ─── Separator بین batchها ───
-    if (batchId && batchIndex === 1 && batchTotal > 1) {
-      console.log("");
-      console.log("═".repeat(72));
-      console.log(
-        `[BATCH] ${batchId} · ${batchTotal} item${batchTotal > 1 ? "s" : ""}`,
-      );
-      console.log("═".repeat(72));
+    if (batchId && batchIndex === 1) {
+      const W = 72;
+      const border = "=".repeat(W);
+      const pad = (str) => str.padEnd(W - 1, " ");
+      const time = new Date().toTimeString().slice(0, 8);
+
+      console.log(`\n+${border}+`);
+      console.log(`| ${pad("BATCH STARTED")}|`);
+      console.log(`+${border}+`);
+      console.log(`| ${pad("ID    : " + batchId)}|`);
+      console.log(`| ${pad("ITEMS : " + batchTotal)}|`);
+      console.log(`| ${pad("TIME  : " + time)}|`);
+      console.log(`+${border}+\n`);
     } else if (batchIndex && batchIndex > 1) {
-      console.log("");
+      console.log(`\n${"-".repeat(74)}`);
     } else if (!batchId && queryIndex === 1) {
       console.log("");
     }
 
     // ─── Progress tag (مثلاً 2/5) ───
-    if (batchTotal > 1 && batchIndex) {
-      log("QRY", `${batchIndex}/${batchTotal}`, `"${query}"`);
-    } else {
-      log("QRY", `(1/1) "${query}"`);
-    }
+    const progress =
+      batchTotal > 1 && batchIndex ? `${batchIndex}/${batchTotal}` : `1/1`;
+    log("QRY", null, `[${progress}] ${query}`);
 
     const otherStores = NEW_STORES_CONFIG.filter((s) => s.name !== "مجد مارکت");
 
@@ -1387,6 +1388,7 @@ async function compareBasket(shoppingList, options = {}) {
 
     log(
       "FETCH",
+      null,
       `got ${allProducts.length} products` +
         (queryIds.length ? ` | ids: ${queryIds.join(",")}` : ""),
     );
@@ -1435,6 +1437,7 @@ async function compareBasket(shoppingList, options = {}) {
 
     log(
       "FILT",
+      null,
       `accepted: ${acceptedCount} | rejected: ${rejectedCount} | zero-price: ${zeroPriceRejected}`,
     );
 
@@ -1474,7 +1477,7 @@ async function compareBasket(shoppingList, options = {}) {
         return a.cheapest.price - b.cheapest.price;
       });
 
-    log("DONE", `"${query}" -> ${matches.length} clusters`);
+    log("DONE", null, `${matches.length} clusters for «${query}»`);
     // محصولات نهایی که به کاربر نشون داده می‌شن
     const visibleProductTitles = [];
     for (const match of matches) {
@@ -1559,7 +1562,18 @@ async function compareBasket(shoppingList, options = {}) {
       return b.itemCount - a.itemCount;
     });
 
-  log("END ", `${basketComparison.length} stores with results`);
+  log("END ", null, `${basketComparison.length} stores with results`);
+
+  // ─── پایان Batch ───
+  if (batchId && batchIndex === batchTotal) {
+    const W = 72;
+    const border = "=".repeat(W);
+    const pad = (str) => str.padEnd(W - 1, " ");
+
+    console.log(`+${border}+`);
+    console.log(`| ${pad("BATCH COMPLETED")}|`);
+    console.log(`+${border}+\n`);
+  }
 
   return { queries, basketComparison };
 }
