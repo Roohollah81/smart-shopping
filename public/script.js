@@ -13,6 +13,7 @@ const clearBtn = document.getElementById("clear-btn");
 const cancelBtn = document.getElementById("cancel-btn");
 const itemsList = document.getElementById("items-list");
 const resultsSection = document.getElementById("results-section");
+const emptyState = document.getElementById("empty-state");
 const storesContainer = document.getElementById("stores-container");
 const errorBox = document.getElementById("error-box");
 const spinner = document.getElementById("spinner");
@@ -140,6 +141,14 @@ const SUPPORTED_STORES = [
     color: "#f97316",
   },
 ];
+
+// ─── به‌روزرسانی داینامیک تعداد فروشگاه در Empty State ───
+function updateEmptyStateStoreCount() {
+  const el = document.getElementById("empty-state-store-count");
+  if (!el) return;
+  const count = SUPPORTED_STORES.length;
+  el.textContent = `${toPersianNum(count)} فروشگاه معتبر`;
+}
 
 // ----------------------------------------------------------------
 // STORE META
@@ -1288,10 +1297,15 @@ function renderAutocomplete(items, query) {
 function showSuggestionsAndItems(show) {
   const sugg = document.getElementById("suggestions-box");
   const itemsEl = document.getElementById("items-list");
+  // ⭐️ اضافه کردن بخش سبد خرید (که شامل دکمه پاک کردن سبد هم هست)
+  const basketSection = document.getElementById("basket-section");
   const actionsEl = document.querySelector(".input-body .actions");
+
   const display = show ? "" : "none";
+
   if (sugg) sugg.style.display = display;
   if (itemsEl) itemsEl.style.display = display;
+  if (basketSection) basketSection.style.display = display; // 👈 این خط
   if (actionsEl) actionsEl.style.display = display;
 }
 
@@ -1845,6 +1859,8 @@ function clearAll() {
   }
 
   if (clearBtn) clearBtn.classList.add("hidden");
+  // برگردوندن Empty State
+  if (emptyState) emptyState.classList.remove("hidden");
 
   document
     .querySelectorAll(".item-chip")
@@ -1969,6 +1985,7 @@ async function search() {
   toggleInputBody(false);
   setTriggerSearching(true);
 
+  if (emptyState) emptyState.classList.add("hidden");
   if (itemsList) itemsList.classList.add("locked");
   if (clearBtn) clearBtn.classList.add("hidden");
   if (addBtn) addBtn.disabled = true;
@@ -2202,7 +2219,8 @@ function renderResults(data) {
   if (topSort) {
     topSort.classList.toggle("hidden", !isSortUseful(basketComparison));
   }
-
+  // مخفی کردن Empty State وقتی نتیجه داریم
+  if (emptyState) emptyState.classList.add("hidden");
   resultsSection.classList.remove("hidden");
   if (clearBtn) clearBtn.classList.remove("hidden");
   resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -4091,6 +4109,7 @@ loadBasket();
 renderItems();
 renderSuggestions();
 renderSupportedStores();
+updateEmptyStateStoreCount();
 disableAllDraggable();
 initSortToggle();
 updateWishlistFloatBtn();

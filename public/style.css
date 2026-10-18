@@ -5499,3 +5499,79 @@ a img,
   color: #fcd34d;
   background: rgba(251, 191, 36, 0.18);
 }
+
+/* ================================================================
+   EMPTY STATE & TOUCH FEEDBACK
+   ================================================================ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  background: var(--surface);
+  border-radius: 1.25rem;
+  border: 2px dashed var(--border);
+  margin-bottom: 2rem;
+  animation: fadeIn 0.5s ease;
+}
+
+.empty-state-illustration {
+  font-size: 4.5rem;
+  margin-bottom: 1rem;
+  animation: float 3s ease-in-out infinite;
+  filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.1));
+}
+
+.empty-state h2 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  max-width: 400px;
+  line-height: 1.6;
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+/* ─── افکت بازخورد لمسی (Touch Feedback) ─── */
+.suggestion-chip:active,
+.product-action:active,
+.btn-add:active,
+.top-action-btn:active,
+.store-strip-card:active {
+  transform: scale(0.96) !important;
+  transition: transform 0.1s ease;
+}
+
+/* ─── بهبود اسکرول بار ─── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
