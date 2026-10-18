@@ -184,35 +184,33 @@ function normalizeCompact(text) {
   return normalize(text).replace(/\s+/g, "");
 }
 
-// چک کن آیا token در ترکیب دو یا سه توکن مجاور عنوان هست
-// مثلاً: token = "سرگرد" → title = ["قلمو", "سر", "گرد", ...] → ترکیب "سر"+"گرد" = "سرگرد" ✓
 function tokenMatchesJoined(token, titleTokens) {
-  const tokenLen = token.length;
+  function isSubstringMatch(part, target) {
+    const minL = Math.min(part.length, target.length);
+    const maxL = Math.max(part.length, target.length);
+    return part.includes(target) || target.includes(part)
+      ? minL >= 3 && minL / maxL >= 0.6
+      : false;
+  }
 
   // تک توکن
   for (const t of titleTokens) {
     if (t === token) return true;
-    if (t.includes(token) || token.includes(t)) {
-      if (Math.min(t.length, tokenLen) >= 3) return true;
-    }
+    if (isSubstringMatch(t, token)) return true;
   }
 
   // ترکیب دو توکن مجاور
   for (let i = 0; i < titleTokens.length - 1; i++) {
     const joined = titleTokens[i] + titleTokens[i + 1];
     if (joined === token) return true;
-    if (joined.includes(token) || token.includes(joined)) {
-      if (Math.min(joined.length, tokenLen) >= 3) return true;
-    }
+    if (isSubstringMatch(joined, token)) return true;
   }
 
   // ترکیب سه توکن مجاور
   for (let i = 0; i < titleTokens.length - 2; i++) {
     const joined = titleTokens[i] + titleTokens[i + 1] + titleTokens[i + 2];
     if (joined === token) return true;
-    if (joined.includes(token) || token.includes(joined)) {
-      if (Math.min(joined.length, tokenLen) >= 3) return true;
-    }
+    if (isSubstringMatch(joined, token)) return true;
   }
 
   return false;
@@ -232,33 +230,6 @@ function isCriticalIdentifier(token) {
   if (/^\d+$/.test(token)) return true;
   if (/^[a-z]{1,4}\d+[a-z]?$/i.test(token)) return true;
   if (/^\d+[a-z]{1,4}$/i.test(token)) return true;
-  return false;
-}
-
-function tokensMatch(queryToken, titleToken) {
-  if (queryToken === titleToken) return true;
-  if (isCriticalIdentifier(queryToken)) return false;
-
-  const shorter =
-    queryToken.length < titleToken.length ? queryToken : titleToken;
-  const longer =
-    queryToken.length < titleToken.length ? titleToken : queryToken;
-
-  if (shorter.length < 3) return false;
-
-  // اگه یکی توی اون یکی هست (با طول ≥ ۳)
-  if (longer.includes(shorter)) return true;
-
-  // حالت خاص: کلمه‌ی چسبیده vs جدا
-  // مثلاً: "سرگرد" (شورت) و "سرگردان" (لانگ) — اما اگه یکی ازینا با ترکیب دو کلمه ساخته شده
-  // راه‌حل: اگه هر دو کلمه‌ی چسبیده‌ی «شورت» به صورت جدا داخل متن اصلی بودن، قبول کن
-  // ولی اینجا فقط token مقایسه می‌کنیم
-
-  const suffixes = ["ی", "ها", "های", "تر", "ترین", "و"];
-  for (const s of suffixes) {
-    if (longer === shorter + s) return true;
-  }
-
   return false;
 }
 
@@ -532,7 +503,6 @@ function queryMatchScore(query, title) {
       : Math.pow(token.length, 1.5);
     totalWeight += weight;
 
-    // ← ← ← استفاده از tokensMatchJoined به جای tokensMatch ← ← ←
     const isMatched = tokenMatchesJoined(token, tt);
 
     if (isMatched) {
@@ -542,6 +512,18 @@ function queryMatchScore(query, title) {
     } else {
       missedTokens.push(token);
     }
+  }
+
+  // ⭐️⭐️⭐️ قانون طلایی جدید و قطعی ⭐️⭐️⭐️
+  // برای جستجوهای ۱ تا ۳ کلمه‌ای، EVERY کلمه باید در عنوان باشد.
+  if (qt.length <= 3 && missedTokens.length > 0) {
+    return {
+      score: 0,
+      ratio: 0,
+      matchedTokens: matchedTokens,
+      missedTokens: missedTokens,
+      reason: `strict: missing ${missedTokens.join(", ")}`,
+    };
   }
 
   const score = totalWeight > 0 ? matchedWeight / totalWeight : 0;
@@ -1079,6 +1061,27 @@ async function searchDigikala(query, limit = 20) {
 
     return sliced.map((p) => {
       const imgs = extractDigikalaImages(p);
+
+      // ─── منطق جدید برای ساخت لینک مطمئن ───
+      let productLink = null;
+
+      // ۱. اولویت با لینک مستقیم API
+      if (p.url && typeof p.url === "string" && p.url.startsWith("http")) {
+        productLink = p.url;
+      }
+      // ۲. اگر لینک نبود، با ID بساز
+      else if (p.id) {
+        const cleanId = String(p.id).replace(/[^\d]/g, "");
+        if (cleanId) {
+          productLink = `https://www.digikala.com/product/dkp-${cleanId}/`;
+        }
+      }
+
+      // ۳. اگر هیچ‌کدام نبود، به صفحه جستجو هدایت کن
+      if (!productLink) {
+        productLink = `https://www.digikala.com/search/?q=${encodeURIComponent(p.title_fa || "")}`;
+      }
+
       return {
         storeName: "دیجی‌کالا",
         productTitle: p.title_fa || "—",
@@ -1090,7 +1093,7 @@ async function searchDigikala(query, limit = 20) {
             ),
             10,
           ) / 10,
-        link: `https://www.digikala.com/product/dkp-${p.id}/`,
+        link: productLink, // ← استفاده از لینک مطمئن
         image: imgs[0] || null,
         images: imgs,
         productId: p.id,
@@ -1298,7 +1301,7 @@ async function compareBasket(shoppingList, options = {}) {
     queryIndex++;
 
     // ─── Separator بین batchها ───
-    if (batchId && batchIndex === 1) {
+    if (batchId && batchIndex === 1 && batchTotal > 1) {
       console.log("");
       console.log("═".repeat(72));
       console.log(
@@ -1398,7 +1401,12 @@ async function compareBasket(shoppingList, options = {}) {
       const matchInfo = queryMatchScore(query, p.productTitle);
       const passesScore = matchInfo.score >= MIN_QUERY_MATCH;
       const passesRatio = matchInfo.ratio >= MIN_TOKEN_RATIO;
-      const isAccepted = passesScore && passesRatio;
+
+      // ─── سخت‌گیری: برای جستجوهای ۳ کلمه‌ای یا کمتر، همه کلمات باید موجود باشند ───
+      let isAccepted = passesScore && passesRatio;
+      if (queryTokens.length <= 3 && matchInfo.missedTokens.length > 0) {
+        isAccepted = false; // رد کردن محصول اگر حتی یک کلمه کم داشته باشد
+      }
 
       if (isAccepted) {
         if (p.price === 0) {
