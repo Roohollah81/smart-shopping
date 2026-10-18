@@ -142,14 +142,6 @@ const SUPPORTED_STORES = [
   },
 ];
 
-// ─── به‌روزرسانی داینامیک تعداد فروشگاه در Empty State ───
-function updateEmptyStateStoreCount() {
-  const el = document.getElementById("empty-state-store-count");
-  if (!el) return;
-  const count = SUPPORTED_STORES.length;
-  el.textContent = `${toPersianNum(count)} فروشگاه معتبر`;
-}
-
 // ----------------------------------------------------------------
 // STORE META
 // ----------------------------------------------------------------
@@ -4109,7 +4101,6 @@ loadBasket();
 renderItems();
 renderSuggestions();
 renderSupportedStores();
-updateEmptyStateStoreCount();
 disableAllDraggable();
 initSortToggle();
 updateWishlistFloatBtn();
