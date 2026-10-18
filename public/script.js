@@ -4096,6 +4096,41 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
+// ----------------------------------------------------------------
+// SCROLL TO TOP
+// ----------------------------------------------------------------
+const scrollTopBtn = document.getElementById("scroll-top-btn");
+
+if (scrollTopBtn) {
+  let scrollTicking = false;
+
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (!scrollTicking) {
+        window.requestAnimationFrame(() => {
+          // اگر بیشتر از ۴۰۰ پیکسل اسکرول شد، دکمه را نشان بده
+          if (window.scrollY > 400) {
+            scrollTopBtn.classList.remove("hidden");
+          } else {
+            scrollTopBtn.classList.add("hidden");
+          }
+          scrollTicking = false;
+        });
+        scrollTicking = true;
+      }
+    },
+    { passive: true },
+  );
+
+  scrollTopBtn.addEventListener("click", () => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  });
+}
+
 // راه‌اندازی
 loadBasket();
 renderItems();
