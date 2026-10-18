@@ -79,20 +79,61 @@ async function fixSpelling(text) {
   let changed = false;
 
   const fixedWords = words.map((word) => {
-    // کلماتی که شامل اعداد یا حروف انگلیسی هستند را دست نزن
-    if (/[0-9a-z]/i.test(word)) return word;
+    // ۱. اعداد فارسی، عربی، انگلیسی و حروف لاتین را هرگز تغییر نده
+    if (/[0-9۰-۹٠-٩a-z]/i.test(word)) return word;
 
-    // اگه کلمه درست بود، همون رو برگردون
+    // ۲. اگر کلمه در دیکشنری صحیح است، دست نزن
     if (spell.correct(word)) return word;
 
-    // اگه غلط بود، بهترین پیشنهاد رو بگیر
+    // ۳. اگر غلط است، پیشنهادها را با منطق ساختاری بررسی کن
     const suggestions = spell.suggest(word);
     if (suggestions && suggestions.length > 0) {
-      changed = true;
-      return suggestions[0];
+      const origLower = normalizePersian(word);
+      const topSugg = suggestions[0];
+      const topSuggLower = normalizePersian(topSugg);
+
+      let skipCorrection = false;
+
+      // حالت الف: پیشنهاد دارای فاصله است (مثل "قلم مو" برای "قلمو" یا "کفش دوزک" برای "کفشدوزک")
+      if (topSuggLower.includes(" ")) {
+        skipCorrection = true;
+      }
+
+      // حالت ب: پیشنهاد کوتاه‌تر است و فقط بخشی از کلمه اصلی است (مثل "قلم" برای "قلمو")
+      if (
+        origLower.includes(topSuggLower) &&
+        topSuggLower.length < origLower.length
+      ) {
+        // استثنا: اگر فقط یک حرف تکراری اشتباه تایپ شده باشد (مثل مدااد -> مداد)
+        let isRepeatedCharTypo = false;
+        for (let i = 0; i < origLower.length - 1; i++) {
+          if (origLower[i] === origLower[i + 1]) {
+            const cleaned =
+              origLower.substring(0, i) + origLower.substring(i + 1);
+            if (cleaned === topSuggLower) {
+              isRepeatedCharTypo = true;
+              break;
+            }
+          }
+        }
+        if (!isRepeatedCharTypo) {
+          skipCorrection = true; // کلمه محاوره‌ای است (قلمو)، تصحیح نکن!
+        }
+      }
+
+      // حالت ج: اگر تفاوت طولی کلمه پیشنهادی خیلی زیاد باشد (بیش از ۲ حرف)
+      if (Math.abs(topSuggLower.length - origLower.length) > 2) {
+        skipCorrection = true;
+      }
+
+      // اگر تمام تست‌ها پاس شد، اصلاح کن
+      if (!skipCorrection) {
+        changed = true;
+        return topSugg;
+      }
     }
 
-    return word;
+    return word; // حفظ کلمه اصلی (مثل "قلمو") در صورت شکست در تست‌ها
   });
 
   return {
