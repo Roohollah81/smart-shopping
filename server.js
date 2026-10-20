@@ -1828,7 +1828,7 @@ async function renderAdminPage(req) {
           transform: rotate(90deg);
         }
         .quality-modal-body {
-          flex: 1; overflow-y: auto;
+          flex: 1; overflow-y: auto; overflow-x: hidden;
           background: #0f172a; border-radius: 0.75rem;
           padding: 1rem;
           font-family: 'Courier New', 'Consolas', monospace;
@@ -1836,25 +1836,39 @@ async function renderAdminPage(req) {
           font-size: 0.8rem; line-height: 1.75;
         }
         .quality-modal-line {
-          display: flex; align-items: baseline;
+          display: flex;
+          align-items: flex-start;
+          flex-wrap: wrap; /* اجازه شکستن خطوط در موبایل */
+          gap: 0.5rem; /* فاصله استاندارد بین اجزا */
           font-family: 'Courier New', 'Consolas', monospace;
-          font-size: 0.78rem; line-height: 1.7;
-          padding: 0.1rem 0; white-space: pre;
-          direction: ltr; text-align: left;
+          font-size: 0.78rem;
+          line-height: 1.6;
+          padding: 0.25rem 0;
+          direction: ltr;
+          text-align: left;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
         .quality-modal-line.qry-line {
           color: #a5b4fc; font-weight: 700;
           margin-top: 0.5rem; margin-bottom: 0.25rem;
         }
         .quality-modal-line.qry-line:first-child { margin-top: 0; }
-        .qml-time { color: #94a3b8; white-space: pre; margin-inline-end: 0.5rem; }
-        .qml-status { font-weight: 800; white-space: pre; margin-inline-end: 0.5rem; }
+        .qml-time { color: #94a3b8; flex-shrink: 0; }
+        .qml-status { font-weight: 800; flex-shrink: 0; }
         .qml-status-ok { color: #4ade80; }
         .qml-status-warn { color: #fbbf24; }
         .qml-status-err { color: #f87171; }
         .qml-status-qry { color: #a5b4fc; }
-        .qml-store { color: #a5b4fc; font-weight: 700; white-space: pre; }
-        .qml-msg { color: #e2e8f0; white-space: pre-wrap; word-break: break-word; }
+        .qml-store { color: #a5b4fc; font-weight: 700; flex-shrink: 0; }
+        .qml-msg { color: #e2e8f0; word-break: break-word; flex: 1; min-width: 150px; }
+
+        /* 🎯 تنظیمات اختصاصی موبایل */
+        @media (max-width: 640px) {
+          .quality-modal-content { padding: 1rem; max-height: 90vh; border-radius: 1rem; }
+          .quality-modal-body { padding: 0.75rem; }
+          .quality-modal-line { gap: 0.25rem; font-size: 0.72rem; }
+          .qml-msg { min-width: 100%; padding-left: 0; } /* پیام به خط بعد می‌رود */
+        }
         .quality-modal-loading,
         .quality-modal-empty {
           color: #94a3b8; text-align: center; padding: 2rem;
@@ -2320,17 +2334,15 @@ async function renderAdminPage(req) {
                   const progress = s.progress ? s.progress : "";
                   html += '<div class="quality-modal-line qry-line">';
                   html += '<span class="qml-time">[' + time + ']</span>';
-                  html += '<span class="qml-status qml-status-qry">[QRY  ]</span>';
+                  html += '<span class="qml-status qml-status-qry">[QRY]</span>';
                   html += '<span class="qml-msg">' + progress + window.escapeHtml(s.message) + '</span>';
                   html += '</div>';
                 } else {
-                  const statusPadded = String(s.status).padEnd(5, " ");
                   const statusLower = String(s.status).toLowerCase();
-                  const storePadded = (String(s.store || "") + ":").padEnd(15, " ");
                   html += '<div class="quality-modal-line">';
                   html += '<span class="qml-time">[' + time + ']</span>';
-                  html += '<span class="qml-status qml-status-' + statusLower + '">[' + statusPadded + ']</span>';
-                  html += '<span class="qml-store">' + window.escapeHtml(storePadded) + '</span>';
+                  html += '<span class="qml-status qml-status-' + statusLower + '">[' + s.status + ']</span>';
+                  html += '<span class="qml-store">' + window.escapeHtml(s.store || "") + ':</span>';
                   html += '<span class="qml-msg">' + window.escapeHtml(s.message) + '</span>';
                   html += '</div>';
                 }
