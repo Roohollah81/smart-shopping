@@ -542,6 +542,7 @@ const MODAL_HANDLERS = {
   changelog: () => closeChangelogModal(true),
   input: () => toggleInputBody(false),
   autocomplete: () => hideAutocomplete(),
+  tutorial: () => closeTutorial(),
 };
 
 function pushModalToHistory(type) {
@@ -1514,13 +1515,21 @@ function handleSortClick(e) {
 }
 
 function initSortToggle() {
-  document.querySelectorAll(".sort-option").forEach((btn) => {
+  const topSort = document.getElementById("top-sort");
+  const sortOptions = document.querySelectorAll(".sort-option");
+
+  // اگر هیچ دکمه‌ای وجود نداشت، کادر را مخفی کن
+  if (topSort && sortOptions.length === 0) {
+    topSort.classList.add("hidden");
+    return;
+  }
+
+  sortOptions.forEach((btn) => {
     btn.removeEventListener("click", handleSortClick);
     btn.addEventListener("click", handleSortClick);
     btn.classList.toggle("active", btn.dataset.sort === currentSort);
   });
 }
-
 // ----------------------------------------------------------------
 // HEADER INFO
 // ----------------------------------------------------------------
@@ -2231,18 +2240,14 @@ function renderResults(data) {
 function isSortUseful(basketComparison) {
   if (!basketComparison || basketComparison.length < 2) return false;
 
-  // چک کن قیمت‌ها متفاوت باشن (برای sort قیمت)
-  const prices = basketComparison.map((s) => s.total);
-  const uniquePrices = new Set(prices);
-  const hasPriceDiff = uniquePrices.size > 1;
-
-  // چک کن تعداد آیتم‌ها متفاوت باشن (برای sort موجودی)
+  // تعداد آیتم‌های موجود در هر فروشگاه را استخراج می‌کنیم
   const counts = basketComparison.map((s) => s.itemCount);
-  const uniqueCounts = new Set(counts);
-  const hasCountDiff = uniqueCounts.size > 1;
 
-  // اگه هیچ‌کدوم تفاوت نداشتن، فیلتر بی‌فایده‌ست
-  return hasPriceDiff || hasCountDiff;
+  // با استفاده از Set، تعداد حالت‌های متفاوت را می‌شماریم
+  const uniqueCounts = new Set(counts);
+
+  // فقط اگر تعداد آیتم‌های فروشگاه‌ها با هم فرق داشت (بیش از یکی بود)، فیلتر را نشان بده
+  return uniqueCounts.size > 1;
 }
 
 function renderStoreSections(sortedStores) {
@@ -3420,6 +3425,10 @@ function applyTheme(t) {
   const i1 = document.querySelector("#theme-toggle .theme-icon");
   if (i1) i1.textContent = icon;
 
+  // 🎯 اضافه شد: آپدیت متن دکمه در نوار چسبان
+  const t1 = document.querySelector("#theme-toggle .theme-text");
+  if (t1) t1.textContent = label;
+
   const i2 = document.getElementById("theme-icon-top");
   if (i2) i2.textContent = icon;
 
@@ -3827,7 +3836,23 @@ function showWelcomeModal(welcome) {
 
   // دکمه
   const okBtn = document.getElementById("changelog-modal-ok");
-  if (okBtn) okBtn.textContent = "بزن بریم! 🚀";
+  if (okBtn) {
+    okBtn.textContent = "بزن بریم! 🚀";
+
+    // حذف لیسنرهای قبلی برای جلوگیری از تداخل
+    const newOkBtn = okBtn.cloneNode(true);
+    okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+
+    newOkBtn.addEventListener("click", () => {
+      // ۱. بستن پیام خوش‌آمدگویی
+      closeChangelogModal();
+
+      // ۲. باز کردن آموزش با یک تاخیر کوچک برای انیمیشن
+      setTimeout(() => {
+        openTutorial();
+      }, 300);
+    });
+  }
 
   modal.classList.remove("hidden");
   document.body.style.overflow = "hidden";
@@ -3963,6 +3988,122 @@ document.addEventListener("keydown", (e) => {
     if (modal && !modal.classList.contains("hidden")) closeChangelogModal();
   }
 });
+
+// ================================================================
+// 🎓 TUTORIAL (ONBOARDING)
+// ================================================================
+const tutorialModal = document.getElementById("tutorial-modal");
+const tutorialSlides = document.querySelectorAll(".tutorial-slide");
+const tutorialDots = document.querySelectorAll(".tutorial-dot");
+const tutorialPrev = document.getElementById("tutorial-prev");
+const tutorialNext = document.getElementById("tutorial-next");
+const tutorialSkip = document.getElementById("tutorial-skip");
+let currentTutorialSlide = 0;
+
+function updateTutorialUI() {
+  tutorialSlides.forEach((slide, idx) => {
+    slide.classList.toggle("active", idx === currentTutorialSlide);
+  });
+  tutorialDots.forEach((dot, idx) => {
+    dot.classList.toggle("active", idx === currentTutorialSlide);
+  });
+
+  if (currentTutorialSlide === 0) {
+    tutorialPrev.classList.add("hidden");
+  } else {
+    tutorialPrev.classList.remove("hidden");
+  }
+
+  if (currentTutorialSlide === tutorialSlides.length - 1) {
+    tutorialNext.innerHTML = `<span>پایان</span>`;
+  } else {
+    tutorialNext.innerHTML = `<span>بعدی</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>`;
+  }
+}
+
+function openTutorial() {
+  currentTutorialSlide = 0;
+  updateTutorialUI();
+  tutorialModal.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+  pushModalToHistory("tutorial");
+}
+
+function closeTutorial() {
+  if (!tutorialModal || tutorialModal.classList.contains("hidden")) return;
+  tutorialModal.classList.add("hidden");
+  document.body.style.overflow = "";
+
+  if (!closingViaPopstate) {
+    const idx = MODAL_STACK.lastIndexOf("tutorial");
+    if (idx !== -1) {
+      MODAL_STACK.splice(idx, 1);
+      suppressNextPopstate = true;
+      history.back();
+    }
+  }
+}
+
+if (tutorialNext) {
+  tutorialNext.addEventListener("click", () => {
+    if (currentTutorialSlide < tutorialSlides.length - 1) {
+      currentTutorialSlide++;
+      updateTutorialUI();
+    } else {
+      closeTutorial();
+    }
+  });
+}
+
+if (tutorialPrev) {
+  tutorialPrev.addEventListener("click", () => {
+    if (currentTutorialSlide > 0) {
+      currentTutorialSlide--;
+      updateTutorialUI();
+    }
+  });
+}
+
+if (tutorialSkip) tutorialSkip.addEventListener("click", closeTutorial);
+if (tutorialModal) {
+  tutorialModal
+    .querySelector(".tutorial-modal-backdrop")
+    .addEventListener("click", closeTutorial);
+}
+
+document.addEventListener("click", (e) => {
+  if (e.target.closest("#tutorial-btn")) {
+    openTutorial();
+  }
+});
+
+// ─── لمس (Swipe) برای موبایل ───
+let tutorialTouchStartX = 0;
+if (tutorialModal) {
+  tutorialModal.addEventListener(
+    "touchstart",
+    (e) => {
+      tutorialTouchStartX = e.changedTouches[0].screenX;
+    },
+    { passive: true },
+  );
+
+  tutorialModal.addEventListener(
+    "touchend",
+    (e) => {
+      const touchEndX = e.changedTouches[0].screenX;
+      const dx = touchEndX - tutorialTouchStartX;
+      if (dx > 50 && currentTutorialSlide > 0) {
+        currentTutorialSlide--;
+        updateTutorialUI();
+      } else if (dx < -50 && currentTutorialSlide < tutorialSlides.length - 1) {
+        currentTutorialSlide++;
+        updateTutorialUI();
+      }
+    },
+    { passive: true },
+  );
+}
 
 // ----------------------------------------------------------------
 // INIT

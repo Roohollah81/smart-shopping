@@ -395,6 +395,10 @@ textarea,
     border-radius: 0.7rem;
   }
 
+  .top-info-bar .sort-inline:not(:has(.sort-option)) {
+    display: none !important;
+  }
+
   .top-info-bar .sort-inline .sort-toggle-label {
     display: none;
   }
@@ -655,36 +659,69 @@ textarea,
 
 .sticky-header .theme-toggle {
   position: static;
-  width: 2.6rem;
+  width: auto;
   height: 2.6rem;
-  font-size: 1.15rem;
+  padding: 0 0.75rem; /* کمی کاهش پدینگ برای جا شدن بهتر */
+  font-size: 0.85rem;
+  font-family: inherit;
+  font-weight: 700;
+  color: var(--text-soft);
   background: var(--bg);
   border: 1.5px solid var(--border);
-  border-radius: 50%;
+  border-radius: 0.65rem;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.35rem;
   transition: all 0.25s ease;
-  padding: 0;
+  white-space: nowrap; /* 🎯 جلوگیری از شکستن متن به خط بعد */
+  flex-shrink: 0; /* 🎯 جلوگیری از فشرده شدن و بریده شدن */
 }
+
 .sticky-header .theme-toggle:hover {
-  transform: rotate(20deg) scale(1.08);
-  border-color: var(--primary);
+  transform: translateY(
+    -1px
+  ); /* 🎯 حذف چرخش و جایگزینی با افکت بالا آمدن ملایم */
+  border-color: var(--primary-light);
+  color: var(--primary);
   background: var(--surface);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
 }
 
 @media (max-width: 1100px) {
   .sticky-header .sticky-datetime {
     display: none;
   }
+
+  /* 🎯 اگر فیلتر مخفی بود، تاریخ و ساعت به عنوان جایگزین نمایش داده شود */
+  .sticky-center:has(.sticky-sort.hidden) .sticky-datetime {
+    display: inline-flex !important;
+    min-width: auto !important;
+    padding: 0.5rem 1rem !important;
+    background: var(--bg);
+  }
+
+  .sticky-center:has(.sticky-sort.hidden) {
+    justify-content: center !important; /* وسط‌چین کردن تاریخ */
+  }
 }
 @media (max-width: 780px) {
   .sticky-header .sticky-right {
-    display: none;
+    display: none; /* لوگو در موبایل مخفی می‌شود */
   }
+
+  .sticky-header-inner {
+    justify-content: space-between; /* فاصله بین تاریخ (راست) و دکمه (چپ) */
+  }
+
   .sticky-center {
     justify-content: flex-start;
+    flex: 0 1 auto;
+  }
+
+  .sticky-left {
+    flex-shrink: 0;
   }
 }
 @media (max-width: 640px) {
@@ -701,9 +738,13 @@ textarea,
     font-size: 0.75rem;
   }
   .sticky-header .theme-toggle {
-    width: 2.2rem;
     height: 2.2rem;
-    font-size: 1rem;
+    padding: 0 0.6rem;
+    font-size: 0.75rem; /* فونت کمی کوچکتر برای موبایل */
+    gap: 0.25rem;
+  }
+  .sticky-header .theme-toggle .theme-icon {
+    font-size: 0.9rem; /* کوچک کردن آیکون خورشید/ماه */
   }
 }
 
@@ -2456,18 +2497,15 @@ textarea,
 }
 .store-note-text {
   font-size: 0.78rem;
-  font-weight: 600;
-  color: #92400e;
+  font-weight: 500; /* وزن فونت کمی لطیف‌تر شد */
+  color: #b45309; /* کهربایی تیره و خوانا برای حالت روز */
   line-height: 1.85;
   word-break: break-word;
   overflow-wrap: anywhere;
 }
-:root[data-theme="dark"] .store-note-vertical {
-  background: rgba(251, 191, 36, 0.08);
-  border-color: rgba(251, 191, 36, 0.35);
-}
+
 :root[data-theme="dark"] .store-note-text {
-  color: #fde68a;
+  color: #fcd34d; /* زرد کهربایی لطیف برای حالت شب */
 }
 
 /* ================================================================
@@ -4812,19 +4850,25 @@ textarea,
   }
 
   .store-note-vertical {
-    flex-direction: row;
-    align-items: center;
-    text-align: right;
-    gap: 0.6rem;
-    padding: 0.75rem 0.9rem;
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    max-width: none !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    text-align: right !important; /* راست‌چین کردن متن */
+    gap: 0.6rem !important;
+    padding: 0.75rem 0.9rem !important;
   }
+
   .store-note-icon {
-    width: 24px;
-    height: 24px;
+    width: 24px !important;
+    height: 24px !important;
+    flex-shrink: 0;
   }
+
   .store-note-text {
-    font-size: 0.75rem;
-    line-height: 1.7;
+    font-size: 0.75rem !important;
+    line-height: 1.7 !important;
   }
 
   .store-badges-spacer {
@@ -5624,4 +5668,201 @@ a img,
     width: 2.75rem;
     height: 2.75rem;
   }
+}
+
+/* ================================================================
+   TUTORIAL MODAL (ONBOARDING)
+   ================================================================ */
+.tutorial-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  animation: wishlistModalFadeIn 0.3s ease;
+}
+
+.tutorial-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+
+.tutorial-modal-content {
+  position: relative;
+  z-index: 1;
+  background: var(--surface);
+  border-radius: 1.5rem;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+  animation: wishlistModalZoomIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border: 1.5px solid var(--border);
+  overflow: hidden;
+}
+
+.tutorial-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.tutorial-steps {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.tutorial-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--border);
+  transition: all 0.3s ease;
+}
+
+.tutorial-dot.active {
+  background: var(--primary);
+  width: 1.25rem;
+  border-radius: 1rem;
+}
+
+.tutorial-skip {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.25rem;
+}
+.tutorial-skip:hover {
+  color: var(--danger);
+}
+
+.tutorial-body {
+  position: relative;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.tutorial-slide {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.75rem;
+  width: 100%;
+  animation: fadeIn 0.4s ease;
+}
+
+.tutorial-slide.active {
+  display: flex;
+}
+
+.tutorial-icon {
+  font-size: 3.5rem;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.1));
+}
+
+.tutorial-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.tutorial-desc {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+
+.tutorial-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--border);
+}
+
+.tutorial-nav-spacer {
+  flex: 1;
+}
+
+.tutorial-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.6rem 1rem;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 0.65rem;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tutorial-nav-btn:hover {
+  background: var(--surface);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.tutorial-nav-btn.tutorial-next {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.tutorial-nav-btn.tutorial-next:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+}
+
+.tutorial-nav-btn.hidden {
+  display: none !important;
+}
+
+.tutorial-image-wrapper {
+  width: 100%;
+  /* ارتفاع را به ۳۶۰ پیکسل افزایش دادیم و از vh استفاده کردیم تا در موبایل با صفحه تنظیم شود */
+  height: 360px;
+  max-height: 45vh;
+  background: var(--bg);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  border: 1.5px solid var(--border);
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* پدینگ را صفر کردیم تا عکس تمام فضای کادر را پر کند */
+  padding: 0;
+}
+
+.tutorial-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }

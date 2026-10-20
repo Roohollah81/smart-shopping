@@ -74,6 +74,7 @@
             aria-label="تغییر حالت روشن/تاریک"
           >
             <span class="theme-icon">🌙</span>
+            <span class="theme-text">حالت شب</span>
           </button>
         </div>
       </div>
@@ -128,6 +129,16 @@
           >
             <span class="top-action-icon">📢</span>
             <span class="top-action-text">تغییرات</span>
+          </button>
+          <!-- دکمه راهنما به اینجا منتقل شد -->
+          <button
+            id="tutorial-btn"
+            class="top-action-btn"
+            type="button"
+            aria-label="آموزش استفاده"
+          >
+            <span class="top-action-icon">❓</span>
+            <span class="top-action-text">راهنما</span>
           </button>
         </div>
       </div>
@@ -510,6 +521,149 @@
             type="button"
           >
             باشه، فهمیدم 👍
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- مودال آموزش اسلایدی -->
+    <div id="tutorial-modal" class="tutorial-modal hidden">
+      <div class="tutorial-modal-backdrop"></div>
+      <div class="tutorial-modal-content">
+        <div class="tutorial-header">
+          <div class="tutorial-steps" id="tutorial-steps">
+            <span class="tutorial-dot active"></span>
+            <span class="tutorial-dot"></span>
+            <span class="tutorial-dot"></span>
+            <span class="tutorial-dot"></span>
+          </div>
+          <button class="tutorial-skip" id="tutorial-skip" type="button">
+            رد کردن
+          </button>
+        </div>
+
+        <div class="tutorial-body" id="tutorial-body">
+          <!-- اسلاید ۱ (کادر جستجو) -->
+          <div class="tutorial-slide active">
+            <div class="tutorial-image-wrapper">
+              <img
+                src="/media/tutorial/step1.jpg"
+                alt="جستجو"
+                class="tutorial-image"
+                onerror="
+                  this.style.display = 'none';
+                  this.parentElement.innerHTML =
+                    '<div class=&quot;tutorial-icon&quot;>🛒</div>';
+                "
+              />
+            </div>
+            <h2 class="tutorial-title">جستجوی هوشمند</h2>
+            <p class="tutorial-desc">
+              کافیست نام کالای مورد نظر خود را در این کادر بنویسید تا ما از بین
+              فروشگاه‌های معتبر، ارزان‌ترین قیمت را برای شما پیدا کنیم.
+            </p>
+          </div>
+          <!-- اسلاید ۲ (پیشنهادها) -->
+          <div class="tutorial-slide">
+            <div class="tutorial-image-wrapper">
+              <img
+                src="/media/tutorial/step2.jpg"
+                alt="پیشنهادها"
+                class="tutorial-image"
+                onerror="
+                  this.style.display = 'none';
+                  this.parentElement.innerHTML =
+                    '<div class=&quot;tutorial-icon&quot;>🔍</div>';
+                "
+              />
+            </div>
+            <h2 class="tutorial-title">پیشنهادهای هوشمند</h2>
+            <p class="tutorial-desc">
+              هنگام تایپ، سیستم به صورت خودکار بهترین پیشنهادها را نمایش می‌دهد
+              و حتی غلط‌های املایی را نیز تصحیح می‌کند.
+            </p>
+          </div>
+          <!-- اسلاید ۳ (نتایج) -->
+          <div class="tutorial-slide">
+            <div class="tutorial-image-wrapper">
+              <img
+                src="/media/tutorial/step3.jpg"
+                alt="مقایسه قیمت"
+                class="tutorial-image"
+                onerror="
+                  this.style.display = 'none';
+                  this.parentElement.innerHTML =
+                    '<div class=&quot;tutorial-icon&quot;>💰</div>';
+                "
+              />
+            </div>
+            <h2 class="tutorial-title">مقایسه قیمت و صرفه‌جویی</h2>
+            <p class="tutorial-desc">
+              قیمت محصول در هر فروشگاه را ببینید. فروشگاهی که کل سبد خرید شما را
+              با کمترین قیمت دارد، به عنوان «بهترین انتخاب» معرفی می‌شود.
+            </p>
+          </div>
+          <!-- اسلاید ۴ (علاقه‌مندی و تم) -->
+          <div class="tutorial-slide">
+            <div class="tutorial-image-wrapper">
+              <img
+                src="/media/tutorial/step4.jpg"
+                alt="علاقه‌مندی‌ها"
+                class="tutorial-image"
+                onerror="
+                  this.style.display = 'none';
+                  this.parentElement.innerHTML =
+                    '<div class=&quot;tutorial-icon&quot;>❤️</div>';
+                "
+              />
+            </div>
+            <h2 class="tutorial-title">علاقه‌مندی‌ها و حالت شب</h2>
+            <p class="tutorial-desc">
+              با کلیک روی قلب، محصول را ذخیره کنید تا تغییرات قیمت آن را دنبال
+              کنیم. همچنین می‌توانید با دکمه بالا، حالت شب را فعال کنید.
+            </p>
+          </div>
+        </div>
+
+        <div class="tutorial-footer">
+          <button
+            class="tutorial-nav-btn tutorial-prev hidden"
+            id="tutorial-prev"
+            type="button"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+            <span>قبلی</span>
+          </button>
+          <div class="tutorial-nav-spacer"></div>
+          <button
+            class="tutorial-nav-btn tutorial-next"
+            id="tutorial-next"
+            type="button"
+          >
+            <span>بعدی</span>
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
           </button>
         </div>
       </div>
