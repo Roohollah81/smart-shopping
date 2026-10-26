@@ -1,5 +1,11 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
+const { wrapper } = require("axios-cookiejar-support");
+const { CookieJar } = require("tough-cookie");
+
+// ساخت یک سشن اختصاصی برای ترب
+const torobJar = new CookieJar();
+const torobClient = wrapper(axios.create({ jar: torobJar }));
 
 const PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
 const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
@@ -7,18 +13,6 @@ const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
 // ================================================================
 // LOGGER — timestamp + clean output
 // ================================================================
-// ─── نام فروشگاه‌ها برای pad خودکار ───
-const KNOWN_STORES_PAD = new Set([
-  "Digikala",
-  "Torob",
-  "Ghalamtarash",
-  "ArmanArt",
-  "Alemzadeh",
-  "MahestanArt",
-  "MadjMarket",
-]);
-const STORE_PAD_WIDTH = 14;
-
 function log(level, scopeOrMsg, message) {
   const time = new Date().toTimeString().slice(0, 8);
   const tag = `[${String(level).padEnd(5)}]`;
@@ -165,8 +159,8 @@ function normalize(text) {
       .replace(/ئ/g, "ی")
       // حذف اعراب
       .replace(/[\u064B-\u065F\u0670]/g, "")
-      // حذف نیم‌فاصله و جایگزینی با فاصله
-      .replace(/\u200c/g, " ")
+      // حذف نیم‌فاصله (چسباندن کلمات)
+      .replace(/\u200c/g, "")
       // حذف علائم
       .replace(/[-_.,،;:()\[\]{}«»"'\u060C\u061B\u061F]/g, " ")
       // چند فاصله → یکی
@@ -408,6 +402,13 @@ function hasCategoryConflict(query, title) {
   for (const rule of CATEGORY_CONFLICTS) {
     const qHasAny = rule.query.some((kw) => qNorm.includes(normalize(kw)));
     if (!qHasAny) continue;
+
+    // 🎯 اگر خود کاربر کلمه‌ی متناقض رو تایپ کرده باشه (مثل "پاک‌کن اتود")، دیگه تناقضی نیست!
+    const queryHasConflictWord = rule.title.some((kw) =>
+      qNorm.includes(normalize(kw)),
+    );
+    if (queryHasConflictWord) continue;
+
     const conflict = rule.title.find((kw) => tNorm.includes(normalize(kw)));
     if (conflict) return conflict;
   }
@@ -875,20 +876,45 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
   } = storeConfig;
   const url = searchUrl(query);
 
-  try {
-    const response = await axios.get(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-          "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Accept: "text/html,application/xhtml+xml",
-        "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
-      },
-      timeout: 8000,
-      validateStatus: () => true,
-    });
+  let retries = 2; // حداکثر ۲ بار تلاش
+  let response = null;
 
-    if (response.status !== 200 || !response.data) {
+  while (retries > 0) {
+    try {
+      response = await axios.get(url, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          Accept: "text/html,application/xhtml+xml",
+          "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
+        },
+        timeout: 8000, // کاهش به ۸ ثانیه
+        validateStatus: () => true,
+      });
+      break;
+    } catch (error) {
+      retries--;
+      if (retries === 0) {
+        log("ERR", enName(name), error.message);
+        return [];
+      }
+      await new Promise((r) => setTimeout(r, 1000)); // ۱ ثانیه صبر
+    }
+  }
+
+  try {
+    if (!response || !response.data) {
+      log("WARN", enName(name), `0 products (empty response)`);
+      return [];
+    }
+
+    // ─── مدیریت خطای 404 (صفحه پیدا نشد) ───
+    if (response.status === 404) {
+      log("WARN", enName(name), `0 products (404)`);
+      return [];
+    }
+
+    if (response.status !== 200) {
       throw new Error(`HTTP ${response.status}`);
     }
 
@@ -896,7 +922,7 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
     const products = [];
     const seen = new Set();
 
-    // Try __NEXT_DATA__
+    // ─── تلاش برای استخراج از __NEXT_DATA__ ───
     const nextDataMatch = response.data.match(
       /<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/,
     );
@@ -905,12 +931,13 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
         const nextData = JSON.parse(nextDataMatch[1]);
         const nextProducts = extractFromNextData(nextData, name, domain);
         if (nextProducts.length > 0) {
-          log("OK", `${enName(name)}: ${nextProducts.length} products`);
+          log("OK", enName(name), `${nextProducts.length} products`);
           return nextProducts.slice(0, limit);
         }
       } catch (e) {}
     }
 
+    // ─── استخراج از HTML ───
     $(itemSelector)
       .slice(0, limit * 3)
       .each((i, el) => {
@@ -974,7 +1001,7 @@ async function searchWooCommerceStore(storeConfig, query, limit = 20) {
     return products;
   } catch (error) {
     log("ERR", enName(name), error.message);
-    throw error;
+    return []; // در صورت خطای غیرمنتظره، آرایه خالی برگردان تا بقیه فروشگاه‌ها ادامه دهند
   }
 }
 
@@ -1103,105 +1130,220 @@ async function searchDigikala(query, limit = 20) {
 }
 
 // ================================================================
-// TOROB
+// 🎯 TOROB (صف سریالی + Circuit Breaker)
 // ================================================================
+let torobQueue = Promise.resolve();
+let torobLastRequest = 0;
+const TOROB_MIN_GAP = 5000; // افزایش به ۵ ثانیه
+
 async function searchTorob(query, limit = 20) {
-  try {
-    const response = await axios.get(
-      "https://api.torob.com/v4/base-product/search/",
-      {
-        params: { q: query, source: "next_desktop", page: 0, size: limit },
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          Accept: "application/json, text/plain, */*",
-          "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
-          "Accept-Encoding": "gzip, deflate, br",
-          Referer: "https://torob.com/",
-          Origin: "https://torob.com",
-          "Sec-Fetch-Dest": "empty",
-          "Sec-Fetch-Mode": "cors",
-          "Sec-Fetch-Site": "same-site",
-        },
-        timeout: 15000,
-      },
-    );
-    const products = response.data?.results || [];
-    const sliced = products.slice(0, limit);
-    log("OK", "Torob", `${sliced.length} products`);
-    return sliced.map((p) => {
-      const imgs = [];
-      if (Array.isArray(p.images)) imgs.push(...p.images);
-      if (p.image_url) imgs.push(p.image_url);
-      if (p.image) imgs.push(p.image);
-      if (p.thumbnail) imgs.push(p.thumbnail);
-      const images = [
-        ...new Set(
-          imgs.filter((x) => typeof x === "string" && x.startsWith("http")),
-        ),
-      ];
-      return {
-        storeName: "ترب",
-        productTitle: p.name1 || p.name || "—",
-        price: parseInt(String(p.price || "0").replace(/[^\d]/g, ""), 10),
-        link: `https://torob.com/p/${p.random_key || p.id}/`,
-        image: images[0] || null,
-        images,
-      };
-    });
-  } catch (error) {
-    log("ERR", "Torob", error.message);
-    throw error;
-  }
+  // هر درخواست به انتهای صف اضافه می‌شود (سریالی)
+  const result = await new Promise((resolve) => {
+    torobQueue = torobQueue
+      .then(async () => {
+        // رعایت فاصله زمانی
+        const now = Date.now();
+        const elapsed = now - torobLastRequest;
+        if (elapsed < TOROB_MIN_GAP) {
+          await new Promise((r) => setTimeout(r, TOROB_MIN_GAP - elapsed));
+        }
+
+        try {
+          const response = await axios.get(
+            "https://api.torob.com/v4/base-product/search/",
+            {
+              params: {
+                page: 0,
+                sort: "popularity", // از cURL
+                size: limit,
+                query: query, // پارامتر جدید
+                q: query,
+                _search_landing: "home",
+                _landing_page: "home",
+                source: "next_desktop",
+              },
+              headers: {
+                "User-Agent":
+                  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+                Accept: "*/*", // از cURL
+                "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
+                Origin: "https://torob.com",
+                Referer: "https://torob.com/",
+              },
+              timeout: 20000,
+            },
+          );
+          torobLastRequest = Date.now();
+
+          if (response.status === 200) {
+            resolve(response.data);
+          } else {
+            log("WARN", "Torob", `0 products (HTTP ${response.status})`);
+            resolve(null);
+          }
+        } catch (error) {
+          torobLastRequest = Date.now();
+          // 🎯 چالش ربات یا Rate Limit → هیچ تلاش مجددی نکن (Circuit Breaker)
+          if (
+            error.response?.status === 490 ||
+            error.response?.status === 429
+          ) {
+            log(
+              "WARN",
+              "Torob",
+              `Rate limited (HTTP ${error.response.status}) - skipping`,
+            );
+            resolve(null);
+          } else {
+            log("ERR", "Torob", error.message);
+            resolve(null);
+          }
+        }
+      })
+      .catch(() => resolve(null));
+  });
+
+  if (!result) return [];
+
+  const products = result?.results || [];
+  const sliced = products.slice(0, limit);
+  log("OK", "Torob", `${sliced.length} products`);
+
+  return sliced.map((p) => {
+    const imgs = [];
+    if (Array.isArray(p.images)) imgs.push(...p.images);
+    if (p.image_url) imgs.push(p.image_url);
+    if (p.image) imgs.push(p.image);
+    if (p.thumbnail) imgs.push(p.thumbnail);
+    const images = [
+      ...new Set(
+        imgs.filter((x) => typeof x === "string" && x.startsWith("http")),
+      ),
+    ];
+    return {
+      storeName: "ترب",
+      productTitle: p.name1 || p.name || "—",
+      price: parseInt(String(p.price || "0").replace(/[^\d]/g, ""), 10),
+      link: `https://torob.com/p/${p.random_key || p.id}/`,
+      image: images[0] || null,
+      images,
+    };
+  });
 }
 
 async function searchMajdMarket(query, limit = 20) {
   try {
-    const url = `https://majdmarket.com/products?search=${encodeURIComponent(query)}`;
+    const url = `https://majdmarket.com/search?q=${encodeURIComponent(query)}`;
+
     const r = await axios.get(url, {
-      timeout: 8000,
+      timeout: 15000,
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Accept: "text/html,application/xhtml+xml",
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        Accept: "text/html, application/xhtml+xml",
         "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
+        "X-Inertia": "true",
+        "X-Inertia-Version": "04a46bfc2c211525d155b9a391b28b06",
+        "X-Requested-With": "XMLHttpRequest",
+        "X-XSRF-TOKEN":
+          "eyJpdiI6IkVEdXYvNC9Wdi8zQ25Yb2FKaDNaaUE9PSIsInZhbHVlIjoiVGJ1alBpNjlNQXZGS2FueW5ZNEVrR0dmclg4Qm8yZm5QbW11VXBBU1E2RnJycG9oTUZuOGZtTngxNisxVnhDWWZtL1JlZlZQM2dwanhCRnJMK0V1eDVzSUgxSnFBOThMeXg0elRlWnpQNEN1Q1JzWVlkYk04dTBVelJOdC83YjgiLCJtYWMiOiI5ZDEyZmY5MDdiODYwYzQ4MjVkMDEwZGE3ZjRjMTViMWIwMjlmNDhmNWJkNTg0NDBiMzRhY2M1NGVkODI5MDllIiwidGFnIjoiIn0=",
+        Referer: `https://majdmarket.com/search?q=${encodeURIComponent(query)}`,
+        Origin: "https://majdmarket.com",
       },
       validateStatus: () => true,
     });
 
-    if (r.status !== 200 || typeof r.data !== "string") {
-      throw new Error(`HTTP ${r.status}`);
+    if (r.status !== 200) {
+      log("WARN", "MajdMarket", `HTTP ${r.status}`);
+      return [];
     }
 
-    const html = r.data;
-    const products = [];
+    let products = [];
+    let data = r.data;
 
-    // تلاش __NEXT_DATA__
-    const nextMatch = html.match(
-      /<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/,
-    );
-    if (nextMatch) {
-      try {
-        const data = JSON.parse(nextMatch[1]);
+    // اگر پاسخ از نوع HTML بود (نه JSON)، دیتا را از data-page دربیاور
+    if (typeof data === "string") {
+      const $ = cheerio.load(data);
+      const appDiv = $("#app");
+      if (appDiv.length > 0 && appDiv.attr("data-page")) {
+        try {
+          data = JSON.parse(appDiv.attr("data-page"));
+        } catch (e) {}
+      }
+    }
+
+    if (typeof data === "object" && data !== null) {
+      // 🎯 هدف‌گیری دقیق ساختار JSON مجد مارکت
+      const sections = data?.props?.sections || [];
+      const productSection = sections.find((s) => s.key === "product");
+
+      if (productSection && Array.isArray(productSection.items)) {
+        for (const item of productSection.items) {
+          if (products.length >= limit) break;
+
+          // اصلاح آدرس عکس‌ها (کلید عکس در این سایت thumb است)
+          let image = item.thumb || null;
+          if (image && typeof image === "string" && image.startsWith("/")) {
+            image = `https://majdmarket.com${image}`;
+          }
+
+          products.push({
+            storeName: "مجد مارکت",
+            productTitle: item.title || "—",
+            price: parseInt(
+              String(item.price || "0").replace(/[^\d]/g, ""),
+              10,
+            ),
+            link: item.url || `https://majdmarket.com/products/${item.id}`,
+            image: image,
+            images: image ? [image] : [],
+          });
+        }
+      } else {
+        // (پشتیبان) اگر ساختار تغییر کرد، از روش پیمایش عمیق استفاده کن
         const walk = (obj, depth = 0) => {
-          if (depth > 20 || !obj || typeof obj !== "object") return;
+          if (
+            depth > 25 ||
+            !obj ||
+            typeof obj !== "object" ||
+            products.length >= limit
+          )
+            return;
           if (Array.isArray(obj)) {
             obj.forEach((x) => walk(x, depth + 1));
             return;
           }
-          if (obj.title && obj.price && obj.slug) {
-            const price = parseInt(String(obj.price).replace(/[^\d]/g, ""), 10);
-            if (price > 1000 && products.length < limit) {
-              let image = obj.image || obj.thumbnail || obj.cover;
-              if (Array.isArray(image)) image = image[0];
-              if (image && typeof image === "object")
-                image = image.url || image.src;
+
+          const name = obj.title || obj.name;
+          const price = obj.price;
+          const slug = obj.slug || obj.id || obj.url;
+
+          if (
+            name &&
+            price &&
+            slug &&
+            typeof name === "string" &&
+            name.length > 3
+          ) {
+            const pNum = parseInt(String(price).replace(/[^\d]/g, ""), 10);
+            if (pNum > 1000 && !products.some((p) => p.productTitle === name)) {
+              let rawImage =
+                obj.thumb || obj.image || obj.thumbnail || obj.cover;
+              let image = rawImage;
+              if (image && typeof image === "string" && image.startsWith("/")) {
+                image = `https://majdmarket.com${image}`;
+              }
+
+              let link = obj.url || `https://majdmarket.com/products/${slug}`;
+              if (link && !link.startsWith("http")) {
+                link = `https://majdmarket.com${link.startsWith("/") ? "" : "/"}${link}`;
+              }
+
               products.push({
                 storeName: "مجد مارکت",
-                productTitle: obj.title,
-                price,
-                link: `https://majdmarket.com/products/${obj.slug}`,
+                productTitle: name,
+                price: pNum,
+                link: link,
                 image: image || null,
                 images: image ? [image] : [],
               });
@@ -1210,61 +1352,110 @@ async function searchMajdMarket(query, limit = 20) {
           Object.values(obj).forEach((v) => walk(v, depth + 1));
         };
         walk(data);
-      } catch {}
-    }
-
-    if (products.length > 0) {
-      const sliced = products.slice(0, limit);
-      log("OK", "MajdMarket", `${sliced.length} products`);
-      return sliced;
-    }
-
-    // fallback cheerio
-    const $ = cheerio.load(html);
-    const seen = new Set();
-    $('a[href*="/products/"]').each((i, el) => {
-      if (products.length >= limit) return false;
-      const $el = $(el);
-      const href = $el.attr("href") || "";
-      if (href.includes("/products?") || href === "/products") return;
-      const title =
-        $el.find("h1, h2, h3, h4, .title").first().text().trim() ||
-        $el.text().trim().substring(0, 100);
-      if (!title || title.length < 3) return;
-      const priceMatch = $el.text().match(/([\d۰-۹]{1,3}(?:[،,][\d۰-۹]{3})+)/);
-      if (!priceMatch) return;
-      const price = parseInt(
-        priceMatch[1]
-          .replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
-          .replace(/[،,]/g, ""),
-        10,
-      );
-      if (price < 1000) return;
-      if (seen.has(title)) return;
-      seen.add(title);
-      const img = $el.find("img").first();
-      let image = img.attr("data-src") || img.attr("src") || null;
-      if (image && !image.startsWith("http")) {
-        try {
-          image = new URL(image, "https://majdmarket.com").href;
-        } catch {}
       }
-      products.push({
-        storeName: "مجد مارکت",
-        productTitle: title,
-        price,
-        link: href.startsWith("http") ? href : `https://majdmarket.com${href}`,
-        image,
-        images: image ? [image] : [],
-      });
-    });
+    }
 
-    const sliced2 = products.slice(0, limit);
-    log("OK", "MajdMarket", `${sliced2.length} products`);
-    return sliced2;
+    const sliced = products.slice(0, limit);
+    log("OK", "MajdMarket", `${sliced.length} products`);
+    return sliced;
   } catch (error) {
     log("ERR", "MajdMarket", error.message.split("\n")[0]);
-    throw error;
+    return [];
+  }
+}
+
+// ================================================================
+// BASALAM
+// ================================================================
+async function searchBasalam(query, limit = 20) {
+  try {
+    // استفاده از endpoint جدید که از cURL استخراج شد
+    const url = `https://services.basalam.com/web/v1/search/product/search`;
+
+    const params = {
+      from: 0,
+      q: query,
+      dynamicFacets: true,
+      size: limit,
+      enableNavigations: true,
+      adsImpressionDisable: false,
+      grouped: false,
+      userCityId: 1873, // می‌توانید این را ثابت نگه دارید یا داینامیک کنید
+    };
+
+    const r = await axios.get(url, {
+      params,
+      timeout: 15000,
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        Accept: "application/json, text/plain, */*",
+        "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
+        Origin: "https://basalam.com",
+        Referer: "https://basalam.com/",
+        // هدرهای کلیدی که از cURL استخراج شدند
+        "x-client-info": JSON.stringify({
+          version: "4.14.3",
+          project: "charsou",
+          platform: "web",
+          name: "web.public",
+          deviceId: "0774f75c-7526-491f-8d72-f1f3e7b77e42", // می‌توانید یک ID ثابت یا تصادفی بگذارید
+          sessionId: "d81c36e4-2c20-4004-aec6-e4b6be356d90",
+        }),
+        "x-creation-tags": JSON.stringify({
+          client: "customer-charsou",
+          os: "windows",
+          uri: "/s",
+          fullPath: `https://basalam.com/s?q=${encodeURIComponent(query)}`,
+          device: "desktop",
+          app: "web",
+        }),
+      },
+      validateStatus: () => true,
+    });
+
+    if (r.status !== 200 || !r.data) {
+      log("WARN", "Basalam", `HTTP ${r.status}`);
+      return [];
+    }
+
+    // ساختار پاسخ بر اساس مستندات و cURL (احتمالاً hits یا products)
+    const hits = r.data?.hits || r.data?.products || r.data?.data || [];
+
+    if (!Array.isArray(hits) || hits.length === 0) {
+      log("OK", "Basalam", `0 products`);
+      return [];
+    }
+
+    const products = hits
+      .map((item) => {
+        const p = item._source || item;
+        let image =
+          p.photo?.MEDIUM || p.photo?.SMALL || p.photo || p.image || null;
+        if (image && typeof image === "string" && image.startsWith("/")) {
+          image = `https://basalam.com${image}`;
+        }
+
+        return {
+          storeName: "باسلام",
+          productTitle: p.name || p.title || "—",
+          price: parseInt(
+            String(p.price || p.primaryPrice || "0").replace(/[^\d]/g, ""),
+            10,
+          ),
+          link: `https://basalam.com/p/${p.id || p.productId}`,
+          image,
+          images: image ? [image] : [],
+        };
+      })
+      .filter((p) => p.price > 1000); // فیلتر قیمت‌های غیرواقعی
+
+    const sliced = products.slice(0, limit);
+    log("OK", "Basalam", `${sliced.length} products`);
+    return sliced;
+  } catch (error) {
+    log("ERR", "Basalam", error.message);
+    return [];
   }
 }
 
@@ -1279,6 +1470,7 @@ const STORE_EN_MAP = {
   عالم‌زاده: "Alemzadeh",
   "مهستان آرت": "MahestanArt",
   "مجد مارکت": "MajdMarket",
+  باسلام: "Basalam",
 };
 
 function getStoreEn(name) {
@@ -1333,6 +1525,7 @@ async function compareBasket(shoppingList, options = {}) {
         promise: searchWooCommerceStore(s, query, 20),
       })),
       { name: "مجد مارکت", promise: searchMajdMarket(query, 20) },
+      { name: "باسلام", promise: searchBasalam(query, 20) }, // اضافه شد
     ];
 
     const settled = await Promise.allSettled(storeTasks.map((t) => t.promise));

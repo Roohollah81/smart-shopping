@@ -583,6 +583,7 @@ app.post("/api/compare", async (req, res) => {
       "عالم‌زاده",
       "مهستان آرت",
       "مجد مارکت",
+      "باسلام",
     ];
     const storesWithResults = new Set();
 

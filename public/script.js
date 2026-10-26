@@ -102,43 +102,49 @@ const SUPPORTED_STORES = [
     name: "دیجی‌کالا",
     url: "https://www.digikala.com",
     icon: "https://www.google.com/s2/favicons?domain=digikala.com&sz=128",
-    color: "#ef4444",
+    color: "#ef4444", // قرمز
+  },
+  {
+    name: "باسلام",
+    url: "https://basalam.com",
+    icon: "https://www.google.com/s2/favicons?domain=basalam.com&sz=128",
+    color: "#f4511e", // نارنجی-قرمز (دقیقاً مثل لوگو)
   },
   {
     name: "ترب",
     url: "https://torob.com",
     icon: "https://www.google.com/s2/favicons?domain=torob.com&sz=128",
-    color: "#f59e0b",
+    color: "#f59e0b", // زرد کهربایی
   },
   {
     name: "قلم‌تراش",
     url: "https://ghalamtarash.ir",
     icon: "https://www.google.com/s2/favicons?domain=ghalamtarash.ir&sz=128",
-    color: "#84cc16",
+    color: "#84cc16", // سبز
   },
   {
     name: "آرمان آرت",
     url: "https://armanartstore.com",
     icon: "https://www.google.com/s2/favicons?domain=armanartstore.com&sz=128",
-    color: "#ec4899",
+    color: "#ec4899", // صورتی
   },
   {
     name: "عالم‌زاده",
     url: "https://alemzadeh.ir",
     icon: "https://www.google.com/s2/favicons?domain=alemzadeh.ir&sz=128",
-    color: "#3b82f6",
+    color: "#3b82f6", // آبی
   },
   {
     name: "مهستان آرت",
     url: "https://mahestanart.com",
     icon: "https://www.google.com/s2/favicons?domain=mahestanart.com&sz=128",
-    color: "#a855f7",
+    color: "#a855f7", // بنفش
   },
   {
     name: "مجد مارکت",
     url: "https://majdmarket.com",
     icon: "https://www.google.com/s2/favicons?domain=majdmarket.com&sz=128",
-    color: "#f97316",
+    color: "#f97316", // نارنجی استاندارد
   },
 ];
 
@@ -344,6 +350,57 @@ const STORE_META = {
       },
     ],
   },
+  باسلام: {
+    shipping: "سراسر ایران",
+    shippingIcon: "/media/icons/badges/map-icon.png",
+    badges: [
+      // ─── ضمانت و اعتماد ───
+      {
+        category: "trust",
+        img: "/media/icons/badges/enamad.png",
+        link: "https://trustseal.enamad.ir/?id=116503&Code=6iQN5yCbmti3PrU4cINp",
+        alt: "اینماد",
+      },
+      {
+        category: "trust",
+        img: "/media/icons/badges/samandehi.png",
+        link: "https://logo.samandehi.ir/Verify.aspx?id=143366&p=rfthaodsxlaoxlaogvkagvka",
+        alt: "نشان ملی ثبت", // ← تغییر یافت
+      },
+      {
+        category: "trust",
+        img: "/media/icons/badges/ecunion.png",
+        link: "https://ecunion.ir/verify/basalam.com?token=43445575c7a0a8344a6b",
+        alt: "مجوز کشوری",
+      },
+      {
+        category: "trust",
+        img: "/media/icons/badges/qomstp.png",
+        link: "https://qomstp.ir/",
+        alt: "دانش‌بنیان", // ← کوتاه شد
+      },
+      // ─── ارسال ───
+      {
+        category: "shipping",
+        img: "/media/icons/badges/express-shipping.png",
+        link: "https://express.basalam.com/",
+        alt: "اکسپرس", // ← متن اضافه شد
+      },
+      {
+        category: "shipping",
+        img: "/media/icons/badges/post.png",
+        link: null,
+        alt: "پست",
+      },
+      // ─── پرداخت اقساطی ───
+      {
+        category: "payment",
+        img: "/media/icons/badges/salampay.png",
+        link: "https://salampay.basalam.com/",
+        alt: "سلام پی",
+      },
+    ],
+  },
 };
 
 // ----------------------------------------------------------------
@@ -406,6 +463,7 @@ function getStoreIconUrl(name) {
     عالم‌زاده: "alemzadeh.ir",
     "مهستان آرت": "mahestanart.com",
     "مجد مارکت": "majdmarket.com",
+    باسلام: "basalam.com",
   };
   return map[name]
     ? `https://www.google.com/s2/favicons?domain=${map[name]}&sz=128`
@@ -2295,16 +2353,25 @@ function renderStoreSection(store, isBest) {
 
   const buildBadgeRow = (badge) => {
     const cat = badge.category || "trust";
-    const inner = `<img src="${escapeHtml(badge.img)}" alt="${escapeHtml(badge.alt)}" class="store-badge-img" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.style.display='none';" />`;
-    const title = `${getCategoryLabel(cat)} — ${badge.alt}`;
+    // اگر alt وجود نداشت، متن جایگزین خالی در نظر گرفته می‌شود
+    const altText = badge.alt ? String(badge.alt).trim() : "";
+
+    const inner = `<img src="${escapeHtml(badge.img)}" alt="${escapeHtml(altText)}" class="store-badge-img" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.style.display='none';" />`;
+
+    // ساخت Tooltip: اگر alt خالی بود، فقط نام دسته (مثلاً "ارسال") را نشان بده
+    const title = altText
+      ? `${getCategoryLabel(cat)} — ${altText}`
+      : getCategoryLabel(cat);
+
     const tag = badge.link ? "a" : "span";
     const attrs = badge.link
       ? `href="${escapeHtml(badge.link)}" target="_blank" rel="noopener noreferrer"`
       : "";
+
     return `
       <${tag} class="store-badge-row store-badge-row-${cat}" ${attrs} title="${escapeHtml(title)}">
         <span class="store-badge-thumb">${inner}</span>
-        <span class="store-badge-text">${escapeHtml(badge.alt)}</span>
+        ${altText ? `<span class="store-badge-text">${escapeHtml(altText)}</span>` : ""}
       </${tag}>
     `;
   };
