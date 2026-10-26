@@ -601,6 +601,7 @@ const MODAL_HANDLERS = {
   input: () => toggleInputBody(false),
   autocomplete: () => hideAutocomplete(),
   tutorial: () => closeTutorial(),
+  results: () => clearAll(true),
 };
 
 function pushModalToHistory(type) {
@@ -1897,7 +1898,7 @@ document.addEventListener("mousedown", (e) => {
   toggleInputBody(false);
 });
 
-function clearAll() {
+function clearAll(isPopstate = false) {
   // ─── فقط نتایج پاک می‌شن، سبد دست‌نخورده ───
   resultsSection.classList.add("hidden");
   document.getElementById("top-sort")?.classList.add("hidden");
@@ -1924,6 +1925,19 @@ function clearAll() {
   document
     .querySelectorAll(".item-chip")
     .forEach((chip) => chip.classList.remove("done", "error", "active"));
+
+  // 🎯 مدیریت History برای دکمه بازگشت
+  if (!isPopstate) {
+    const idx = MODAL_STACK.lastIndexOf("results");
+    if (idx !== -1) {
+      MODAL_STACK.splice(idx, 1);
+      suppressNextPopstate = true;
+      history.back();
+    }
+  } else {
+    // اگر از طریق دکمه بازگشت فراخوانی شده، Toast نشان نده
+    return;
+  }
 
   // ─── Toast ───
   showToast("پاک شد", "نتایج جستجو پاک شدند", "remove", 3000);
@@ -2283,6 +2297,9 @@ function renderResults(data) {
   resultsSection.classList.remove("hidden");
   if (clearBtn) clearBtn.classList.remove("hidden");
   resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  // 🎯 ثبت صفحه نتایج در تاریخچه تا دکمه برگشت ایتا درست کار کند
+  pushModalToHistory("results");
 
   setTimeout(() => {
     showToast(
