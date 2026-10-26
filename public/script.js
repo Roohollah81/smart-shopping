@@ -2479,15 +2479,19 @@ function renderStoreSection(store, isBest) {
     ? `<img src="${escapeHtml(iconUrl)}" alt="" class="store-logo" draggable="false" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';" /><span class="store-icon-fallback" style="display:none;">${fallback}</span>`
     : `<span class="store-icon-fallback" style="display:flex;">${fallback}</span>`;
 
+  const bestCrown = isBest
+    ? `<span class="best-crown" title="بهترین انتخاب">👑</span>`
+    : "";
   const storeNameHtml = storeUrl
     ? `<a class="store-name store-name-link" href="${escapeHtml(storeUrl)}" target="_blank" rel="noopener noreferrer" title="رفتن به صفحه اصلی ${escapeHtml(store.storeName)}">
+         ${bestCrown}
          ${escapeHtml(store.storeName)}
          <svg class="store-name-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
            <line x1="7" y1="17" x2="17" y2="7"></line>
            <polyline points="7 7 17 7 17 17"></polyline>
          </svg>
        </a>`
-    : `<span class="store-name">${escapeHtml(store.storeName)}</span>`;
+    : `<span class="store-name">${bestCrown} ${escapeHtml(store.storeName)}</span>`;
 
   return `
     <section class="store-section ${isBest ? "best-store" : ""}" style="--store-color: ${storeColor};">
