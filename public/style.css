@@ -2649,27 +2649,25 @@ textarea,
   padding-top: 14px;
   transition: transform 0.25s ease;
 }
-
 .product-card:not(.has-others) .product-collapsed {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 1rem;
+  border-radius: 1.25rem; /* گردتر */
   overflow: hidden;
   display: flex;
   flex-direction: column;
   height: 100%;
-  transition:
-    border-color 0.25s ease,
-    box-shadow 0.25s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03); /* سایه بسیار نرم */
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.product-card:not(.has-others):hover .product-collapsed {
+  border-color: var(--primary-light);
+  box-shadow: 0 12px 30px rgba(99, 102, 241, 0.12);
+  transform: translateY(-4px);
 }
 .product-card:not(.has-others):hover {
   transform: translateY(-4px);
 }
-.product-card:not(.has-others):hover .product-collapsed {
-  border-color: var(--primary-light);
-  box-shadow: 0 12px 30px rgba(99, 102, 241, 0.15);
-}
-
 .product-card.has-others {
   overflow: visible;
 }
@@ -2703,6 +2701,7 @@ textarea,
   pointer-events: none;
   transition: all 0.25s ease;
 }
+
 .stack-layer-1 {
   top: 4px;
   left: 8%;
@@ -2819,15 +2818,15 @@ textarea,
 }
 
 .product-title {
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   font-weight: 600;
-  line-height: 1.55;
+  line-height: 1.6;
   color: var(--text);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  min-height: 2.6rem;
+  min-height: 2.8rem;
   cursor: default;
   user-select: none;
   -webkit-user-select: none;
@@ -2844,10 +2843,23 @@ textarea,
   cursor: default;
 }
 .product-price-value {
-  font-size: 1.15rem;
-  font-weight: 800;
-  color: var(--primary-dark);
+  font-size: 1.3rem; /* بزرگ‌تر */
+  font-weight: 900; /* ضخیم‌تر */
+  background: linear-gradient(
+    135deg,
+    var(--primary) 0%,
+    var(--primary-dark) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.5px;
   cursor: default;
+}
+/* برای اینکه در حالت دارک کمی روشن‌تر شود */
+:root[data-theme="dark"] .product-price-value {
+  background: linear-gradient(135deg, #818cf8 0%, #a5b4fc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 .product-price-currency {
   font-size: 0.7rem;
@@ -2871,19 +2883,12 @@ textarea,
   justify-content: center;
   gap: 0.4rem;
   width: 100%;
-  padding: 0.625rem 0.75rem;
+  padding: 0.65rem 0.75rem;
   margin-top: 0.5rem;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--store-color, var(--primary)) 12%, var(--surface))
-      0%,
-    color-mix(in srgb, var(--store-color, var(--primary)) 6%, var(--surface))
-      100%
-  );
-  border: 1.5px solid
-    color-mix(in srgb, var(--store-color, var(--primary)) 30%, var(--border));
+  background: var(--bg); /* پس‌زمینه خنثی */
+  border: 1.5px dashed var(--border); /* خط‌چین برای نشان دادن اکشن فرعی */
   border-radius: 0.75rem;
-  color: var(--store-color, var(--primary));
+  color: var(--text-soft); /* رنگ متن ملایم */
   font-family: inherit;
   font-size: 0.75rem;
   font-weight: 700;
@@ -2892,16 +2897,10 @@ textarea,
   letter-spacing: -0.2px;
 }
 .product-expand-button:hover {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--store-color, var(--primary)) 20%, var(--surface))
-      0%,
-    color-mix(in srgb, var(--store-color, var(--primary)) 12%, var(--surface))
-      100%
-  );
-  border-color: var(--store-color, var(--primary));
-  box-shadow: 0 4px 14px
-    color-mix(in srgb, var(--store-color, var(--primary)) 25%, transparent);
+  background: var(--surface);
+  border-color: var(--primary);
+  border-style: solid;
+  color: var(--primary);
   transform: translateY(-1px);
 }
 .product-expand-icon {
@@ -2924,20 +2923,39 @@ textarea,
 }
 
 .product-action {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
   text-align: center;
-  padding: 0.75rem;
-  background: var(--surface);
+  padding: 0.85rem 0.75rem;
+  background: color-mix(
+    in srgb,
+    var(--store-color, var(--primary)) 12%,
+    var(--surface)
+  );
   color: var(--store-color, var(--primary));
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: 0.85rem;
+  font-weight: 800;
   text-decoration: none;
-  border-top: 1px solid var(--border);
-  transition: text-shadow 0.2s ease;
+  border-top: 1.5px solid
+    color-mix(in srgb, var(--store-color, var(--primary)) 30%, var(--border));
+  /* 🎯 border-radius حذف شد تا overflow: hidden والد کار خودش را درست انجام دهد */
+  transition: all 0.2s ease;
   font-family: inherit;
   position: relative;
   z-index: 2;
   cursor: pointer;
+}
+
+.product-action:hover:not(.disabled) {
+  /* در حالت هاور کمی پررنگ‌تر می‌شود */
+  background: color-mix(
+    in srgb,
+    var(--store-color, var(--primary)) 20%,
+    var(--surface)
+  );
+  color: var(--store-color, var(--primary));
 }
 .product-action:hover:not(.disabled) {
   text-shadow: 0 0 12px
