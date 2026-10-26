@@ -551,6 +551,7 @@ function showToast(title, message, type = "success", duration = 5000) {
     success: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
     remove: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
     info: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`,
+    warning: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`,
   };
 
   const toast = document.createElement("div");
@@ -1741,7 +1742,12 @@ function addItem() {
 
   // ─── چک ظرفیت ───
   if (items.length >= 10) {
-    showError("حداکثر ۱۰ آیتم قابل افزودن است.");
+    showToast(
+      "محدودیت ظرفیت",
+      "حداکثر ۱۰ آیتم قابل افزودن است.",
+      "warning", // ← استفاده از تایپ اخطار
+      3000,
+    );
     setTimeout(() => {
       suppressAutocomplete = false;
     }, 300);
