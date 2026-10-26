@@ -1436,19 +1436,23 @@ async function searchBasalam(query, limit = 20) {
           image = `https://basalam.com${image}`;
         }
 
+        // 🎯 تبدیل ریال به تومان با تقسیم بر ۱۰
+        const rawPrice = parseInt(
+          String(p.price || p.primaryPrice || "0").replace(/[^\d]/g, ""),
+          10,
+        );
+        const priceInToman = Math.round(rawPrice / 10);
+
         return {
           storeName: "باسلام",
           productTitle: p.name || p.title || "—",
-          price: parseInt(
-            String(p.price || p.primaryPrice || "0").replace(/[^\d]/g, ""),
-            10,
-          ),
+          price: priceInToman, // ← استفاده از قیمت تبدیل‌شده
           link: `https://basalam.com/p/${p.id || p.productId}`,
           image,
           images: image ? [image] : [],
         };
       })
-      .filter((p) => p.price > 1000); // فیلتر قیمت‌های غیرواقعی
+      .filter((p) => p.price > 1000);
 
     const sliced = products.slice(0, limit);
     log("OK", "Basalam", `${sliced.length} products`);
