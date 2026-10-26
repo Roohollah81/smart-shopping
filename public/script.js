@@ -1770,6 +1770,7 @@ function removeItem(i) {
   items.splice(i, 1);
   renderItems();
   saveBasket();
+  renderSuggestions(); // 🎯 این خط اضافه شد تا لیست پرطرفدارها بلافاصله آپدیت شود
   if (removed) {
     showToast("حذف شد", `«${removed}» از سبد خرید حذف شد`, "remove", 3000);
   }
@@ -4275,6 +4276,7 @@ if (clearBasketBtn) {
     renderItems();
     saveBasket();
     hideError();
+    renderSuggestions(); // 🎯 این خط اضافه شد تا وقتی سبد خالی شد، پرطرفدارها دوباره ظاهر شوند
     showToast(
       "پاک شد",
       `${toPersianNum(count)} آیتم از سبد خرید حذف شد`,
