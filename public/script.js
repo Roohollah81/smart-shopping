@@ -181,6 +181,12 @@ const STORE_META = {
         alt: "ساپرا",
       },
       {
+        category: "shipping",
+        img: "/media/icons/badges/express-shipping.png",
+        link: null,
+        alt: "اکسپرس",
+      },
+      {
         category: "payment",
         img: "/media/icons/badges/digipay.png",
         link: "https://www.mydigipay.com/",
@@ -731,7 +737,7 @@ function toggleWishlist(item) {
       initialPrice: item.price,
       history: [{ price: item.price, at: new Date().toISOString() }],
     });
-    showToast("به علاقه‌مندی‌ها اضافه شد ❤️", item.title, "success", 5000);
+    showToast("به علاقه‌مندی‌ها اضافه شد", item.title, "success", 5000);
     localStorage.removeItem(WISHLIST_LAST_CHECK_KEY);
   }
   saveWishlist();
@@ -2309,12 +2315,7 @@ function renderResults(data) {
   pushModalToHistory("results");
 
   setTimeout(() => {
-    showToast(
-      "آماده شد! ✅",
-      pickRandom(FUN_MESSAGES.success),
-      "success",
-      3500,
-    );
+    showToast("آماده شد!", pickRandom(FUN_MESSAGES.success), "success", 3500);
   }, 400);
 }
 

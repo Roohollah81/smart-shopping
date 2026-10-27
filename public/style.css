@@ -3785,13 +3785,18 @@ textarea,
    ================================================================ */
 .toast-container {
   position: fixed;
-  bottom: 2rem;
-  right: 2rem;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%); /* وسط‌چین دقیق در صفحه */
   z-index: 10000;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   pointer-events: none;
+  width: 100%;
+  max-width: 420px;
+  padding: 0 1rem;
+  align-items: center;
 }
 
 .toast {
@@ -3817,20 +3822,22 @@ textarea,
 .toast.toast-out {
   animation: toastSlideOut 0.3s ease forwards;
 }
+/* 🎯 انیمیشن پاپ‌آپ از مرکز (به جای سر خوردن از بالا) */
 @keyframes toastSlideIn {
   from {
     opacity: 0;
-    transform: translateX(-100%) translateY(20px);
+    transform: scale(0.8);
   }
   to {
     opacity: 1;
-    transform: translateX(0) translateY(0);
+    transform: scale(1);
   }
 }
+
 @keyframes toastSlideOut {
   to {
     opacity: 0;
-    transform: translateX(-100%);
+    transform: scale(0.8);
   }
 }
 
@@ -5186,12 +5193,7 @@ textarea,
   .confirm-dialog-actions {
     flex-direction: column-reverse;
   }
-
-  .toast-container {
-    bottom: 1rem;
-    right: 1rem;
-    left: 1rem;
-  }
+  
   .toast {
     min-width: 0;
     max-width: none;
@@ -5666,20 +5668,71 @@ a img,
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 3rem 1.5rem;
+  padding: 4rem 1.5rem;
   text-align: center;
   background: var(--surface);
-  border-radius: 1.25rem;
+  border-radius: 1.5rem;
   border: 2px dashed var(--border);
   margin-bottom: 2rem;
   animation: fadeIn 0.5s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+/* یک هاله نوری ملایم در پس‌زمینه */
+.empty-state::before {
+  content: "";
+  position: absolute;
+  top: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--primary) 15%, transparent) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
 }
 
 .empty-state-illustration {
   font-size: 4.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
   animation: float 3s ease-in-out infinite;
-  filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.1));
+  width: 110px;
+  height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--primary) 10%, var(--surface)),
+    var(--surface)
+  );
+  border: 2px solid color-mix(in srgb, var(--primary) 20%, var(--border));
+  border-radius: 50%;
+  box-shadow: 0 10px 25px color-mix(in srgb, var(--primary) 15%, transparent);
+  position: relative;
+  z-index: 1;
+}
+
+.empty-state h2 {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 0.75rem;
+  position: relative;
+  z-index: 1;
+}
+
+.empty-state p {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  max-width: 400px;
+  line-height: 1.7;
+  position: relative;
+  z-index: 1;
 }
 
 .empty-state h2 {
