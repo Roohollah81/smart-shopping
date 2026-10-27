@@ -102,61 +102,61 @@ const SUPPORTED_STORES = [
     name: "دیجی‌کالا",
     url: "https://www.digikala.com",
     icon: "https://www.google.com/s2/favicons?domain=digikala.com&sz=128",
-    color: "#ef4444", // قرمز
+    color: "#ED1944", // قرمز دیجی‌کالا
   },
   {
     name: "باسلام",
     url: "https://basalam.com",
     icon: "https://www.google.com/s2/favicons?domain=basalam.com&sz=128",
-    color: "#f4511e", // نارنجی-قرمز (دقیقاً مثل لوگو)
+    color: "#FF5C39", // نارنجی باسلام
   },
   {
     name: "ترب",
     url: "https://torob.com",
     icon: "https://www.google.com/s2/favicons?domain=torob.com&sz=128",
-    color: "#f59e0b", // زرد کهربایی
+    color: "#D73948", // قرمز ترب
   },
   {
     name: "قلم‌تراش",
     url: "https://ghalamtarash.ir",
     icon: "https://www.google.com/s2/favicons?domain=ghalamtarash.ir&sz=128",
-    color: "#84cc16", // سبز
+    color: "#9AB21D", // سبز زیتونی قلم‌تراش
   },
   {
     name: "آرمان آرت",
     url: "https://armanartstore.com",
     icon: "https://www.google.com/s2/favicons?domain=armanartstore.com&sz=128",
-    color: "#ec4899", // صورتی
+    color: "#E10202", // قرمز آرمان آرت
   },
   {
     name: "عالم‌زاده",
     url: "https://alemzadeh.ir",
     icon: "https://www.google.com/s2/favicons?domain=alemzadeh.ir&sz=128",
-    color: "#3b82f6", // آبی
+    color: "#8CA23B", // سبز عالم‌زاده
   },
   {
     name: "مهستان آرت",
     url: "https://mahestanart.com",
     icon: "https://www.google.com/s2/favicons?domain=mahestanart.com&sz=128",
-    color: "#a855f7", // بنفش
+    color: "#E67E23", // نارنجی مهستان
   },
   {
     name: "مجد مارکت",
     url: "https://majdmarket.com",
     icon: "https://www.google.com/s2/favicons?domain=majdmarket.com&sz=128",
-    color: "#f97316", // نارنجی استاندارد
+    color: "#EB601F", // نارنجی مجد
   },
   {
     name: "دیوار",
     url: "https://divar.ir",
     icon: "https://www.google.com/s2/favicons?domain=divar.ir&sz=128",
-    color: "#a855f7", // بنفش
+    color: "#A12525", // قهوه‌ای-قرمز دیوار
   },
   {
     name: "شیپور",
     url: "https://www.sheypoor.com",
     icon: "https://www.google.com/s2/favicons?domain=sheypoor.com&sz=128",
-    color: "#ef4444", // قرمز
+    color: "#3E7BFA", // آبی شیپور
   },
 ];
 
