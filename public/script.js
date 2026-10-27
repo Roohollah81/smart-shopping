@@ -146,6 +146,18 @@ const SUPPORTED_STORES = [
     icon: "https://www.google.com/s2/favicons?domain=majdmarket.com&sz=128",
     color: "#f97316", // نارنجی استاندارد
   },
+  {
+    name: "دیوار",
+    url: "https://divar.ir",
+    icon: "https://www.google.com/s2/favicons?domain=divar.ir&sz=128",
+    color: "#a855f7", // بنفش
+  },
+  {
+    name: "شیپور",
+    url: "https://www.sheypoor.com",
+    icon: "https://www.google.com/s2/favicons?domain=sheypoor.com&sz=128",
+    color: "#ef4444", // قرمز
+  },
 ];
 
 // ----------------------------------------------------------------
@@ -197,7 +209,7 @@ const STORE_META = {
   ترب: {
     shipping: null,
     shippingIcon: null,
-    note: "ترب یک ارائه‌دهنده و مقایسه‌کننده قیمت است و خرید مستقیم این محصولات در آن انجام نمی‌شود.",
+    note: "ترب یک ارائه‌دهنده و مقایسه‌کننده قیمت است و خرید مستقیم در آن انجام نمی‌شود.",
     badges: [],
   },
   قلم‌تراش: {
@@ -406,6 +418,18 @@ const STORE_META = {
         alt: "سلام پی",
       },
     ],
+  },
+  دیوار: {
+    shipping: null,
+    shippingIcon: null,
+    note: "دیوار یک پلتفرم آگهی است و خرید مستقیم در آن انجام نمی‌شود.",
+    badges: [],
+  },
+  شیپور: {
+    shipping: null,
+    shippingIcon: null,
+    note: "شیپور یک پلتفرم آگهی است و خرید مستقیم در آن انجام نمی‌شود.",
+    badges: [],
   },
 };
 

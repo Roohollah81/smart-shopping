@@ -1464,6 +1464,154 @@ async function searchBasalam(query, limit = 20) {
 }
 
 // ================================================================
+// DIVAR (Web Scraping)
+// ================================================================
+async function searchDivar(query, limit = 20) {
+  try {
+    // جستجو در دسته‌بندی "لوازم هنری و تحریر" دیوار
+    const url = `https://divar.ir/s/tehran/art-supplies?q=${encodeURIComponent(query)}`;
+    const r = await axios.get(url, {
+      timeout: 15000,
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml",
+        "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
+      },
+      validateStatus: () => true,
+    });
+
+    if (r.status !== 200 || typeof r.data !== "string") {
+      log("WARN", "Divar", `0 products (HTTP ${r.status})`);
+      return [];
+    }
+
+    const $ = cheerio.load(r.data);
+    const products = [];
+
+    // استخراج آگهی‌ها از HTML
+    $('div[data-testid="post-list-item"]').each((i, el) => {
+      if (products.length >= limit) return false;
+      const $el = $(el);
+      const title = $el.find("h2").text().trim();
+      if (!title) return;
+
+      const priceText =
+        $el.find('div[data-testid="price"]').text().trim() || $el.text();
+      const priceMatch = priceText.match(/([\d۰-۹]{1,3}(?:[،,][\d۰-۹]{3})+)/);
+      if (!priceMatch) return;
+
+      const price = parseInt(
+        priceMatch[1]
+          .replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
+          .replace(/[،,]/g, ""),
+        10,
+      );
+      if (price < 1000) return;
+
+      const href = $el.find("a").attr("href") || "";
+      const link = href.startsWith("http") ? href : `https://divar.ir${href}`;
+
+      let image = $el.find("img").attr("src") || null;
+      if (image && image.startsWith("/")) image = `https://divar.ir${image}`;
+
+      products.push({
+        storeName: "دیوار",
+        productTitle: title,
+        price,
+        link,
+        image,
+        images: image ? [image] : [],
+      });
+    });
+
+    const sliced = products.slice(0, limit);
+    log("OK", "Divar", `${sliced.length} products`);
+    return sliced;
+  } catch (error) {
+    log("ERR", "Divar", error.message);
+    return [];
+  }
+}
+
+// ================================================================
+// SHEYPOOR (Web Scraping)
+// ================================================================
+async function searchSheypoor(query, limit = 20) {
+  try {
+    // جستجو در دسته‌بندی "لوازم هنری و تحریر" شیپور
+    const url = `https://www.sheypoor.com/s/tehran/art-supplies?q=${encodeURIComponent(query)}`;
+    const r = await axios.get(url, {
+      timeout: 15000,
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml",
+        "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
+      },
+      validateStatus: () => true,
+    });
+
+    if (r.status !== 200 || typeof r.data !== "string") {
+      log("WARN", "Sheypoor", `0 products (HTTP ${r.status})`);
+      return [];
+    }
+
+    const $ = cheerio.load(r.data);
+    const products = [];
+
+    // استخراج آگهی‌ها از HTML (ساختار ممکن است نیاز به تنظیم داشته باشد)
+    $('article, .listing-item, [data-testid="listing-card"]').each((i, el) => {
+      if (products.length >= limit) return false;
+      const $el = $(el);
+      const title = $el.find("h2, h3, .title").first().text().trim();
+      if (!title || title.length < 3) return;
+
+      const priceText = $el
+        .find('.price, [class*="price"]')
+        .first()
+        .text()
+        .trim();
+      const priceMatch = priceText.match(/([\d۰-۹]{1,3}(?:[،,][\d۰-۹]{3})+)/);
+      if (!priceMatch) return;
+
+      const price = parseInt(
+        priceMatch[1]
+          .replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
+          .replace(/[،,]/g, ""),
+        10,
+      );
+      if (price < 1000) return;
+
+      const href = $el.find("a").attr("href") || "";
+      const link = href.startsWith("http")
+        ? href
+        : `https://www.sheypoor.com${href}`;
+
+      let image = $el.find("img").attr("src") || null;
+      if (image && image.startsWith("/"))
+        image = `https://www.sheypoor.com${image}`;
+
+      products.push({
+        storeName: "شیپور",
+        productTitle: title,
+        price,
+        link,
+        image,
+        images: image ? [image] : [],
+      });
+    });
+
+    const sliced = products.slice(0, limit);
+    log("OK", "Sheypoor", `${sliced.length} products`);
+    return sliced;
+  } catch (error) {
+    log("ERR", "Sheypoor", error.message);
+    return [];
+  }
+}
+
+// ================================================================
 // MAIN FUNCTION
 // ================================================================
 const STORE_EN_MAP = {
@@ -1475,6 +1623,8 @@ const STORE_EN_MAP = {
   "مهستان آرت": "MahestanArt",
   "مجد مارکت": "MajdMarket",
   باسلام: "Basalam",
+  دیوار: "Divar",
+  شیپور: "Sheypoor",
 };
 
 function getStoreEn(name) {
@@ -1529,7 +1679,9 @@ async function compareBasket(shoppingList, options = {}) {
         promise: searchWooCommerceStore(s, query, 20),
       })),
       { name: "مجد مارکت", promise: searchMajdMarket(query, 20) },
-      { name: "باسلام", promise: searchBasalam(query, 20) }, // اضافه شد
+      { name: "باسلام", promise: searchBasalam(query, 20) },
+      { name: "دیوار", promise: searchDivar(query, 20) },
+      { name: "شیپور", promise: searchSheypoor(query, 20) },
     ];
 
     const settled = await Promise.allSettled(storeTasks.map((t) => t.promise));
