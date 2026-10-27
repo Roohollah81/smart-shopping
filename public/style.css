@@ -58,6 +58,7 @@ body {
 .container {
   max-width: 1200px;
   margin: 0 auto;
+  padding-bottom: 100px; /* فاصله امن برای دکمه‌های شناور */
 }
 
 .hidden {
@@ -1599,16 +1600,18 @@ textarea,
    ================================================================ */
 .item-chip {
   position: relative;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.875rem;
   border-radius: 2rem;
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
   background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
   color: var(--primary-dark);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.08);
   animation: fadeIn 0.3s ease;
 }
 .item-chip.active {
@@ -5193,7 +5196,7 @@ textarea,
   .confirm-dialog-actions {
     flex-direction: column-reverse;
   }
-  
+
   .toast {
     min-width: 0;
     max-width: none;
