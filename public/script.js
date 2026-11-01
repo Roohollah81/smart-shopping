@@ -485,6 +485,13 @@ function getStoreColor(storeName) {
 }
 
 function getStoreIconUrl(name) {
+  // 🎯 اول از آیکونی که در SUPPORTED_STORES تعریف شده استفاده کن
+  const store = SUPPORTED_STORES.find((s) => s.name === name);
+  if (store && store.icon) {
+    return store.icon;
+  }
+
+  // اگر پیدا نشد، از لیست پشتیبان (Google) استفاده کن
   const map = {
     دیجی‌کالا: "digikala.com",
     ترب: "torob.com",
@@ -494,6 +501,8 @@ function getStoreIconUrl(name) {
     "مهستان آرت": "mahestanart.com",
     "مجد مارکت": "majdmarket.com",
     باسلام: "basalam.com",
+    دیوار: "divar.ir",
+    شیپور: "sheypoor.com",
   };
   return map[name]
     ? `https://www.google.com/s2/favicons?domain=${map[name]}&sz=128`

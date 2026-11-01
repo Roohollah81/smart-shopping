@@ -1240,118 +1240,82 @@ async function searchMajdMarket(query, limit = 20) {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-        Accept: "text/html, application/xhtml+xml",
-        "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
-        "X-Inertia": "true",
-        "X-Inertia-Version": "04a46bfc2c211525d155b9a391b28b06",
-        "X-Requested-With": "XMLHttpRequest",
-        "X-XSRF-TOKEN":
-          "eyJpdiI6IkVEdXYvNC9Wdi8zQ25Yb2FKaDNaaUE9PSIsInZhbHVlIjoiVGJ1alBpNjlNQXZGS2FueW5ZNEVrR0dmclg4Qm8yZm5QbW11VXBBU1E2RnJycG9oTUZuOGZtTngxNisxVnhDWWZtL1JlZlZQM2dwanhCRnJMK0V1eDVzSUgxSnFBOThMeXg0elRlWnpQNEN1Q1JzWVlkYk04dTBVelJOdC83YjgiLCJtYWMiOiI5ZDEyZmY5MDdiODYwYzQ4MjVkMDEwZGE3ZjRjMTViMWIwMjlmNDhmNWJkNTg0NDBiMzRhY2M1NGVkODI5MDllIiwidGFnIjoiIn0=",
-        Referer: `https://majdmarket.com/search?q=${encodeURIComponent(query)}`,
-        Origin: "https://majdmarket.com",
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       },
       validateStatus: () => true,
     });
 
-    if (r.status !== 200) {
+    if (r.status !== 200 || typeof r.data !== "string") {
       log("WARN", "MajdMarket", `HTTP ${r.status}`);
       return [];
     }
 
+    const $ = cheerio.load(r.data);
     let products = [];
-    let data = r.data;
 
-    // اگر پاسخ از نوع HTML بود (نه JSON)، دیتا را از data-page دربیاور
-    if (typeof data === "string") {
-      const $ = cheerio.load(data);
-      const appDiv = $("#app");
-      if (appDiv.length > 0 && appDiv.attr("data-page")) {
-        try {
-          data = JSON.parse(appDiv.attr("data-page"));
-        } catch (e) {}
+    // ۱. تلاش برای خواندن از data-page
+    const appDiv = $("#app");
+    if (appDiv.length > 0 && appDiv.attr("data-page")) {
+      try {
+        // گاهی اوقات data-page به صورت URL-encoded است
+        let rawData = appDiv.attr("data-page");
+        // اگر شامل کاراکترهای انکود شده بود، دیکد میکنیم
+        if (rawData.includes("%22")) {
+          rawData = decodeURIComponent(rawData);
+        }
+
+        const pageData = JSON.parse(rawData);
+        const sections = pageData?.props?.sections || [];
+        const productSection = sections.find((s) => s.key === "product");
+
+        if (productSection && Array.isArray(productSection.items)) {
+          products = productSection.items.slice(0, limit).map((item) => {
+            let image = item.thumb || item.image || null;
+            if (image && typeof image === "string" && image.startsWith("/")) {
+              image = `https://majdmarket.com${image}`;
+            }
+            return {
+              storeName: "مجد مارکت",
+              productTitle: item.title || "—",
+              price: parseInt(
+                String(item.price || "0").replace(/[^\d]/g, ""),
+                10,
+              ),
+              link: item.url || `https://majdmarket.com/products/${item.id}`,
+              image: image,
+              images: image ? [image] : [],
+            };
+          });
+        }
+      } catch (e) {
+        log("WARN", "MajdMarket", "Failed to parse data-page JSON");
       }
     }
 
-    if (typeof data === "object" && data !== null) {
-      // 🎯 هدف‌گیری دقیق ساختار JSON مجد مارکت
-      const sections = data?.props?.sections || [];
-      const productSection = sections.find((s) => s.key === "product");
+    // ۲. روش پشتیبان: جستجو با Regex در کدهای خام
+    if (products.length === 0) {
+      const regex =
+        /"title":"([^"]+)"[\s\S]{0,500}?"price":(\d+)[\s\S]{0,500}?"thumb":"([^"]+)"/g;
+      let match;
+      while ((match = regex.exec(r.data)) !== null && products.length < limit) {
+        const title = match[1];
+        const price = parseInt(match[2], 10);
+        let image = match[3];
 
-      if (productSection && Array.isArray(productSection.items)) {
-        for (const item of productSection.items) {
-          if (products.length >= limit) break;
-
-          // اصلاح آدرس عکس‌ها (کلید عکس در این سایت thumb است)
-          let image = item.thumb || null;
-          if (image && typeof image === "string" && image.startsWith("/")) {
-            image = `https://majdmarket.com${image}`;
+        if (price > 1000 && !products.some((p) => p.productTitle === title)) {
+          if (image && !image.startsWith("http")) {
+            image = `https://majdmarket.com${image.startsWith("/") ? "" : "/"}${image}`;
           }
-
           products.push({
             storeName: "مجد مارکت",
-            productTitle: item.title || "—",
-            price: parseInt(
-              String(item.price || "0").replace(/[^\d]/g, ""),
-              10,
-            ),
-            link: item.url || `https://majdmarket.com/products/${item.id}`,
+            productTitle: title,
+            price: price,
+            link: `https://majdmarket.com/search?q=${encodeURIComponent(title)}`,
             image: image,
             images: image ? [image] : [],
           });
         }
-      } else {
-        // (پشتیبان) اگر ساختار تغییر کرد، از روش پیمایش عمیق استفاده کن
-        const walk = (obj, depth = 0) => {
-          if (
-            depth > 25 ||
-            !obj ||
-            typeof obj !== "object" ||
-            products.length >= limit
-          )
-            return;
-          if (Array.isArray(obj)) {
-            obj.forEach((x) => walk(x, depth + 1));
-            return;
-          }
-
-          const name = obj.title || obj.name;
-          const price = obj.price;
-          const slug = obj.slug || obj.id || obj.url;
-
-          if (
-            name &&
-            price &&
-            slug &&
-            typeof name === "string" &&
-            name.length > 3
-          ) {
-            const pNum = parseInt(String(price).replace(/[^\d]/g, ""), 10);
-            if (pNum > 1000 && !products.some((p) => p.productTitle === name)) {
-              let rawImage =
-                obj.thumb || obj.image || obj.thumbnail || obj.cover;
-              let image = rawImage;
-              if (image && typeof image === "string" && image.startsWith("/")) {
-                image = `https://majdmarket.com${image}`;
-              }
-
-              let link = obj.url || `https://majdmarket.com/products/${slug}`;
-              if (link && !link.startsWith("http")) {
-                link = `https://majdmarket.com${link.startsWith("/") ? "" : "/"}${link}`;
-              }
-
-              products.push({
-                storeName: "مجد مارکت",
-                productTitle: name,
-                price: pNum,
-                link: link,
-                image: image || null,
-                images: image ? [image] : [],
-              });
-            }
-          }
-          Object.values(obj).forEach((v) => walk(v, depth + 1));
-        };
-        walk(data);
       }
     }
 
@@ -1468,62 +1432,112 @@ async function searchBasalam(query, limit = 20) {
 // ================================================================
 async function searchDivar(query, limit = 20) {
   try {
-    // جستجو در دسته‌بندی "لوازم هنری و تحریر" دیوار
-    const url = `https://divar.ir/s/tehran/art-supplies?q=${encodeURIComponent(query)}`;
-    const r = await axios.get(url, {
+    const url = "https://api.divar.ir/v8/postlist/w/search";
+
+    // 🎯 پیلود ساده و آزاد (بدون محدودیت مکان و دسته‌بندی)
+    const payload = {
+      source_view: "SEARCH",
+      disable_recommendation: false,
+      map_state: { camera_info: { bbox: {} } },
+      search_data: {
+        form_data: {
+          data: {
+            category: { str: { value: "ROOT" } }, // جستجو در همه دسته‌بندی‌ها
+          },
+        },
+        server_payload: {
+          "@type": "type.googleapis.com/widgets.SearchData.ServerPayload",
+          additional_form_data: {
+            data: { sort: { str: { value: "sort_date" } } },
+          },
+        },
+        query: query,
+      },
+      // محدودیت‌های city_ids و user_selected_location حذف شدند تا در کل کشور بگردد
+    };
+
+    const r = await axios.post(url, payload, {
       timeout: 15000,
       headers: {
+        "Content-Type": "application/json",
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-        Accept: "text/html,application/xhtml+xml",
-        "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
+        Accept: "application/json, text/plain, */*",
+        Origin: "https://divar.ir",
+        Referer: `https://divar.ir/s/iran?q=${encodeURIComponent(query)}`,
       },
       validateStatus: () => true,
     });
 
-    if (r.status !== 200 || typeof r.data !== "string") {
-      log("WARN", "Divar", `0 products (HTTP ${r.status})`);
+    if (r.status !== 200 || !r.data) {
+      log("WARN", "Divar", `HTTP ${r.status}`);
       return [];
     }
 
-    const $ = cheerio.load(r.data);
+    if (r.data.show_no_search_result_notice) {
+      log("WARN", "Divar", `0 products (No results)`);
+      return [];
+    }
+
     const products = [];
+    const widgets = r.data?.list_widgets || [];
 
-    // استخراج آگهی‌ها از HTML
-    $('div[data-testid="post-list-item"]').each((i, el) => {
-      if (products.length >= limit) return false;
-      const $el = $(el);
-      const title = $el.find("h2").text().trim();
-      if (!title) return;
+    for (const widget of widgets) {
+      if (products.length >= limit) break;
 
-      const priceText =
-        $el.find('div[data-testid="price"]').text().trim() || $el.text();
-      const priceMatch = priceText.match(/([\d۰-۹]{1,3}(?:[،,][\d۰-۹]{3})+)/);
-      if (!priceMatch) return;
+      const items = widget.widget_list || [];
 
-      const price = parseInt(
-        priceMatch[1]
-          .replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
-          .replace(/[،,]/g, ""),
-        10,
-      );
-      if (price < 1000) return;
+      for (const item of items) {
+        if (products.length >= limit) break;
 
-      const href = $el.find("a").attr("href") || "";
-      const link = href.startsWith("http") ? href : `https://divar.ir${href}`;
+        if (item.action?.payload?.token) {
+          const title = item.title || "—";
+          const token = item.action.payload.token;
 
-      let image = $el.find("img").attr("src") || null;
-      if (image && image.startsWith("/")) image = `https://divar.ir${image}`;
+          const textToSearch = [
+            item.middle_description_text,
+            item.top_description_text,
+            item.bottom_description_text,
+            item.subtitle,
+            item.price,
+          ]
+            .filter(Boolean)
+            .join(" ");
 
-      products.push({
-        storeName: "دیوار",
-        productTitle: title,
-        price,
-        link,
-        image,
-        images: image ? [image] : [],
-      });
-    });
+          const priceMatch = textToSearch.match(
+            /([\d۰-۹]{1,3}(?:[،,][\d۰-۹]{3})+)/,
+          );
+
+          if (priceMatch) {
+            const price = parseInt(
+              priceMatch[1]
+                .replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
+                .replace(/[،,]/g, ""),
+              10,
+            );
+
+            if (
+              price > 1000 &&
+              !products.some((p) => p.productTitle === title)
+            ) {
+              let image = null;
+              if (item.image && item.image.url) image = item.image.url;
+              else if (item.images && item.images[0] && item.images[0].url)
+                image = item.images[0].url;
+
+              products.push({
+                storeName: "دیوار",
+                productTitle: title,
+                price: price,
+                link: `https://divar.ir/v/${token}`,
+                image: image,
+                images: image ? [image] : [],
+              });
+            }
+          }
+        }
+      }
+    }
 
     const sliced = products.slice(0, limit);
     log("OK", "Divar", `${sliced.length} products`);
@@ -1539,68 +1553,121 @@ async function searchDivar(query, limit = 20) {
 // ================================================================
 async function searchSheypoor(query, limit = 20) {
   try {
-    // جستجو در دسته‌بندی "لوازم هنری و تحریر" شیپور
-    const url = `https://www.sheypoor.com/s/tehran/art-supplies?q=${encodeURIComponent(query)}`;
+    // استفاده از آدرس جستجوی عمومی شیپور
+    const url = `https://www.sheypoor.com/s/iran?q=${encodeURIComponent(query)}`;
+
     const r = await axios.get(url, {
       timeout: 15000,
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-        Accept: "text/html,application/xhtml+xml",
-        "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
       },
       validateStatus: () => true,
     });
 
     if (r.status !== 200 || typeof r.data !== "string") {
-      log("WARN", "Sheypoor", `0 products (HTTP ${r.status})`);
+      log("WARN", "Sheypoor", `HTTP ${r.status}`);
       return [];
     }
 
-    const $ = cheerio.load(r.data);
+    const html = r.data;
     const products = [];
 
-    // استخراج آگهی‌ها از HTML (ساختار ممکن است نیاز به تنظیم داشته باشد)
-    $('article, .listing-item, [data-testid="listing-card"]').each((i, el) => {
-      if (products.length >= limit) return false;
-      const $el = $(el);
-      const title = $el.find("h2, h3, .title").first().text().trim();
-      if (!title || title.length < 3) return;
+    // ۱. استخراج از __NEXT_DATA__ (چون شیپور از Next.js استفاده می‌کند)
+    const nextMatch = html.match(
+      /<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/,
+    );
+    if (nextMatch) {
+      try {
+        const data = JSON.parse(nextMatch[1]);
+        const walk = (obj, depth = 0) => {
+          if (
+            depth > 30 ||
+            !obj ||
+            typeof obj !== "object" ||
+            products.length >= limit
+          )
+            return;
+          if (Array.isArray(obj)) {
+            obj.forEach((x) => walk(x, depth + 1));
+            return;
+          }
 
-      const priceText = $el
-        .find('.price, [class*="price"]')
-        .first()
-        .text()
-        .trim();
-      const priceMatch = priceText.match(/([\d۰-۹]{1,3}(?:[،,][\d۰-۹]{3})+)/);
-      if (!priceMatch) return;
+          // ساختار آگهی در شیپور
+          if (obj.title && (obj.price || obj.priceString) && obj.id) {
+            const pNum = parseInt(
+              String(obj.price || obj.priceString || "0").replace(/[^\d]/g, ""),
+              10,
+            );
+            if (
+              pNum > 1000 &&
+              !products.some((p) => p.productTitle === obj.title)
+            ) {
+              let image = obj.image || obj.thumbnail || obj.photo;
+              if (image && typeof image === "string" && image.startsWith("/")) {
+                image = `https://www.sheypoor.com${image}`;
+              }
 
-      const price = parseInt(
-        priceMatch[1]
-          .replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
-          .replace(/[،,]/g, ""),
-        10,
-      );
-      if (price < 1000) return;
+              products.push({
+                storeName: "شیپور",
+                productTitle: obj.title,
+                price: pNum,
+                link: `https://www.sheypoor.com/v/${obj.id}`,
+                image: image || null,
+                images: image ? [image] : [],
+              });
+            }
+          }
+          Object.values(obj).forEach((v) => walk(v, depth + 1));
+        };
+        walk(data);
+      } catch (e) {}
+    }
 
-      const href = $el.find("a").attr("href") || "";
-      const link = href.startsWith("http")
-        ? href
-        : `https://www.sheypoor.com${href}`;
+    // ۲. اگر __NEXT_DATA__ جواب نداد، از Cheerio (HTML ساده) استفاده کن
+    if (products.length === 0) {
+      const $ = cheerio.load(html);
+      $('a[href*="/v/"]').each((i, el) => {
+        if (products.length >= limit) return false;
+        const $el = $(el);
+        const href = $el.attr("href") || "";
+        const title =
+          $el.find("h2, h3, .title").first().text().trim() ||
+          $el.text().trim().substring(0, 80);
 
-      let image = $el.find("img").attr("src") || null;
-      if (image && image.startsWith("/"))
-        image = `https://www.sheypoor.com${image}`;
+        if (!title || title.length < 3) return;
 
-      products.push({
-        storeName: "شیپور",
-        productTitle: title,
-        price,
-        link,
-        image,
-        images: image ? [image] : [],
+        const priceMatch = $el
+          .text()
+          .match(/([\d۰-۹]{1,3}(?:[،,][\d۰-۹]{3})+)/);
+        if (!priceMatch) return;
+
+        const price = parseInt(
+          priceMatch[1]
+            .replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
+            .replace(/[،,]/g, ""),
+          10,
+        );
+        if (price < 1000 || products.some((p) => p.productTitle === title))
+          return;
+
+        const imgEl = $el.find("img").first();
+        let image = imgEl.attr("src") || imgEl.attr("data-src") || null;
+
+        products.push({
+          storeName: "شیپور",
+          productTitle: title,
+          price: price,
+          link: href.startsWith("http")
+            ? href
+            : `https://www.sheypoor.com${href}`,
+          image: image || null,
+          images: image ? [image] : [],
+        });
       });
-    });
+    }
 
     const sliced = products.slice(0, limit);
     log("OK", "Sheypoor", `${sliced.length} products`);
