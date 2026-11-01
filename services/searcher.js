@@ -1242,6 +1242,7 @@ async function searchMajdMarket(query, limit = 20) {
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
         Accept:
           "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
       },
       validateStatus: () => true,
     });
@@ -1254,27 +1255,23 @@ async function searchMajdMarket(query, limit = 20) {
     const $ = cheerio.load(r.data);
     let products = [];
 
-    // ۱. تلاش برای خواندن از data-page
-    const appDiv = $("#app");
-    if (appDiv.length > 0 && appDiv.attr("data-page")) {
-      try {
-        // گاهی اوقات data-page به صورت URL-encoded است
-        let rawData = appDiv.attr("data-page");
-        // اگر شامل کاراکترهای انکود شده بود، دیکد میکنیم
-        if (rawData.includes("%22")) {
-          rawData = decodeURIComponent(rawData);
-        }
+    // 🎯 استخراج داده‌ها از تگ اسکریپت جدید مجد مارکت
+    const scriptContent = $('script[data-page="app"]').html();
 
-        const pageData = JSON.parse(rawData);
+    if (scriptContent) {
+      try {
+        const pageData = JSON.parse(scriptContent);
         const sections = pageData?.props?.sections || [];
         const productSection = sections.find((s) => s.key === "product");
 
         if (productSection && Array.isArray(productSection.items)) {
           products = productSection.items.slice(0, limit).map((item) => {
+            // اصلاح آدرس عکس‌ها
             let image = item.thumb || item.image || null;
             if (image && typeof image === "string" && image.startsWith("/")) {
               image = `https://majdmarket.com${image}`;
             }
+
             return {
               storeName: "مجد مارکت",
               productTitle: item.title || "—",
@@ -1289,23 +1286,25 @@ async function searchMajdMarket(query, limit = 20) {
           });
         }
       } catch (e) {
-        log("WARN", "MajdMarket", "Failed to parse data-page JSON");
+        log("WARN", "MajdMarket", "Failed to parse JSON from script tag");
       }
     }
 
-    // ۲. روش پشتیبان: جستجو با Regex در کدهای خام
+    // 🎯 روش پشتیبان (Regex): اگر به هر دلیلی JSON خراب بود
     if (products.length === 0) {
       const regex =
-        /"title":"([^"]+)"[\s\S]{0,500}?"price":(\d+)[\s\S]{0,500}?"thumb":"([^"]+)"/g;
+        /"title":"([^"]+)"[\s\S]{0,300}?"thumb":"([^"]+)"[\s\S]{0,300}?"price":(\d+)/g;
       let match;
       while ((match = regex.exec(r.data)) !== null && products.length < limit) {
-        const title = match[1];
-        const price = parseInt(match[2], 10);
-        let image = match[3];
+        const title = match[1].replace(/\\u([0-9a-fA-F]{4})/g, (m, g) =>
+          String.fromCharCode(parseInt(g, 16)),
+        ); // دیکد کردن کاراکترهای یونیکد
+        let image = match[2];
+        const price = parseInt(match[3], 10);
 
         if (price > 1000 && !products.some((p) => p.productTitle === title)) {
-          if (image && !image.startsWith("http")) {
-            image = `https://majdmarket.com${image.startsWith("/") ? "" : "/"}${image}`;
+          if (image && image.startsWith("/")) {
+            image = `https://majdmarket.com${image}`;
           }
           products.push({
             storeName: "مجد مارکت",
@@ -1434,17 +1433,12 @@ async function searchDivar(query, limit = 20) {
   try {
     const url = "https://api.divar.ir/v8/postlist/w/search";
 
-    // 🎯 پیلود ساده و آزاد (بدون محدودیت مکان و دسته‌بندی)
     const payload = {
       source_view: "SEARCH",
       disable_recommendation: false,
       map_state: { camera_info: { bbox: {} } },
       search_data: {
-        form_data: {
-          data: {
-            category: { str: { value: "ROOT" } }, // جستجو در همه دسته‌بندی‌ها
-          },
-        },
+        form_data: { data: { category: { str: { value: "ROOT" } } } },
         server_payload: {
           "@type": "type.googleapis.com/widgets.SearchData.ServerPayload",
           additional_form_data: {
@@ -1453,7 +1447,6 @@ async function searchDivar(query, limit = 20) {
         },
         query: query,
       },
-      // محدودیت‌های city_ids و user_selected_location حذف شدند تا در کل کشور بگردد
     };
 
     const r = await axios.post(url, payload, {
@@ -1474,37 +1467,24 @@ async function searchDivar(query, limit = 20) {
       return [];
     }
 
-    if (r.data.show_no_search_result_notice) {
-      log("WARN", "Divar", `0 products (No results)`);
-      return [];
-    }
-
     const products = [];
-    const widgets = r.data?.list_widgets || [];
 
+    // 🎯 روش اول: استخراج از ویجت‌های اصلی دیوار (list_widgets)
+    const widgets = r.data?.list_widgets || [];
     for (const widget of widgets) {
       if (products.length >= limit) break;
 
-      const items = widget.widget_list || [];
+      // فقط ویجت‌هایی که نوعشان POST_ROW است محصول هستند
+      if (widget.widget_type === "POST_ROW" && widget.data) {
+        const item = widget.data;
 
-      for (const item of items) {
-        if (products.length >= limit) break;
+        if (item.title && item.token) {
+          const title = item.title;
+          const token = item.token;
 
-        if (item.action?.payload?.token) {
-          const title = item.title || "—";
-          const token = item.action.payload.token;
-
-          const textToSearch = [
-            item.middle_description_text,
-            item.top_description_text,
-            item.bottom_description_text,
-            item.subtitle,
-            item.price,
-          ]
-            .filter(Boolean)
-            .join(" ");
-
-          const priceMatch = textToSearch.match(
+          // استخراج قیمت از متن (مثلاً "۱۷,۰۰۰ تومان")
+          const priceText = item.middle_description_text || "";
+          const priceMatch = priceText.match(
             /([\d۰-۹]{1,3}(?:[،,][\d۰-۹]{3})+)/,
           );
 
@@ -1520,10 +1500,7 @@ async function searchDivar(query, limit = 20) {
               price > 1000 &&
               !products.some((p) => p.productTitle === title)
             ) {
-              let image = null;
-              if (item.image && item.image.url) image = item.image.url;
-              else if (item.images && item.images[0] && item.images[0].url)
-                image = item.images[0].url;
+              let image = item.image_url || null;
 
               products.push({
                 storeName: "دیوار",
@@ -1535,6 +1512,36 @@ async function searchDivar(query, limit = 20) {
               });
             }
           }
+        }
+      }
+    }
+
+    // 🎯 روش دوم (پشتیبان): اگر list_widgets خالی بود، از linked_data استفاده کن
+    if (products.length === 0) {
+      const linkedData = r.data?.seo_details?.linked_data || [];
+      for (const item of linkedData) {
+        if (products.length >= limit) break;
+        if (item["@type"] !== "Product") continue;
+
+        const title = item.name;
+        const link = item.url;
+        const image = item.image;
+        const priceRial = parseInt(item.offers?.price || "0", 10);
+        const priceToman = Math.round(priceRial / 10); // تبدیل ریال به تومان
+
+        if (
+          title &&
+          priceToman > 1000 &&
+          !products.some((p) => p.productTitle === title)
+        ) {
+          products.push({
+            storeName: "دیوار",
+            productTitle: title,
+            price: priceToman,
+            link: link,
+            image: image || null,
+            images: image ? [image] : [],
+          });
         }
       }
     }
