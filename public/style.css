@@ -3788,9 +3788,9 @@ textarea,
    ================================================================ */
 .toast-container {
   position: fixed;
-  top: 50%;
+  bottom: 2rem; /* 🎯 انتقال به پایین صفحه */
   left: 50%;
-  transform: translate(-50%, -50%); /* وسط‌چین دقیق در صفحه */
+  transform: translateX(-50%);
   z-index: 10000;
   display: flex;
   flex-direction: column;
@@ -3825,22 +3825,23 @@ textarea,
 .toast.toast-out {
   animation: toastSlideOut 0.3s ease forwards;
 }
-/* 🎯 انیمیشن پاپ‌آپ از مرکز (به جای سر خوردن از بالا) */
+
+/* 🎯 انیمیشن ورود از پایین به بالا */
 @keyframes toastSlideIn {
   from {
     opacity: 0;
-    transform: scale(0.8);
+    transform: translateY(20px) scale(0.95);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: translateY(0) scale(1);
   }
 }
 
 @keyframes toastSlideOut {
   to {
     opacity: 0;
-    transform: scale(0.8);
+    transform: translateY(20px) scale(0.95);
   }
 }
 
