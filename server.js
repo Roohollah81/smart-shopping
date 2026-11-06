@@ -409,7 +409,7 @@ async function getLocationFromIp(ip) {
   try {
     const r = await axios.get(`https://ipapi.co/${ip}/json/`, {
       timeout: 5000,
-      headers: { "User-Agent": "smart-shopping/1.0" },
+      headers: { "User-Agent": "honari-yab/1.0" },
     });
     if (r.data && !r.data.error) {
       return {
@@ -676,7 +676,7 @@ app.get("/api/diagnose-ip", async (req, res) => {
   try {
     const r = await axios.get(`https://ipapi.co/${cleanIp}/json/`, {
       timeout: 5000,
-      headers: { "User-Agent": "smart-shopping/1.0" },
+      headers: { "User-Agent": "honari-yab/1.0" },
     });
     results["ipapi.co"] = r.data;
   } catch (e) {
@@ -999,7 +999,7 @@ app.get("/api/suggest", async (req, res) => {
 // 📊 ADMIN PANEL
 // ================================================================
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
-const ADMIN_COOKIE = "smart_admin_session";
+const ADMIN_COOKIE = "honari_yab_admin_session";
 
 function parseCookies(req) {
   const header = req.headers.cookie || "";
