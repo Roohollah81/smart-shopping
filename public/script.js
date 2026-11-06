@@ -101,62 +101,62 @@ const SUPPORTED_STORES = [
   {
     name: "دیجی‌کالا",
     url: "https://www.digikala.com",
-    icon: "https://www.google.com/s2/favicons?domain=digikala.com&sz=128",
-    color: "#ED1944", // قرمز دیجی‌کالا
+    icon: "https://icon.horse/icon/digikala.com",
+    color: "#ED1944",
   },
   {
     name: "باسلام",
     url: "https://basalam.com",
-    icon: "https://www.google.com/s2/favicons?domain=basalam.com&sz=128",
-    color: "#FF5C39", // نارنجی باسلام
+    icon: "https://icon.horse/icon/basalam.com",
+    color: "#FF5C39",
   },
   {
     name: "ترب",
     url: "https://torob.com",
-    icon: "https://www.google.com/s2/favicons?domain=torob.com&sz=128",
-    color: "#D73948", // قرمز ترب
+    icon: "https://icon.horse/icon/torob.com",
+    color: "#D73948",
   },
   {
     name: "قلم‌تراش",
     url: "https://ghalamtarash.ir",
-    icon: "https://www.google.com/s2/favicons?domain=ghalamtarash.ir&sz=128",
-    color: "#9AB21D", // سبز زیتونی قلم‌تراش
+    icon: "https://icon.horse/icon/ghalamtarash.ir",
+    color: "#9AB21D",
   },
   {
     name: "آرمان آرت",
     url: "https://armanartstore.com",
-    icon: "https://www.google.com/s2/favicons?domain=armanartstore.com&sz=128",
-    color: "#E10202", // قرمز آرمان آرت
+    icon: "https://icon.horse/icon/armanartstore.com",
+    color: "#E10202",
   },
   {
     name: "عالم‌زاده",
     url: "https://alemzadeh.ir",
-    icon: "https://www.google.com/s2/favicons?domain=alemzadeh.ir&sz=128",
-    color: "#8CA23B", // سبز عالم‌زاده
+    icon: "https://icon.horse/icon/alemzadeh.ir",
+    color: "#8CA23B",
   },
   {
     name: "مهستان آرت",
     url: "https://mahestanart.com",
-    icon: "https://www.google.com/s2/favicons?domain=mahestanart.com&sz=128",
-    color: "#E67E23", // نارنجی مهستان
+    icon: "https://icon.horse/icon/mahestanart.com",
+    color: "#E67E23",
   },
   {
     name: "مجد مارکت",
     url: "https://majdmarket.com",
-    icon: "https://www.google.com/s2/favicons?domain=majdmarket.com&sz=128",
-    color: "#EB601F", // نارنجی مجد
+    icon: "https://icon.horse/icon/majdmarket.com",
+    color: "#EB601F",
   },
   {
     name: "دیوار",
     url: "https://divar.ir",
-    icon: "https://www.google.com/s2/favicons?domain=divar.ir&sz=128",
-    color: "#A12525", // قهوه‌ای-قرمز دیوار
+    icon: "https://icon.horse/icon/divar.ir",
+    color: "#A12525",
   },
   {
     name: "شیپور",
     url: "https://www.sheypoor.com",
-    icon: "https://www.google.com/s2/favicons?domain=sheypoor.com&sz=128",
-    color: "#3E7BFA", // آبی شیپور
+    icon: "https://icon.horse/icon/sheypoor.com",
+    color: "#3E7BFA",
   },
 ];
 
