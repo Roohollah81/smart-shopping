@@ -6,12 +6,6 @@
     <title>هنری یاب | مقایسه قیمت لوازم هنری و تحریر</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap"
-      rel="stylesheet"
-    />
 
     <!-- 🎯 Eitaa WebApp SDK -->
     <script src="https://developer.eitaa.com/eitaa-web-app.js"></script>
@@ -20,19 +14,33 @@
     <!-- 🎯 Eitaa WebApp initialization -->
     <script>
       (function initEitaa() {
-        if (!window.Eitaa || !window.Eitaa.WebApp) return;
+        let attempts = 0;
+        const maxAttempts = 10; // ۱۰ بار تلاش (هر ۲۰۰ میلی‌ثانیه)
 
-        try {
-          window.Eitaa.WebApp.ready();
-          window.Eitaa.WebApp.expand();
-          if (typeof window.Eitaa.WebApp.disableVerticalSwipes === "function") {
-            window.Eitaa.WebApp.disableVerticalSwipes();
+        function tryInit() {
+          attempts++;
+          if (window.Eitaa && window.Eitaa.WebApp) {
+            try {
+              window.Eitaa.WebApp.ready();
+              window.Eitaa.WebApp.expand();
+              if (
+                typeof window.Eitaa.WebApp.disableVerticalSwipes === "function"
+              ) {
+                window.Eitaa.WebApp.disableVerticalSwipes();
+              }
+              window.__eitaaReady = true;
+            } catch (e) {
+              console.error("[eitaa] init error:", e);
+            }
+          } else if (attempts < maxAttempts) {
+            setTimeout(tryInit, 200); // اگر لود نشده بود، ۲۰۰ میلی‌ثانیه بعد دوباره تلاش کن
+          } else {
+            console.warn(
+              "[eitaa] SDK not loaded after multiple attempts, running in web mode.",
+            );
           }
-          // ذخیره در window برای استفاده در script.js
-          window.__eitaaReady = true;
-        } catch (e) {
-          console.error("[eitaa] init error:", e);
         }
+        tryInit();
       })();
     </script>
 
