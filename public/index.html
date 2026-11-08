@@ -3,47 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="مقایسه قیمت لوازم هنری و تحریر در فروشگاه‌های آنلاین"
+    />
     <title>هنری یاب | مقایسه قیمت لوازم هنری و تحریر</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="stylesheet" href="style.css" />
-
-    <!-- 🎯 Eitaa WebApp SDK -->
-    <script src="https://developer.eitaa.com/eitaa-web-app.js"></script>
+    <!-- 🎯 بهینه‌سازی فونت گوگل برای عدم بلاک کردن صفحه -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+      media="print"
+      onload="this.media = 'all'"
+    />
   </head>
   <body>
-    <!-- 🎯 Eitaa WebApp initialization -->
-    <script>
-      (function initEitaa() {
-        let attempts = 0;
-        const maxAttempts = 10; // ۱۰ بار تلاش (هر ۲۰۰ میلی‌ثانیه)
-
-        function tryInit() {
-          attempts++;
-          if (window.Eitaa && window.Eitaa.WebApp) {
-            try {
-              window.Eitaa.WebApp.ready();
-              window.Eitaa.WebApp.expand();
-              if (
-                typeof window.Eitaa.WebApp.disableVerticalSwipes === "function"
-              ) {
-                window.Eitaa.WebApp.disableVerticalSwipes();
-              }
-              window.__eitaaReady = true;
-            } catch (e) {
-              console.error("[eitaa] init error:", e);
-            }
-          } else if (attempts < maxAttempts) {
-            setTimeout(tryInit, 200); // اگر لود نشده بود، ۲۰۰ میلی‌ثانیه بعد دوباره تلاش کن
-          } else {
-            console.warn(
-              "[eitaa] SDK not loaded after multiple attempts, running in web mode.",
-            );
-          }
-        }
-        tryInit();
-      })();
-    </script>
-
     <!-- 🎯 نوار چسبان بالای صفحه -->
     <div id="sticky-header" class="sticky-header">
       <div class="sticky-header-inner">
@@ -88,7 +65,7 @@
       </div>
     </div>
 
-    <div class="container">
+    <main class="container">
       <!-- هدر اصلی -->
       <header class="header">
         <div class="logo">
@@ -364,7 +341,7 @@
 
       <!-- خطا -->
       <div id="error-box" class="error-box hidden"></div>
-    </div>
+    </main>
 
     <!-- دکمه برگشت به بالا -->
     <button
@@ -682,6 +659,33 @@
     <!-- کانتینر اعلان‌ها -->
     <div id="toast-container" class="toast-container"></div>
 
-    <script src="script.js"></script>
+    <script src="https://developer.eitaa.com/eitaa-web-app.js" defer></script>
+    <script>
+      // 🎯 کدهای راه‌اندازی ایتا
+      document.addEventListener("DOMContentLoaded", function () {
+        let attempts = 0;
+        function tryInit() {
+          attempts++;
+          if (window.Eitaa && window.Eitaa.WebApp) {
+            try {
+              window.Eitaa.WebApp.ready();
+              window.Eitaa.WebApp.expand();
+              if (
+                typeof window.Eitaa.WebApp.disableVerticalSwipes === "function"
+              ) {
+                window.Eitaa.WebApp.disableVerticalSwipes();
+              }
+              window.__eitaaReady = true;
+            } catch (e) {
+              console.error(e);
+            }
+          } else if (attempts < 10) {
+            setTimeout(tryInit, 100);
+          }
+        }
+        tryInit();
+      });
+    </script>
+    <script src="script.js" defer></script>
   </body>
 </html>
