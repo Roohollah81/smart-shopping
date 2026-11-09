@@ -1350,12 +1350,16 @@ function renderAutocomplete(items, query) {
       // ─── حالت تصحیح (آیا منظورتان X بود؟) ───
       if (item && item.correction) {
         return `
-          <button class="autocomplete-item autocomplete-correction" type="button" data-value="${escapeHtml(item.full)}" data-correction="1">
+          <div class="autocomplete-item autocomplete-correction" data-value="${escapeHtml(item.full)}" data-original="${escapeHtml(item.original)}" data-correction="1">
             <span class="autocomplete-icon">💡</span>
             <span class="autocomplete-text autocomplete-correction-text">
               آیا منظورتان <b>${escapeHtml(item.full)}</b> بود؟
             </span>
-          </button>
+            <div class="correction-actions">
+              <button class="btn-correction-yes" type="button">آره خودشه!</button>
+              <button class="btn-correction-no" type="button">نه</button>
+            </div>
+          </div>
         `;
       }
 
@@ -1423,10 +1427,8 @@ function hideAutocomplete() {
   showSuggestionsAndItems(true);
 }
 
-async function fetchAutocomplete(q) {
-  // ─── چک suppress (وقتی Enter زده شد، نپرس) ───
+async function fetchAutocomplete(q, skipCorrection = false) {
   if (suppressAutocomplete) return;
-
   if (!q || q.length < 2) {
     hideAutocomplete();
     setAutocompleteLoading(false);
@@ -1435,29 +1437,23 @@ async function fetchAutocomplete(q) {
 
   if (autocompleteAbort) autocompleteAbort.abort();
   autocompleteAbort = new AbortController();
-
-  // ← نمایش اسپینر
   setAutocompleteLoading(true);
 
   try {
-    const r = await fetch(`/api/suggest?q=${encodeURIComponent(q)}`, {
-      signal: autocompleteAbort.signal,
-    });
+    const url = `/api/suggest?q=${encodeURIComponent(q)}${skipCorrection ? "&skipCorrect=1" : ""}`;
+    const r = await fetch(url, { signal: autocompleteAbort.signal });
     const data = await r.json();
 
-    // چک دوباره: اگه تو این مدت suppress شده، نمایش نده
     if (suppressAutocomplete) {
       hideAutocomplete();
       return;
     }
-
     if (data.success && Array.isArray(data.items)) {
       renderAutocomplete(data.items, q);
     }
   } catch (e) {
     if (e.name !== "AbortError") hideAutocomplete();
   } finally {
-    // ← مخفی کردن اسپینر
     setAutocompleteLoading(false);
   }
 }
@@ -1494,6 +1490,36 @@ itemInput.addEventListener("input", () => {
 
 // کلیک روی autocomplete item
 document.addEventListener("click", (e) => {
+  // 🎯 چک کردن دکمه‌های پیشنهاد اصلاح
+  const yesBtn = e.target.closest(".btn-correction-yes");
+  const noBtn = e.target.closest(".btn-correction-no");
+
+  if (yesBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    const correctionItem = yesBtn.closest(".autocomplete-correction");
+    const correctedValue = correctionItem.dataset.value;
+    itemInput.value = correctedValue;
+    hideAutocomplete();
+    addItem(); // اضافه کردن کلمه تصحیح شده به سبد
+    return;
+  }
+
+  if (noBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    const correctionItem = noBtn.closest(".autocomplete-correction");
+    const originalValue = correctionItem.dataset.original;
+
+    // حذف کادر زرد از رابط کاربری
+    correctionItem.remove();
+
+    // درخواست جدید به سرور، این بار با دستور skipCorrection (بدون تصحیح)
+    // تا پیشنهادهای مربوط به همان کلمه غلط را بیاورد
+    fetchAutocomplete(originalValue, true);
+    return;
+  }
+
   const acItem = e.target.closest(".autocomplete-item");
   if (!acItem) return;
   e.preventDefault();

@@ -5623,21 +5623,35 @@ a img,
 /* ================================================================
    AUTOCOMPLETE CORRECTION (آیا منظورتان... بود؟)
    ================================================================ */
+/* 🎯 استایل کادر تصحیح و دکمه‌های آن (تک ردیفه) */
 .autocomplete-item.autocomplete-correction {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start; /* شروع از سمت راست */
+  flex-wrap: wrap;
+  padding: 0.6rem 1rem;
   background: linear-gradient(
     135deg,
-    rgba(245, 158, 11, 0.08),
-    rgba(217, 119, 6, 0.03)
+    rgba(245, 158, 11, 0.1),
+    rgba(217, 119, 6, 0.05)
   );
-  border-bottom: 1.5px solid rgba(245, 158, 11, 0.25);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.25);
+  gap: 0.5rem;
+}
+
+/* اگر تگ correction-text-row را در HTML دارید، این خط آن را بی‌اثر می‌کند */
+.correction-text-row {
+  display: contents;
 }
 
 .autocomplete-correction-text {
+  flex: 0 1 auto;
   color: #b45309;
   font-weight: 700;
   font-family: "Vazirmatn", sans-serif;
+  text-align: right;
 }
-
 .autocomplete-correction-text b {
   color: #d97706;
   font-weight: 900;
@@ -5646,6 +5660,49 @@ a img,
   border-radius: 0.25rem;
 }
 
+/* حذف حاشیه اضافی و تنظیم فاصله دکمه‌ها */
+.correction-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  margin-inline-start: 0;
+}
+
+/* فشرده‌تر کردن دکمه‌ها برای جا شدن در یک خط */
+.btn-correction-yes,
+.btn-correction-no {
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.4rem;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-correction-yes {
+  background: #10b981;
+  color: white;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+}
+.btn-correction-yes:hover {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+.btn-correction-no {
+  background: transparent;
+  color: #ef4444;
+  border: 1.5px solid rgba(239, 68, 68, 0.3);
+}
+.btn-correction-no:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
+}
+
+/* برای حالت تاریک */
 :root[data-theme="dark"] .autocomplete-item.autocomplete-correction {
   background: linear-gradient(
     135deg,
@@ -5662,6 +5719,11 @@ a img,
 :root[data-theme="dark"] .autocomplete-correction-text b {
   color: #fcd34d;
   background: rgba(251, 191, 36, 0.18);
+}
+
+:root[data-theme="dark"] .btn-correction-no {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.4);
 }
 
 /* ================================================================

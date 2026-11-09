@@ -911,9 +911,13 @@ async function fetchDigikalaAutocomplete(q) {
 
 app.get("/api/suggest", async (req, res) => {
   const q = String(req.query.q || "").trim();
+  const skipCorrect = req.query.skipCorrect === "1";
+
   if (!q || q.length < 2) return res.json({ success: true, items: [] });
 
-  const cacheKey = q.toLowerCase();
+  // 🎯 باگ‌گیری کش: اضافه کردن وضعیت skipCorrect به کلید کش
+  const cacheKey = q.toLowerCase() + (skipCorrect ? "_nocorr" : "");
+
   const cached = suggestCache.get(cacheKey);
   if (cached && Date.now() - cached.at < SUGGEST_TTL) {
     return res.json({ success: true, items: cached.items });
@@ -947,14 +951,21 @@ app.get("/api/suggest", async (req, res) => {
     parts: buildParts(title, q),
   }));
 
-  // ─── بررسی و اضافه کردن تصحیح ───
+  // ─── بررسی و اضافه کردن تصحیح (اگر skipCorrect فعال نباشد) ───
   let correctionResult = { changed: false, corrected: q };
-  try {
-    correctionResult = await correctQuery(q);
-  } catch (e) {}
 
-  if (correctionResult.changed && correctionResult.corrected !== q) {
-    // ۱. حذف کلمه‌ی غلط/محاوره از لیست پیشنهادها
+  if (!skipCorrect) {
+    try {
+      correctionResult = await correctQuery(q);
+    } catch (e) {}
+  }
+
+  if (
+    !skipCorrect &&
+    correctionResult.changed &&
+    correctionResult.corrected !== q
+  ) {
+    // ۱. حذف کلمه‌ی غلط از لیست پیشنهادها
     items = items.filter(
       (it) => it.full.trim().toLowerCase() !== q.trim().toLowerCase(),
     );
@@ -967,7 +978,7 @@ app.get("/api/suggest", async (req, res) => {
       parts: [{ text: correctionResult.corrected, bold: true }],
     });
   } else {
-    // اگه تصحیحی نبود (کلمه درست بود)، کلمه‌ی دقیق رو ببر اول
+    // اگه تصحیحی نبود (یا skipCorrect فعال بود)، کلمه‌ی دقیق رو ببر اول
     const exactMatchIdx = items.findIndex(
       (it) => !it.correction && !it.fallback && it.full.trim() === q.trim(),
     );
