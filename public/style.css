@@ -5671,35 +5671,45 @@ a img,
 /* فشرده‌تر کردن دکمه‌ها برای جا شدن در یک خط */
 .btn-correction-yes,
 .btn-correction-no {
-  padding: 0.3rem 0.6rem;
-  border-radius: 0.4rem;
-  font-family: inherit;
-  font-size: 0.72rem;
-  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  padding: 0;
+  border-radius: 50%; /* شکل دایره‌ای برای آیکون‌ها زیباتر است */
   cursor: pointer;
-  border: none;
   transition: all 0.2s ease;
-  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* آیکون‌ها را دقیقاً در مرکز قرار می‌دهد */
+.btn-correction-yes svg,
+.btn-correction-no svg {
+  display: block;
 }
 
 .btn-correction-yes {
   background: #10b981;
   color: white;
-  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+  border: 1.5px solid #10b981; /* برای هم‌اندازه شدن با دکمه قرمز */
+  box-shadow: none; /* 🎯 حذف سایه برای ظاهر تمیزتر */
 }
 .btn-correction-yes:hover {
   background: #059669;
-  transform: translateY(-1px);
+  border-color: #059669;
+  transform: scale(1.05); /* افکت زوم ملایم به جای بالا رفتن */
 }
 
 .btn-correction-no {
   background: transparent;
   color: #ef4444;
-  border: 1.5px solid rgba(239, 68, 68, 0.3);
+  border: 1.5px solid rgba(239, 68, 68, 0.5); /* کمی پررنگ‌تر شد تا با دکمه سبز هماهنگ باشد */
 }
 .btn-correction-no:hover {
-  background: rgba(239, 68, 68, 0.1);
+  background: rgba(239, 68, 68, 0.15);
   border-color: #ef4444;
+  transform: scale(1.05);
 }
 
 /* برای حالت تاریک */

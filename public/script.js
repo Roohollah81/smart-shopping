@@ -1356,8 +1356,12 @@ function renderAutocomplete(items, query) {
               آیا منظورتان <b>${escapeHtml(item.full)}</b> بود؟
             </span>
             <div class="correction-actions">
-              <button class="btn-correction-yes" type="button">آره خودشه!</button>
-              <button class="btn-correction-no" type="button">نه</button>
+              <button class="btn-correction-yes" type="button" title="بله، درست است">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              </button>
+              <button class="btn-correction-no" type="button" title="خیر، تصحیح نکن">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
             </div>
           </div>
         `;
